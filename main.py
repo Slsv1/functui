@@ -2,7 +2,8 @@ import asyncio
 import os
 from typing import Callable, Self
 from dataclasses import dataclass
-from abc import ABC
+from functools import reduce
+from abc import ABC, abstractmethod
 
 
 # desing requirements:
@@ -28,7 +29,7 @@ class Coordinate:
     def __sub__(self, other):
         return Coordinate(self.x - other.x, self.y - other.y)
     
-class Matrix:
+class Screen:
     def __init__(self, width: int, height: int, fill: str):
         self.width = width
         self.height = height
@@ -52,50 +53,11 @@ class Matrix:
                 out.append("".join(current_row))
             return tuple(out)
 
-@dataclass
-class DrawBox:
-    fill: str
-    start: Coordinate
-    width: int
-    height: int
-
-@dataclass
-class DrawPixel:
-    fill: str
-    at: Coordinate
-
-@dataclass
-class DrawString:
-    content: str
-    width: int
-    height: int
-    at: Coordinate
-
-type DrawCommand = DrawBox | DrawPixel | DrawString
-#type DrawCommands = list[DrawCommand]
-
 @dataclass(frozen=True)
-class Result:
-    commands: list[DrawCommand]
-    unused_right: int = 0
-    unused_bottom: int = 0
-    def extend(self, commands: list[DrawCommand]) -> Self:
-        return self.__class__(
-            commands=commands + self.commands,
-            unused_right=self.unused_right,
-            unused_bottom=self.unused_bottom
-        )
-    # def gather(self, results: list[Result]) -> Self:
-    #     return self.__class__(
-    #         commands=[i.commands for command
-    #     )
-
-@dataclass(frozen=True)
-class Frame:
+class Box:
     width: int
     height: int
     offset: Coordinate = Coordinate(0, 0)
-
     def shrink(
         self,
         top: int = 0,
@@ -108,38 +70,68 @@ class Frame:
             height=self.height - top - bottom,
             offset=self.offset + Coordinate(left, top)
         )
-    def shrink_by_unused(self, result: Result) -> Self:
+    def intersect(self, other: Self) -> Self:
+        x1 = max(self.offset.x, other.offset.x)
+        x2 = min(self.offset.x+self.width, other.offset.x+other.width)
+        y1 = max(self.offset.y, other.offset.y)
+        y2 = min(self.offset.y+self.height, other.offset.y+other.height)
         return self.__class__(
-            width=self.width - result.unused_right,
-            height=self.height - result.unused_bottom,
-            offset=self.offset
-        )
-    def with_offset(self, offset: Coordinate):
-        return self.__class__(
-            width=self.width,
-            height=self.height,
-            offset=self.offset + offset
-        )
-    def draw_pixel(self, fill: str, at: Coordinate) -> DrawPixel:
-        return DrawPixel(
-            fill=fill,
-            at=at + self.offset
-        )
-        
-    def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> DrawBox:
-        return DrawBox(
-            fill=fill,
-            width=width,
-            height=height,
-            start=start + self.offset,
+            height=y2-y1,
+            width=x2-x1,
+            offset=Coordinate(x1, y1),
         )
 
-    def draw_string(self, content: str, height: int, width: int, at: Coordinate = Coordinate(0, 0)):
-        return DrawString(
-            content=content,
-            height=height,
-            width=width,
-            at=at + self.offset,
+    def is_empty(self) -> bool:
+        return self.width <= 0 or self.height <= 0
+
+    def offset_by(self, coordinate: Coordinate):
+        return Box(
+            width=self.width,
+            height=self.height,
+            offset=self.offset + coordinate
+        )
+
+    def union(self, other: Self) -> Self:
+        x1 = min(self.offset.x, other.offset.x)
+        x2 = max(self.offset.x+self.width, other.offset.x+other.width)
+        y1 = min(self.offset.y, other.offset.y)
+        y2 = max(self.offset.y+self.height, other.offset.y+other.height)
+        return self.__class__(
+            height=y2-y1,
+            width=x2-x1,
+            offset=Coordinate(x1, y1),
+        )
+
+    def is_point_inside(self, point: Coordinate):
+        return self.offset.x <= point.x < (self.offset.x + self.width)\
+            and self.offset.y <= point.y < (self.offset.y + self.height) 
+
+
+@dataclass(frozen=True)
+class Frame:
+    """a sub part of the screen"""
+    view_box: Box
+    screen: Screen
+
+    def draw_pixel(self, fill: str, at: Coordinate) -> None:
+        if not self.view_box.is_point_inside(at):
+            return
+        self.screen.set(at, fill)
+
+    def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
+        for x in range(start.x, start.x + width):
+            for y in range(start.y, start.y + height):
+                self.draw_pixel(fill, Coordinate(x, y))
+
+    def draw_string(self, content: str, at: Coordinate = Coordinate(0, 0)) -> None:
+        for y, line in enumerate(content.split('\n')):
+            for x, char in enumerate(line):
+                self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
+
+    def shrink_to(self, other_box):
+        return Frame(
+            view_box=self.view_box.intersect(other_box),
+            screen=self.screen
         )
 
 @dataclass(frozen=True)
@@ -160,98 +152,161 @@ BORDER_ROUNDED = BorderStyle(
     corner_br="┘",
 )
 
-type Node = Callable[[Frame], Result]
+@dataclass(frozen=True)
+class Node:
+    min_size: Box
+    render: Callable[[Frame, Box], None]
+    # Frame is the view to the screen
+    # Box is the dimensions for the node
 
+
+# type Node = Callable[[Frame], Result]
 def render(root_node: Node) -> str:
     terminal_size = os.get_terminal_size()
     width = terminal_size.columns
     height = terminal_size.lines - 1
-    frame = Frame(width=width, height=height)
-    result = root_node(frame)
-    screen = Matrix(width, height, " ")
-
-    for command in result.commands:
-        if isinstance(command, DrawPixel):
-            screen.set(command.at, command.fill)
-        elif isinstance(command, DrawBox):
-            for x in range(command.start.x, command.start.x + command.width):
-                for y in range(command.start.y, command.start.y + command.height):
-                    screen.set(Coordinate(x, y), command.fill)
-        elif isinstance(command, DrawString):
-            for y, line in enumerate(command.content.split('\n')[:command.height]):
-                for x, char in enumerate(line[:command.width]):
-                    screen.set(Coordinate(x+command.at.x, y+command.at.y), char)
-
+    screen = Screen(width, height, " ")
+    root_node.render(Frame(Box(width, height), screen), Box(width, height))
     return "\n".join(screen.split_by_lines())
-            
-    
-# endpoint 
-def text(string: str) -> Node:
+
+def text(string: str):
     split_string = string.split('\n')
-    lines = len(split_string)
-    max_chars = max(len(row) for row in split_string)
+    min_size = Box(
+        width=max([len(i) for i in split_string]),
+        height=len(split_string)
+    )
+    def render(frame: Frame, box: Box):
+        print(box)
+        frame.draw_string(string, box.offset)
+    return Node(min_size, render)
 
-    def text(frame: Frame) -> Result:
-        unused_bottom = frame.height - lines
-        unused_right = frame.width - max_chars
-        return Result(
-            commands=[frame.draw_string(string, frame.height, frame.width)],
-            unused_bottom=unused_bottom if unused_bottom > 0 else 0, #BUG: IF OUT OF BOUNDS
-            unused_right=unused_right if unused_right > 0 else 0,
-        )
-    return text
-
-
-def border(node: Node) -> Node:
+def border(node: Node):
+    min_size = Box(
+        node.min_size.width + 2,
+        node.min_size.height + 2,
+    )
     style = BORDER_ROUNDED
-    def out(frame: Frame) -> Result:
-        result = node(frame.shrink(1, 1, 1, 1))
-        frame = frame.shrink_by_unused(result)
-        return result.extend([
-            frame.draw_box(fill=style.line_v, width=1, height=frame.height),
-            frame.draw_box(fill=style.line_h, width=frame.width, height=1),
-            frame.draw_box(fill=style.line_v, width=1, height=frame.height, start=Coordinate(frame.width-1, 0)),
-            frame.draw_box(fill=style.line_h, width=frame.width, height=1, start=Coordinate(0, frame.height-1)),
-            frame.draw_pixel(fill=style.corner_tl, at=Coordinate(0, 0)),
-            frame.draw_pixel(fill=style.corner_tr, at=Coordinate(frame.width-1, 0)),
-            frame.draw_pixel(fill=style.corner_br, at=Coordinate(frame.width-1, frame.height-1)),
-            frame.draw_pixel(fill=style.corner_bl, at=Coordinate(0, frame.height-1)),
-        ])
-    return out
+    def render(frame: Frame, box: Box):
+        node.render(frame, box.shrink(1, 1, 1, 1))
+        frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset )
+        frame.draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset )
+        frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset + Coordinate(box.width-1, 0))
+        frame.draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset + Coordinate(0, box.height-1))
+        frame.draw_pixel(fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
+        frame.draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
+        frame.draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
+        frame.draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
+    return Node(min_size, render)
 
-def vbox(nodes: list[Node]) -> Node:
-    def out(frame: Frame) -> Result:
-        commands: list[DrawCommand] = []
-        remaining_frame = frame
+def vbox(nodes: list[Node]):
+    min_size = Box(
+        max(i.min_size.width for i in nodes),
+        sum(i.min_size.height for i in nodes)
+    ) if nodes else Box(0, 0)
+    def render(frame: Frame, box: Box):
+        at_y = 0
         for node in nodes:
-            result = node(remaining_frame)
-            offset = Coordinate(frame.offset.x, remaining_frame.offset.y + (remaining_frame.height - result.unused_bottom))
-            remaining_frame = Frame(
-                frame.width,
-                result.unused_bottom,
-                offset=offset
+            child_box = Box(box.width, node.min_size.height).offset_by(box.offset + Coordinate(0, at_y))
+            node.render(frame.shrink_to(child_box), child_box)
+            at_y += child_box.height
+
+    return Node(min_size, render)
+
+@dataclass
+class Flex:
+    grow: int = 1
+    shrink: int = 1
+    basis: bool = False
+
+def even_divide(num, denomenator) -> list[int]:
+    return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
+
+def vbox_flex(nodes: list[tuple[Flex, Node]]):
+    min_size = Box(
+        max(i[1].min_size.width for i in nodes),
+        sum(i[1].min_size.height for i in nodes)
+    ) if nodes else Box(0, 0)
+
+    reserved_space = sum(i[1].min_size.height if i[0].basis else 0 for i in nodes)
+    total_grow = sum(i[0].grow for i in nodes)
+    total_shrink = sum(i[0].grow for i in nodes)
+
+    def render(frame: Frame, box: Box):
+        available_space = box.height - reserved_space
+        space_rations = even_divide(available_space, total_grow if available_space else total_shrink)
+        at_y = 0
+        for flex, node in nodes:
+            child_box = Box(
+                width=box.width,
+                height=(node.min_size.height if flex.basis else 0) + sum(space_rations.pop() for _ in range(flex.grow if available_space else flex.shrink))
             )
-            commands.extend(result.commands)
-            if result.unused_bottom <= 0:
-                break
-        
-        return Result(
-            commands
-        )
-            
-    return out
+            child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
+            node.render(frame.shrink_to(child_box), child_box)
+            at_y += child_box.height
+    return Node(min_size, render)
+
+def separator():
+    min_size = Box(0, 1)
+    def render(frame: Frame, box: Box):
+        frame.draw_box("-", box.width, 1, box.offset)
+    return Node(min_size, render)
+
+class Component(ABC):
+    @abstractmethod
+    def get_node(self) -> Node: pass
+    def on_hover(self): pass
+    def on_action(self): pass
+    def on_hover_end(self): pass
+    def on_action_end(self): pass
+
+@dataclass
+class Button(Component):
+    text: str
+    def get_node(self) -> Node:
+        return border(text("button"))
+
+@dataclass
+class HNav:
+    components: list[Component]
+
+@dataclass
+class VNav:
+    components: list[Component]
 
 
 
-print(render(
-    border(vbox([
-        border(text("aaaaaaaaaaa \nb\nc\ndddddddddddddddddddddddd\ne\nf\ngdfdfdf")),
-        text("aaaaaaaaaaaa"),
-        text("hej"),
-        border(text("aaaaaaaaaaaaggg")),
-        border(border(text("hej")))
+btn = Button("hi")
+
+# print(render(border(border(text("hi")))))
+print(render(border(vbox_flex([
+    (Flex(), vbox([
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+        text("hi"),
+    ])),
+    (Flex(grow=0 ,shrink=0, basis=True), vbox([
+        separator(),
+        text("menuhej"),
+        text("menuhejsan"),
     ]))
-)) 
+]))))
+# ok now
+
+# so screenview and allocated space is different
+# allocated space may change after every node
+# screenview changes only on containers so that elements think they have more space han they have
+
+
+
 # TODO:
 # add used to result!!!!!!
 # scrollwheel and input processing
@@ -259,39 +314,47 @@ print(render(
 # flexboxy
 
 # define getchar
-# try:
-#     # if on windows
-#     import msvcrt
-#     def get_char():
-#         return msvcrt.getwch()
-# except ImportError:
-#     # if on linux (thx chatgippity)
-#     import sys
-#     import tty
-#     import termios
+try:
+    # if on windows
+    import msvcrt
+    def get_char():
+        return msvcrt.getwch()
+except ImportError:
+    # if on linux (thx chatgippity)
+    import sys
+    import tty
+    import termios
 
-#     def get_char():
-#         fd = sys.stdin.fileno()
-#         old_settings = termios.tcgetattr(fd)
-#         try:
-#             tty.setraw(fd)
-#             ch = sys.stdin.read(1)
-#         finally:
-#             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-#         return ch
+    def get_char():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
 
 # async def blink():
 #     while True:
 #         await asyncio.sleep(1)
 #         print("blink")
 
-# async def main():
-#     loop = asyncio.get_event_loop()
-#     await asyncio.sleep(4)
-#     while True:
-#         user_input = await loop.run_in_executor(executor=None, func=get_char)
-#         # fire and forget method:
-#         # asyncio.create_task(blink())
+async def main(layout):
+    loop = asyncio.get_event_loop()
+    active_component: Component | None = None
+    while True:
+        user_input = await loop.run_in_executor(executor=None, func=get_char)
+
+        if active_component is not None:
+            ...
+        
+
+
+
+
+        # fire and forget method:
+        # asyncio.create_task(blink())
 
 # def update_on_input(f: Callable[[str, ], int]):
 #     ...
