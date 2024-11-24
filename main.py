@@ -278,8 +278,7 @@ class VNav:
 
 btn = Button("hi")
 
-# print(render(border(border(text("hi")))))
-print(render(border(vbox_flex([
+layout = border(vbox_flex([
     Flex() | vbox([
         text(str(i) + " hi") for i in range(15)
     ]),
@@ -288,7 +287,9 @@ print(render(border(vbox_flex([
         text("menuhej"),
         text("menuhejsan"),
     ])
-]))))
+]))
+
+print(render(layout))
 # ok now
 
 # so screenview and allocated space is different
