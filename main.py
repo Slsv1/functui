@@ -176,7 +176,6 @@ def text(string: str):
         height=len(split_string)
     )
     def render(frame: Frame, box: Box):
-        print(box)
         frame.draw_string(string, box.offset)
     return Node(min_size, render)
 
@@ -217,6 +216,8 @@ class Flex:
     grow: int = 1
     shrink: int = 1
     basis: bool = False
+    def __or__(self, other: Node) -> tuple[Self, Node]:
+        return (self, other)
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
@@ -229,16 +230,16 @@ def vbox_flex(nodes: list[tuple[Flex, Node]]):
 
     reserved_space = sum(i[1].min_size.height if i[0].basis else 0 for i in nodes)
     total_grow = sum(i[0].grow for i in nodes)
-    total_shrink = sum(i[0].grow for i in nodes)
+    total_shrink = sum(i[0].shrink for i in nodes)
 
     def render(frame: Frame, box: Box):
         available_space = box.height - reserved_space
-        space_rations = even_divide(available_space, total_grow if available_space else total_shrink)
+        space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
         at_y = 0
         for flex, node in nodes:
             child_box = Box(
                 width=box.width,
-                height=(node.min_size.height if flex.basis else 0) + sum(space_rations.pop() for _ in range(flex.grow if available_space else flex.shrink))
+                height=(node.min_size.height if flex.basis else 0) + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
             )
             child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
             node.render(frame.shrink_to(child_box), child_box)
@@ -279,25 +280,14 @@ btn = Button("hi")
 
 # print(render(border(border(text("hi")))))
 print(render(border(vbox_flex([
-    (Flex(), vbox([
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-        text("hi"),
-    ])),
-    (Flex(grow=0 ,shrink=0, basis=True), vbox([
+    Flex() | vbox([
+        text(str(i) + " hi") for i in range(15)
+    ]),
+    Flex(grow=0, shrink=0, basis=True) | vbox([
         separator(),
         text("menuhej"),
         text("menuhejsan"),
-    ]))
+    ])
 ]))))
 # ok now
 
@@ -308,10 +298,13 @@ print(render(border(vbox_flex([
 
 
 # TODO:
-# add used to result!!!!!!
-# scrollwheel and input processing
-# handle out of screen stuff
-# flexboxy
+# navigation up down left right, maybe a function nav(direction)
+# some way to have different nodes depending on state. (for example button chaning color)
+#   and preferably without needing to re-initialize (not render there is a difference!) the whole node tree but only the changed branch
+ 
+
+# OPTIMISATIONS:
+# dont even start renderign stuff out of screen.
 
 # define getchar
 try:
