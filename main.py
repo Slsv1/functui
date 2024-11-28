@@ -4,6 +4,7 @@ from typing import Callable, Self
 from dataclasses import dataclass
 from functools import reduce
 from abc import ABC, abstractmethod
+from enum import Enum, auto
 
 
 # desing requirements:
@@ -252,31 +253,79 @@ def separator():
         frame.draw_box("-", box.width, 1, box.offset)
     return Node(min_size, render)
 
+class NavDirection(Enum):
+    LEFT = auto()
+    RIGHT = auto()
+    UP = auto()
+    DOWN = auto()
+
+
 class Component(ABC):
     @abstractmethod
-    def get_node(self) -> Node: pass
-    def on_hover(self): pass
-    def on_action(self): pass
-    def on_hover_end(self): pass
-    def on_action_end(self): pass
+    def render(self) -> Node:
+        """renders the component"""
+        ...
+    def navigate(self, nav_direction: NavDirection) -> bool:
+        return False
 
-@dataclass
-class Button(Component):
-    text: str
-    def get_node(self) -> Node:
-        return border(text("button"))
+    def use_input(self, user_input: str) -> bool:
+        """Do something with input. Returns a boolean of weather the input was used or not"""
+        return False
 
-@dataclass
-class HNav:
-    components: list[Component]
+class ContainerV(Component):
+    def __init__(
+            self,
+            container_type: Callable[[list[Node]], Node],
+            items: list[Component]
+        ) -> None:
+        super().__init__()
+        self.container_type = container_type
+        self.items = items
 
-@dataclass
-class VNav:
-    components: list[Component]
+        self._selected_item_idx = None   
+
+    def render(self):
+        return self.container_type([i.render() for i in self.items])
+
+    def use_input(self, user_input: str) -> bool:
+        if self._selected_item_idx:
+            return self.items[self._selected_item_idx].use_input(user_input)
+        return False
+    # actually accepting just user input would also do. I mean it would propagate and consume.
+    # but no if i try implement mouse input it would be bad
+    def navigate(self, nav_direction: NavDirection) -> bool:
+        if self._selected_item_idx is None:
+            self._selected_item_idx = 0
+
+        # TODO: also handle if container is empty please
+        if self.items[self._selected_item_idx].navigate(nav_direction):
+            return True
+
+        if nav_direction == NavDirection.UP:
+            self._selected_item_idx -= 1
+        
+        # RETURN TRUE IF IN BOUNDS, ELSE FALSE
+
+class TextInput(Component):
+    def __init__(self) -> None:
+        super().__init__()
+        self._active = False
+        self._accumulated_input = ""
+    def render(self) -> Node:
+        return border(text("hi"))
+    def use_input(self, user_input: str) -> bool:
+        self._accumulated_input += user_input
+
+        if user_input == ENTER:
+            self._active = True
+        
+
+    def navigate(self, nav_direction: NavDirection) -> bool:
+        return self._active
 
 
 
-btn = Button("hi")
+
 
 layout = border(vbox_flex([
     Flex() | vbox([
