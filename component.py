@@ -1,6 +1,7 @@
 from enum import Enum, auto
 from abc import ABC, abstractmethod
 from typing import Callable
+from dataclasses import dataclass
 
 from classes import *
 from classes import Node
@@ -45,7 +46,7 @@ class ContainerV(Component):
         self._selected_item_idx = None   
 
     def get_node(self):
-        return self.container_type([n.get_node() if i != self._selected_item_idx else border(n.get_node()) for i, n in enumerate(self.items)])
+        return self.container_type([n.get_node() for n in self.items])
 
     def use_input(self, user_input: str) -> bool:
         if self._selected_item_idx:
@@ -93,22 +94,43 @@ class ContainerV(Component):
 
         # RETURN TRUE IF IN BOUNDS, ELSE FALSE
 
-class Button(Component):
-    def __init__(self, text: Node) -> None:
-        super().__init__()
-        self.text = text
-        self.hovered = False
+# class Interaction(Enum):
+#     DEFAULT = auto()
+#     HOVER = auto()
+#     ACTIVE = auto()
     
+@dataclass
+class IfHover(Component):
+    then: Callable[[Node], Node]
+    otherwise: Callable[[Node], Node]
+    next_component: Component
+    _is_hover: bool = False
+
     def get_node(self) -> Node:
-        return border(self.text) if self.hovered else self.text
+        if self._is_hover:
+            return self.then(self.next_component.get_node())
+        else:
+            return self.otherwise(self.next_component.get_node())
+    def remove_nav(self):
+        self._is_hover = False
+
+    def use_nav(self, nav_direction: NavDirection) -> bool:
+        self._is_hover = True
+        return self.next_component.use_nav(nav_direction)
+
+    def use_input(self, user_input: str) -> bool:
+        return self.next_component.use_input(user_input)
+
+
+
+@dataclass
+class Button(Component):
+    text: Node
+    def get_node(self) -> Node:
+        return self.text
     def use_input(self, user_input: str) -> bool:
         print("button pressed yippe")
         return True
-    def use_nav(self, nav_direction: NavDirection) -> bool:
-        self.hovered = True
-        return False
-    def remove_nav(self):
-        self.hovered = False
 
 # class TextInput(Component):
 #     def __init__(self) -> None:

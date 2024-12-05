@@ -1,8 +1,9 @@
 import asyncio
 from node import *
+from node import empty
 from functools import lru_cache
 from dataclasses import dataclass
-from component import NavDirection, ContainerV, Button
+from component import NavDirection, ContainerV, Button, IfHover
 
 # desing requirements:
 
@@ -19,20 +20,32 @@ from component import NavDirection, ContainerV, Button
 # parent may decide children (RULES)
 
 layout_tree = ContainerV(vbox, (
-    Button(text("hej 1")),
-    Button(text("hej 2")),
-    Button(text("hej 3")),
-    ContainerV(vbox, (
-        Button(text("då 1")),
-        Button(text("då 2")),
-        Button(text("då 3")),
-        ContainerV(vbox, (
-            Button(text("mig 1")),
-            Button(text("mig 2")),
-            Button(text("mig 3")),
-        )),
-    )),
-    Button(text("hej 4")),
+    IfHover(
+        then=border,
+        otherwise=empty,
+        next_component=Button(text("hej 1"))
+    ),
+    IfHover(
+        then=border,
+        otherwise=empty,
+        next_component=Button(text("hej 1"))
+    ),
+    IfHover(
+        then=border,
+        otherwise=empty,
+        next_component=Button(text("hej 1"))
+    ),
+    # ContainerV(vbox, (
+    #     Button(text("då 1")),
+    #     Button(text("då 2")),
+    #     Button(text("då 3")),
+    #     ContainerV(vbox, (
+    #         Button(text("mig 1")),
+    #         Button(text("mig 2")),
+    #         Button(text("mig 3")),
+    #     )),
+    # )),
+    # Button(text("hej 4")),
 ))
 
 layout_tree.use_nav(NavDirection.STAY)

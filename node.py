@@ -59,6 +59,9 @@ def text(string: str):
         frame.draw_string(string, box.offset)
     return Node(min_size, render)
 
+def empty(node: Node):
+    return node
+
 def border(node: Node):
     min_size = Box(
         node.min_size.width + 2,
