@@ -1,5 +1,8 @@
 import asyncio
 from node import *
+from functools import lru_cache
+from dataclasses import dataclass
+from component import NavDirection, ContainerV, Button
 
 # desing requirements:
 
@@ -15,27 +18,50 @@ from node import *
 # boxes get layouted outside of eachother
 # parent may decide children (RULES)
 
+layout_tree = ContainerV(vbox, (
+    Button(text("hej 1")),
+    Button(text("hej 2")),
+    Button(text("hej 3")),
+    ContainerV(vbox, (
+        Button(text("då 1")),
+        Button(text("då 2")),
+        Button(text("då 3")),
+        ContainerV(vbox, (
+            Button(text("mig 1")),
+            Button(text("mig 2")),
+            Button(text("mig 3")),
+        )),
+    )),
+    Button(text("hej 4")),
+))
 
+layout_tree.use_nav(NavDirection.STAY)
+while True:
+    i = input()
+    if i == "k":
+        if not layout_tree.use_nav(NavDirection.UP):
+            layout_tree.use_input(i)
+    elif i == "j":
+        if not layout_tree.use_nav(NavDirection.DOWN):
+            layout_tree.use_input(i)
+    else:
+        layout_tree.use_input(i)
 
+    print(render(layout_tree.get_node()))
+    
 
+# layout = border(vbox_flex([
+#     Flex() | vbox([
+#         text(str(i) + " hi") for i in range(15)
+#     ]),
+#     Flex(grow=0, shrink=0, basis=True) | vbox([
+#         separator(),
+#         text("menuhej"),
+#         text("menuhejsan"),
+#     ])
+# ]))
 
-
-
-
-
-
-layout = border(vbox_flex([
-    Flex() | vbox([
-        text(str(i) + " hi") for i in range(15)
-    ]),
-    Flex(grow=0, shrink=0, basis=True) | vbox([
-        separator(),
-        text("menuhej"),
-        text("menuhejsan"),
-    ])
-]))
-
-print(render(layout))
+# print(render(layout))
 # ok now
 
 # so screenview and allocated space is different
