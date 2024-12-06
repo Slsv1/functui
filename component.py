@@ -12,7 +12,6 @@ class NavDirection(Enum):
     RIGHT = auto()
     UP = auto()
     DOWN = auto()
-    STAY = auto()
 
 
 class Component(ABC):
@@ -77,7 +76,7 @@ class ContainerV(Component):
                     return False
                 self.items[self._selected_item_idx].remove_nav()
                 self._selected_item_idx -= 1
-                self.items[self._selected_item_idx].use_nav(NavDirection.STAY)
+                self.items[self._selected_item_idx].use_nav(nav_direction)
                 return True
             case NavDirection.DOWN:
                 # if on end of list
@@ -85,9 +84,7 @@ class ContainerV(Component):
                     return False
                 self.items[self._selected_item_idx].remove_nav()
                 self._selected_item_idx += 1
-                self.items[self._selected_item_idx].use_nav(NavDirection.STAY)
-                return True
-            case NavDirection.STAY:
+                self.items[self._selected_item_idx].use_nav(nav_direction)
                 return True
             case _:
                 return False
@@ -113,6 +110,7 @@ class IfHover(Component):
             return self.otherwise(self.next_component.get_node())
     def remove_nav(self):
         self._is_hover = False
+        self.next_component.remove_nav()
 
     def use_nav(self, nav_direction: NavDirection) -> bool:
         self._is_hover = True

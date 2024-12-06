@@ -35,6 +35,26 @@ layout_tree = ContainerV(vbox, (
         otherwise=empty,
         next_component=Button(text("hej 1"))
     ),
+    IfHover(
+        then=border,
+        otherwise=empty,
+        next_component=ContainerV(vbox, (
+            IfHover(
+                then=border,
+                otherwise=empty,
+                next_component=Button(text("hej 1"))
+            ),
+            IfHover(
+                then=border,
+                otherwise=empty,
+                next_component=Button(text("hej 1"))
+            ),
+            IfHover(
+                then=border,
+                otherwise=empty,
+                next_component=Button(text("hej 1"))
+            ),
+    )))
     # ContainerV(vbox, (
     #     Button(text("då 1")),
     #     Button(text("då 2")),
@@ -48,7 +68,7 @@ layout_tree = ContainerV(vbox, (
     # Button(text("hej 4")),
 ))
 
-layout_tree.use_nav(NavDirection.STAY)
+layout_tree.use_nav(NavDirection.DOWN)
 while True:
     i = input()
     if i == "k":
