@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Self
 from classes import Frame, Box, Node, Screen, Coordinate
+from math import floor, ceil
 
 import os
 
@@ -41,10 +42,13 @@ BORDER_ROUNDED = BorderStyle(
 
 
 # type Node = Callable[[Frame], Result]
-def render(root_node: Node) -> str:
+def render_to_fit_terminal(root_node: Node) -> str:
     terminal_size = os.get_terminal_size()
     width = terminal_size.columns
     height = terminal_size.lines - 1
+    return render(width, height, root_node)
+
+def render(width: int, height: int, root_node: Node):
     screen = Screen(width, height, " ")
     root_node.render(Frame(Box(width, height), screen), Box(width, height))
     return "\n".join(screen.split_by_lines())
@@ -134,3 +138,34 @@ def separator():
     def render(frame: Frame, box: Box):
         frame.draw_box("-", box.width, 1, box.offset)
     return Node(min_size, render)
+
+V_PROGRESS = " ▁▂▃▄▅▆▇█"
+
+def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
+    min_size = Box(1, 0)
+    def render(frame: Frame, box: Box):
+        start_at = box.width * start
+        start_at_int = floor(start_at)
+        start_at_progress = abs(start_at - start_at_int - 1)
+
+        end_at = box.width * end
+        end_at_int = floor(end_at)
+        end_at_progress = end_at - end_at_int
+        print("start: ", start_at, "end: ", end_at)
+        print("starti: ", start_at_int, "endi: ", end_at_int)
+        print("startp: ", start_at_progress, "endp: ", end_at_progress)
+
+        for i in range(box.width):
+            if i == start_at_int:
+                pixel = progress_gradient[int(start_at_progress * (len(progress_gradient)-1))]
+            elif i == end_at_int:
+                pixel = progress_gradient[int(end_at_progress * (len(progress_gradient)-1))]
+            elif start_at_int < i < end_at_int:
+                pixel = progress_gradient[-1]
+            else:
+                pixel = progress_gradient[0]
+
+            frame.draw_pixel(pixel, Coordinate(0, i) + box.offset)
+
+    return Node(min_size, render)
+print("█▉▊▋▌▍▎▏")
