@@ -1,6 +1,6 @@
 import asyncio
 from node import *
-from node import empty
+from node import empty, render, v_scroll_bar
 from functools import lru_cache
 from dataclasses import dataclass
 from component import NavDirection, ContainerV, Button, IfHover
@@ -19,68 +19,59 @@ from component import NavDirection, ContainerV, Button, IfHover
 # boxes get layouted outside of eachother
 # parent may decide children (RULES)
 
-layout_tree = ContainerV(vbox, (
-    IfHover(
-        then=border,
-        otherwise=empty,
-        next_component=Button(text("hej 1"))
-    ),
-    IfHover(
-        then=border,
-        otherwise=empty,
-        next_component=Button(text("hej 1"))
-    ),
-    IfHover(
-        then=border,
-        otherwise=empty,
-        next_component=Button(text("hej 1"))
-    ),
-    IfHover(
-        then=border,
-        otherwise=empty,
-        next_component=ContainerV(vbox, (
-            IfHover(
-                then=border,
-                otherwise=empty,
-                next_component=Button(text("hej 1"))
-            ),
-            IfHover(
-                then=border,
-                otherwise=empty,
-                next_component=Button(text("hej 1"))
-            ),
-            IfHover(
-                then=border,
-                otherwise=empty,
-                next_component=Button(text("hej 1"))
-            ),
-    )))
-    # ContainerV(vbox, (
-    #     Button(text("då 1")),
-    #     Button(text("då 2")),
-    #     Button(text("då 3")),
-    #     ContainerV(vbox, (
-    #         Button(text("mig 1")),
-    #         Button(text("mig 2")),
-    #         Button(text("mig 3")),
-    #     )),
-    # )),
-    # Button(text("hej 4")),
-))
+# layout_tree = ContainerV(vbox, (
+#     IfHover(
+#         then=border,
+#         otherwise=empty,
+#         next_component=Button(text("hej 1"))
+#     ),
+#     IfHover(
+#         then=border,
+#         otherwise=empty,
+#         next_component=Button(text("hej 1"))
+#     ),
+#     IfHover(
+#         then=border,
+#         otherwise=empty,
+#         next_component=Button(text("hej 1"))
+#     ),
+#     IfHover(
+#         then=border,
+#         otherwise=empty,
+#         next_component=ContainerV(vbox, (
+#             IfHover(
+#                 then=border,
+#                 otherwise=empty,
+#                 next_component=Button(text("hej 1"))
+#             ),
+#             IfHover(
+#                 then=border,
+#                 otherwise=empty,
+#                 next_component=Button(text("hej 1"))
+#             ),
+#             IfHover(
+#                 then=border,
+#                 otherwise=empty,
+#                 next_component=Button(text("hej 1"))
+#             ),
+#     )))
+# ))
 
-layout_tree.use_nav(NavDirection.DOWN)
-while True:
-    i = input()
-    if i == "k":
-        if not layout_tree.use_nav(NavDirection.UP):
-            layout_tree.use_input(i)
-    elif i == "j":
-        if not layout_tree.use_nav(NavDirection.DOWN):
-            layout_tree.use_input(i)
-    else:
-        layout_tree.use_input(i)
+# layout_tree.use_nav(NavDirection.DOWN)
+# while True:
+#     i = input()
+#     if i == "k":
+#         if not layout_tree.use_nav(NavDirection.UP):
+#             layout_tree.use_input(i)
+#     elif i == "j":
+#         if not layout_tree.use_nav(NavDirection.DOWN):
+#             layout_tree.use_input(i)
+#     else:
+#         layout_tree.use_input(i)
 
-    print(render(layout_tree.get_node()))
+#     print(render(layout_tree.get_node()))
+
+print(render(4, 4, border(v_scroll_bar(0.25, 0.9))))
     
 
 # layout = border(vbox_flex([
@@ -100,7 +91,6 @@ while True:
 # so screenview and allocated space is different
 # allocated space may change after every node
 # screenview changes only on containers so that elements think they have more space han they have
-
 
 
 # TODO:
