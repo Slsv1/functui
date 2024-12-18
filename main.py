@@ -71,8 +71,12 @@ from component import NavDirection, ContainerV, Button, IfHover
 
 #     print(render(layout_tree.get_node()))
 
-print(render(4, 4, border(v_scroll_bar(0.25, 0.9))))
-    
+print(render(40, 18,
+    border ** vbox_flex([
+        flex(grow=1) ** border ** v_scroll_bar(0, 1),
+        flex(grow=0, shrink=0, basis=True) ** border ** text("hej"),
+    ])
+))
 
 # layout = border(vbox_flex([
 #     Flex() | vbox([
