@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Self
-from classes import Frame, Box, Node, Screen, Coordinate
+from classes import Frame, Box, Node, Screen, Coordinate, applicable
 from math import floor, ceil
 
 import os
@@ -18,7 +18,7 @@ __all__ = [
     # containers
     "vbox",
     "vbox_flex",
-    "Flex"
+    "flex"
 ]
 
 @dataclass(frozen=True)
@@ -63,9 +63,11 @@ def text(string: str):
         frame.draw_string(string, box.offset)
     return Node(min_size, render)
 
+@applicable
 def empty(node: Node):
     return node
 
+@applicable
 def border(node: Node):
     min_size = Box(
         node.min_size.width + 2,
@@ -100,36 +102,41 @@ def vbox(nodes: list[Node]):
 
 @dataclass
 class Flex:
-    grow: int = 1
-    shrink: int = 1
-    basis: bool = False
-    def __or__(self, other: Node) -> tuple[Self, Node]:
-        return (self, other)
+    node: Node
+    grow: int
+    shrink: int
+    basis: bool
+
+def flex(grow=1, shrink=1, basis=False):
+    @applicable
+    def out(node: Node):
+        return Flex(node, grow, shrink, basis)
+    return out
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
 
-def vbox_flex(nodes: list[tuple[Flex, Node]]):
+def vbox_flex(nodes: list[Flex]):
     min_size = Box(
-        max(i[1].min_size.width for i in nodes),
-        sum(i[1].min_size.height for i in nodes)
+        max(i.node.min_size.width for i in nodes),
+        sum(i.node.min_size.height for i in nodes)
     ) if nodes else Box(0, 0)
 
-    reserved_space = sum(i[1].min_size.height if i[0].basis else 0 for i in nodes)
-    total_grow = sum(i[0].grow for i in nodes)
-    total_shrink = sum(i[0].shrink for i in nodes)
+    reserved_space = sum(i.node.min_size.height if i.basis else 0 for i in nodes)
+    total_grow = sum(i.grow for i in nodes)
+    total_shrink = sum(i.shrink for i in nodes)
 
     def render(frame: Frame, box: Box):
         available_space = box.height - reserved_space
         space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
         at_y = 0
-        for flex, node in nodes:
+        for flex in nodes:
             child_box = Box(
                 width=box.width,
-                height=(node.min_size.height if flex.basis else 0) + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+                height=(flex.node.min_size.height if flex.basis else 0) + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
             )
             child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
-            node.render(frame.shrink_to(child_box), child_box)
+            flex.node.render(frame.shrink_to(child_box), child_box)
             at_y += child_box.height
     return Node(min_size, render)
 
@@ -144,18 +151,19 @@ V_PROGRESS = " ▁▂▃▄▅▆▇█"
 def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
     min_size = Box(1, 0)
     def render(frame: Frame, box: Box):
-        start_at = box.width * start
+        print(box)
+        start_at = box.height * start
         start_at_int = floor(start_at)
         start_at_progress = abs(start_at - start_at_int - 1)
 
-        end_at = box.width * end
+        end_at = box.height * end
         end_at_int = floor(end_at)
         end_at_progress = end_at - end_at_int
         print("start: ", start_at, "end: ", end_at)
         print("starti: ", start_at_int, "endi: ", end_at_int)
         print("startp: ", start_at_progress, "endp: ", end_at_progress)
 
-        for i in range(box.width):
+        for i in range(box.height):
             if i == start_at_int:
                 pixel = progress_gradient[int(start_at_progress * (len(progress_gradient)-1))]
             elif i == end_at_int:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Self, Callable
+from typing import Any, Self, Callable
 
 __all__ = [
     "Coordinate",
@@ -7,7 +7,21 @@ __all__ = [
     "Box",
     "Frame",
     "Node",
+    "applicable"
 ]
+
+
+@dataclass(frozen=True)
+class Applicable[T, U]:
+    func: Callable[[T], U]
+    def __pow__(self, other: T) -> U:
+        return self.func(other)
+    def __call__(self, arg: T) -> U:
+        return self.func(arg)
+
+
+def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
+    return Applicable(func)
 
 @dataclass(frozen=True)
 class Coordinate:
