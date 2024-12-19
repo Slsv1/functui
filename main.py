@@ -4,6 +4,7 @@ from node import empty, render, v_scroll_bar
 from functools import lru_cache
 from dataclasses import dataclass
 from component import NavDirection, ContainerV, Button, IfHover
+from classes import CharStyle
 
 # desing requirements:
 
@@ -71,10 +72,15 @@ from component import NavDirection, ContainerV, Button, IfHover
 
 #     print(render(layout_tree.get_node()))
 
-print(render(10, 18,
+# TODO:
+# remove get_and_set methods
+# instead add separate methods for getting and setting!
+
+print(render(10, 10,
     border ** vbox_flex([
         flex(grow=1) ** border ** v_scroll_bar(0, 1),
-        flex(grow=0, shrink=0, basis=True) ** border ** text("hej"),
+        flex(grow=0, shrink=0, basis=True) ** border ** italic ** text("hej"),
+        flex(grow=0, shrink=0, basis=True) ** shrink ** bold ** reverse ** text("hej"),
     ])
 ))
 # print(render(40, 18,

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from typing import Self
-from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel
+from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle
 from math import floor, ceil
+from enum import Enum, auto
 
 import os
 
@@ -10,6 +11,13 @@ __all__ = [
 
     # decorators
     "border",
+    "add_style",
+    "bold",
+    "italic",
+    "underlined",
+    "reverse",
+    "shrink",
+    "no_style",
 
     # data
     "separator",
@@ -48,10 +56,67 @@ def render_to_fit_terminal(root_node: Node) -> str:
     height = terminal_size.lines - 1
     return render(width, height, root_node)
 
+class Color(Enum):
+    BLACK = 30
+    RED = 31
+    GREEN = 32
+    YELLOW = 33
+    BLUE = 34
+    MAGENTA = 35
+    CYAN = 36
+    WHITE = 37
+
+# class BrightColor(Enum):
+#     BLACK = auto()
+#     RED = auto()
+#     GREEN = auto()
+#     YELLOW = auto()
+#     BLUE = auto()
+#     MAGENTA = auto()
+#     CYAN = auto()
+#     WHITE = auto()
+
+
+
+def default_color_to_fg_ansi(color: Color):
+    return f"\033[{color.value}m"
+
+def default_color_to_bg_ansi(color: Color):
+    return f"\033[{color.value + 10}m"
+
+def style_to_ansi(style: CharStyle):
+    out = []
+    if CharStyle.BOLD in style:
+        out.append("\033[1m")
+    if CharStyle.ITALIC in style:
+        out.append("\033[3m")
+    if CharStyle.UNDERLINED in style:
+        out.append("\033[4m")
+    if CharStyle.REVERSED in style:
+        out.append("\033[7m")
+    return "".join(out)
+
+def default_color_to_ansi_driver(pixel: Pixel):
+    out = []
+    if isinstance(pixel.fg_color, Color):
+        out.append(default_color_to_fg_ansi(pixel.fg_color)) 
+    
+    if isinstance(pixel.bg_color, Color):
+        out.append(default_color_to_bg_ansi(pixel.fg_color)) 
+    
+    out.append(style_to_ansi(pixel.style))
+    out.append(pixel.char)
+    out.append("\033[39m\033[49m\033[0m") # reset fg, bg and styles
+    return "".join(out)
+
+
 def render(width: int, height: int, root_node: Node):
     screen = Screen(width, height)
     root_node.render(Frame(Box(width, height), screen), Box(width, height))
-    return "\n".join("".join(pixel.char for pixel in line) for line in screen.split_by_lines())
+    return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines())
+
+
+
 
 def text(string: str):
     split_string = string.split('\n')
@@ -66,6 +131,30 @@ def text(string: str):
 @applicable
 def empty(node: Node):
     return node
+
+def add_style(style: CharStyle, node: Node):
+    def render(frame: Frame, box: Box):
+        frame.get_and_set_box(lambda p: Pixel(p.char, p.fg_color, p.bg_color, style=p.style|style), box.width, box.height, box.offset)
+        node.render(frame, box)
+    return Node(node.min_size, render)
+@applicable
+def no_style(node: Node):
+    def render(frame: Frame, box: Box):
+        frame.get_and_set_box(lambda p: Pixel(p.char, None, None, style=CharStyle(0)), box.width, box.height, box.offset)
+        node.render(frame, box)
+    return Node(node.min_size, render)
+@applicable
+def bold(node: Node):
+    return add_style(CharStyle.BOLD, node)
+@applicable
+def reverse(node: Node):
+    return add_style(CharStyle.REVERSED, node)
+@applicable
+def underlined(node: Node):
+    return add_style(CharStyle.UNDERLINED, node)
+@applicable
+def italic(node: Node):
+    return add_style(CharStyle.ITALIC, node)
 
 @applicable
 def border(node: Node):
@@ -99,6 +188,17 @@ def vbox(nodes: list[Node]):
             at_y += child_box.height
 
     return Node(min_size, render)
+
+@applicable
+def shrink(node: Node):
+    def render(frame: Frame, box: Box):
+        child_box = Box(
+            node.min_size.width,
+            node.min_size.height,
+            box.offset
+        )
+        node.render(frame.shrink_to(child_box), child_box)
+    return Node(node.min_size, render)
 
 @dataclass
 class Flex:
