@@ -1,6 +1,6 @@
 import asyncio
 from node import *
-from node import empty, render, v_scroll_bar
+from node import empty, render, v_scroll_bar, Color
 from functools import lru_cache
 from dataclasses import dataclass
 from component import NavDirection, ContainerV, Button, IfHover
@@ -73,19 +73,21 @@ from classes import CharStyle
 #     print(render(layout_tree.get_node()))
 
 # TODO:
-# remove get_and_set methods
-# instead add separate methods for getting and setting!
+# think about this. Should colour be applied after child renders or before.
+# if before then stuff like text cant just override but need to check
+# if after then it gets vierd, but maybe then i can use my pipes???
 
 print(render(40, 12,
-    border ** vbox_flex([
+    foreground(Color.YELLOW) ** border ** no_style **vbox_flex([
         flex() ** v_scroll_bar(0, 1),
-        flex(grow=0, shrink=0, basis=True) ** separator(),
-        flex() ** hbox([
-            border ** bold ** text("hej"),
-            border ** italic ** text("san"),
-            border ** shrink ** underlined ** text("hur"),
+        flex(grow=0, shrink=0, basis=True) ** foreground(Color.MAGENTA) ** separator(),
+        flex() ** foreground(Color.CYAN) ** hbox([
+            border ** no_style ** bold ** text("bold"),
+            foreground(Color.RED) ** border ** italic ** text("italic"),
+            border ** shrink ** foreground(Color.BLUE) ** underlined ** text("underlined"),
+            border ** no_style ** shrink ** reverse ** text("reverse"),
         ]),
-        flex(grow=0, shrink=0, basis=True) ** shrink ** bold ** reverse ** text("hej"),
+        flex(grow=0, shrink=0, basis=True) ** shrink ** background(Color.GREEN) ** bold ** text("hej hej hej hej"),
     ])
 ))
 # print(render(40, 18,
