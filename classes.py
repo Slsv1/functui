@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Self, Callable
+from enum import IntFlag, auto
 
 __all__ = [
     "Coordinate",
@@ -31,30 +32,46 @@ class Coordinate:
         return Coordinate(self.x + other.x, self.y + other.y)
     def __sub__(self, other):
         return Coordinate(self.x - other.x, self.y - other.y)
+
+class CharStyle(IntFlag):
+    BOLD = auto()
+    REVERSED = auto()
+    ITALIC = auto()
+    UNDERLINED = auto()
+
+@dataclass(frozen=True)
+class Pixel:
+    char: str
+    style: CharStyle = CharStyle(0)
+    def with_char(self, char: str) -> Self:
+        return self.__class__(
+            char,
+            self.style
+        )
     
 class Screen:
-    def __init__(self, width: int, height: int, fill: str):
+    def __init__(self, width: int, height: int, fill: Pixel=Pixel(" ")):
         self.width = width
         self.height = height
-        self._data: list[str] = [fill for _ in range(width * height)]
+        self._data: list[Pixel] = [fill for _ in range(width * height)]
         """
         matrix indicies work in this pattern:
         0 1 2 3 4
         5 6 7 8 9
         """
 
-    def get(self, pos: Coordinate) -> str:
+    def get(self, pos: Coordinate) -> Pixel:
         return self._data[pos.x + pos.y * self.width]
 
-    def set(self, pos: Coordinate, data: str) -> None:
+    def set(self, pos: Coordinate, data: Pixel) -> None:
         self._data[pos.x + pos.y * self.width] = data
-
-    def split_by_lines(self) -> tuple[str, ...]:
-            out: list[str] = []
-            for h in range(self.height):
-                current_row = [self.get(Coordinate(w, h)) for w in range(self.width)]
-                out.append("".join(current_row))
-            return tuple(out)
+    
+    def split_by_lines(self) -> tuple[tuple[Pixel, ...], ...]:
+        out: list[tuple[Pixel, ...]] = []
+        for h in range(self.height):
+            current_row = tuple([self.get(Coordinate(w, h)) for w in range(self.width)])
+            out.append(current_row)
+        return tuple(out)
 
 @dataclass(frozen=True)
 class Box:
@@ -119,7 +136,7 @@ class Frame:
     def draw_pixel(self, fill: str, at: Coordinate) -> None:
         if not self.view_box.is_point_inside(at):
             return
-        self.screen.set(at, fill)
+        self.screen.set(at, self.screen.get(at).with_char(fill))
 
     def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
         for x in range(start.x, start.x + width):
