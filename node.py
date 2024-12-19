@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Self
-from classes import Frame, Box, Node, Screen, Coordinate, applicable
+from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel
 from math import floor, ceil
 
 import os
@@ -49,9 +49,9 @@ def render_to_fit_terminal(root_node: Node) -> str:
     return render(width, height, root_node)
 
 def render(width: int, height: int, root_node: Node):
-    screen = Screen(width, height, " ")
+    screen = Screen(width, height)
     root_node.render(Frame(Box(width, height), screen), Box(width, height))
-    return "\n".join(screen.split_by_lines())
+    return "\n".join("".join(pixel.char for pixel in line) for line in screen.split_by_lines())
 
 def text(string: str):
     split_string = string.split('\n')
