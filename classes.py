@@ -42,15 +42,19 @@ class CharStyle(IntFlag):
 @dataclass(frozen=True)
 class Pixel:
     char: str
+    fg_color: Any
+    bg_color: Any
     style: CharStyle = CharStyle(0)
     def with_char(self, char: str) -> Self:
         return self.__class__(
             char,
+            self.fg_color,
+            self.bg_color,
             self.style
         )
     
 class Screen:
-    def __init__(self, width: int, height: int, fill: Pixel=Pixel(" ")):
+    def __init__(self, width: int, height: int, fill: Pixel=Pixel(" ", None, None)):
         self.width = width
         self.height = height
         self._data: list[Pixel] = [fill for _ in range(width * height)]
@@ -147,6 +151,14 @@ class Frame:
         for y, line in enumerate(content.split('\n')):
             for x, char in enumerate(line):
                 self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
+    
+    def get_and_set_pixel(self, func: Callable[[Pixel], Pixel], at: Coordinate) -> None:
+        return self.screen.set(at, func(self.screen.get(at)))
+    
+    def get_and_set_box(self, func: Callable[[Pixel], Pixel], width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
+        for x in range(start.x, start.x + width):
+            for y in range(start.y, start.y + height):
+                self.get_and_set_pixel(func, Coordinate(x, y))
 
     def shrink_to(self, other_box):
         return Frame(
