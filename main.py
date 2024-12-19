@@ -76,10 +76,15 @@ from classes import CharStyle
 # remove get_and_set methods
 # instead add separate methods for getting and setting!
 
-print(render(10, 10,
+print(render(40, 12,
     border ** vbox_flex([
-        flex(grow=1) ** border ** v_scroll_bar(0, 1),
-        flex(grow=0, shrink=0, basis=True) ** border ** italic ** text("hej"),
+        flex() ** v_scroll_bar(0, 1),
+        flex(grow=0, shrink=0, basis=True) ** separator(),
+        flex() ** hbox([
+            border ** bold ** text("hej"),
+            border ** italic ** text("san"),
+            border ** shrink ** underlined ** text("hur"),
+        ]),
         flex(grow=0, shrink=0, basis=True) ** shrink ** bold ** reverse ** text("hej"),
     ])
 ))

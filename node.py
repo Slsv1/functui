@@ -25,6 +25,7 @@ __all__ = [
 
     # containers
     "vbox",
+    "hbox",
     "vbox_flex",
     "flex"
 ]
@@ -186,7 +187,19 @@ def vbox(nodes: list[Node]):
             child_box = Box(box.width, node.min_size.height).offset_by(box.offset + Coordinate(0, at_y))
             node.render(frame.shrink_to(child_box), child_box)
             at_y += child_box.height
+    return Node(min_size, render)
 
+def hbox(nodes: list[Node]):
+    min_size = Box(
+        sum(i.min_size.width for i in nodes),
+        max(i.min_size.height for i in nodes)
+    ) if nodes else Box(0, 0)
+    def render(frame: Frame, box: Box):
+        at_x = 0
+        for node in nodes:
+            child_box = Box(node.min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
+            node.render(frame.shrink_to(child_box), child_box)
+            at_x += child_box.width
     return Node(min_size, render)
 
 @applicable
