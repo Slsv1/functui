@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Self
+from typing import Self, Any
 from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle
 from math import floor, ceil
 from enum import Enum, auto
@@ -18,6 +18,8 @@ __all__ = [
     "reverse",
     "shrink",
     "no_style",
+    "foreground",
+    "background",
 
     # data
     "separator",
@@ -103,7 +105,7 @@ def default_color_to_ansi_driver(pixel: Pixel):
         out.append(default_color_to_fg_ansi(pixel.fg_color)) 
     
     if isinstance(pixel.bg_color, Color):
-        out.append(default_color_to_bg_ansi(pixel.fg_color)) 
+        out.append(default_color_to_bg_ansi(pixel.bg_color)) 
     
     out.append(style_to_ansi(pixel.style))
     out.append(pixel.char)
@@ -156,6 +158,29 @@ def underlined(node: Node):
 @applicable
 def italic(node: Node):
     return add_style(CharStyle.ITALIC, node)
+
+def _foreground(color: Any, node: Node):
+    def render(frame: Frame, box: Box):
+        frame.get_and_set_box(lambda p: Pixel(p.char, color, p.bg_color, style=p.style), box.width, box.height, box.offset)
+        node.render(frame, box)
+    return Node(node.min_size, render)
+
+def _background(color: Any, node: Node):
+    def render(frame: Frame, box: Box):
+        frame.get_and_set_box(lambda p: Pixel(p.char, p.fg_color, color, style=p.style), box.width, box.height, box.offset)
+        node.render(frame, box)
+    return Node(node.min_size, render)
+
+def foreground(color: Any):
+    @applicable
+    def out(node: Node):
+        return _foreground(color, node)
+    return out
+def background(color: Any):
+    @applicable
+    def out(node: Node):
+        return _background(color, node)
+    return out
 
 @applicable
 def border(node: Node):

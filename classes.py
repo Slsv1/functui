@@ -153,6 +153,8 @@ class Frame:
                 self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
     
     def get_and_set_pixel(self, func: Callable[[Pixel], Pixel], at: Coordinate) -> None:
+        """i use get and set because then this all can be converted into commands in the future.
+        If i have get functions then it cant be really implemented as commands because immidiate feedback would be needed"""
         return self.screen.set(at, func(self.screen.get(at)))
     
     def get_and_set_box(self, func: Callable[[Pixel], Pixel], width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
