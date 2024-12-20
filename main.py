@@ -84,18 +84,12 @@ print(render(40, 12,
         flex() ** foreground(Color.CYAN) ** hbox([
             border ** no_style ** bold ** text("bold"),
             foreground(Color.RED) ** border ** italic ** text("italic"),
-            border ** shrink ** foreground(Color.BLUE) ** underlined ** text("underlined"),
-            border ** no_style ** shrink ** reverse ** text("reverse"),
+            border ** foreground(Color.BLUE) ** underlined ** text("underlined"),
+            border ** no_style ** reverse ** text("reverse"),
         ]),
-        flex(grow=0, shrink=0, basis=True) ** shrink ** background(Color.GREEN) ** bold ** text("hej hej hej hej"),
+        flex(grow=0, shrink=0, basis=True) ** background(Color.GREEN) ** bold ** text("hej hej hej hej"),
     ])
 ))
-# print(render(40, 18,
-#     border(vbox_flex([
-#         flex(grow=1) ** border(v_scroll_bar(0, 1)),
-#         flex(grow=0, shrink=0, basis=True) ** border(text("hej")),
-#     ]))
-# ))
 
 # layout = border(vbox_flex([
 #     Flex() | vbox([
