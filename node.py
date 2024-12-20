@@ -115,7 +115,7 @@ def default_color_to_ansi_driver(pixel: Pixel):
 
 def render(width: int, height: int, root_node: Node):
     screen = Screen(width, height)
-    root_node.render(Frame(Box(width, height), screen), Box(width, height))
+    root_node.render(Frame(Box(width, height), screen, Pixel()), Box(width, height))
     return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines())
 
 
@@ -137,14 +137,18 @@ def empty(node: Node):
 
 def add_style(style: CharStyle, node: Node):
     def render(frame: Frame, box: Box):
-        frame.get_and_set_box(lambda p: Pixel(p.char, p.fg_color, p.bg_color, style=p.style|style), box.width, box.height, box.offset)
-        node.render(frame, box)
+        node.render(
+            frame.with_pixel(frame.default_pixel.add_styles(style)),
+            box
+        )
     return Node(node.min_size, render)
 @applicable
 def no_style(node: Node):
     def render(frame: Frame, box: Box):
-        frame.get_and_set_box(lambda p: Pixel(p.char, None, None, style=CharStyle(0)), box.width, box.height, box.offset)
-        node.render(frame, box)
+        node.render(
+            frame.with_pixel(Pixel(style=CharStyle(0))),
+            box
+        )
     return Node(node.min_size, render)
 @applicable
 def bold(node: Node):
@@ -161,21 +165,36 @@ def italic(node: Node):
 
 def _foreground(color: Any, node: Node):
     def render(frame: Frame, box: Box):
-        frame.get_and_set_box(lambda p: Pixel(p.char, color, p.bg_color, style=p.style), box.width, box.height, box.offset)
-        node.render(frame, box)
+        node.render(
+            frame.with_pixel(Pixel(
+                fg_color=color,
+                bg_color=frame.default_pixel.bg_color,
+                style=frame.default_pixel.style
+            )),
+            box
+        )
     return Node(node.min_size, render)
 
 def _background(color: Any, node: Node):
     def render(frame: Frame, box: Box):
-        frame.get_and_set_box(lambda p: Pixel(p.char, p.fg_color, color, style=p.style), box.width, box.height, box.offset)
-        node.render(frame, box)
+        node.render(
+            frame.with_pixel(Pixel(
+                fg_color=frame.default_pixel.fg_color,
+                bg_color=color,
+                style=frame.default_pixel.style
+            )),
+            box
+        )
     return Node(node.min_size, render)
 
+@applicable
 def foreground(color: Any):
     @applicable
     def out(node: Node):
         return _foreground(color, node)
     return out
+
+@applicable
 def background(color: Any):
     @applicable
     def out(node: Node):

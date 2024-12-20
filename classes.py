@@ -41,9 +41,9 @@ class CharStyle(IntFlag):
 
 @dataclass(frozen=True)
 class Pixel:
-    char: str
-    fg_color: Any
-    bg_color: Any
+    char: str = " "
+    fg_color: Any = None
+    bg_color: Any = None
     style: CharStyle = CharStyle(0)
     def with_char(self, char: str) -> Self:
         return self.__class__(
@@ -51,6 +51,13 @@ class Pixel:
             self.fg_color,
             self.bg_color,
             self.style
+        )
+    def add_styles(self, style: CharStyle) -> Self:
+        return self.__class__(
+            self.char,
+            self.fg_color,
+            self.bg_color,
+            self.style | style
         )
     
 class Screen:
@@ -136,11 +143,19 @@ class Frame:
     """a sub part of the screen"""
     view_box: Box
     screen: Screen
+    default_pixel: Pixel
+
+    def with_pixel(self, pixel: Pixel):
+        return self.__class__(
+            view_box=self.view_box,
+            screen=self.screen,
+            default_pixel=pixel
+        )
 
     def draw_pixel(self, fill: str, at: Coordinate) -> None:
         if not self.view_box.is_point_inside(at):
             return
-        self.screen.set(at, self.screen.get(at).with_char(fill))
+        self.screen.set(at, self.default_pixel.with_char(fill))
 
     def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
         for x in range(start.x, start.x + width):
@@ -152,20 +167,21 @@ class Frame:
             for x, char in enumerate(line):
                 self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
     
-    def get_and_set_pixel(self, func: Callable[[Pixel], Pixel], at: Coordinate) -> None:
-        """i use get and set because then this all can be converted into commands in the future.
-        If i have get functions then it cant be really implemented as commands because immidiate feedback would be needed"""
-        return self.screen.set(at, func(self.screen.get(at)))
+    # def get_and_set_pixel(self, func: Callable[[Pixel], Pixel], at: Coordinate) -> None:
+    #     """i use get and set because then this all can be converted into commands in the future.
+    #     If i have get functions then it cant be really implemented as commands because immidiate feedback would be needed"""
+    #     return self.screen.set(at, func(self.screen.get(at)))
     
-    def get_and_set_box(self, func: Callable[[Pixel], Pixel], width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
-        for x in range(start.x, start.x + width):
-            for y in range(start.y, start.y + height):
-                self.get_and_set_pixel(func, Coordinate(x, y))
+    # def get_and_set_box(self, func: Callable[[Pixel], Pixel], width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
+    #     for x in range(start.x, start.x + width):
+    #         for y in range(start.y, start.y + height):
+    #             self.get_and_set_pixel(func, Coordinate(x, y))
 
     def shrink_to(self, other_box):
         return Frame(
             view_box=self.view_box.intersect(other_box),
-            screen=self.screen
+            screen=self.screen,
+            default_pixel=self.default_pixel
         )
 
 @dataclass(frozen=True)
