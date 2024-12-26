@@ -1,6 +1,7 @@
 import asyncio
 from node import *
-from node import empty, render, v_scroll_bar, Color
+from classes import Coordinate
+from node import empty, render, v_scroll_bar, Color, render_to_fit_terminal
 from functools import lru_cache
 from dataclasses import dataclass
 from component import NavDirection, ContainerV, Button, IfHover
@@ -52,7 +53,7 @@ from classes import CharStyle
 #             ),
 #             IfHover(
 #                 then=border,
-#                 otherwise=empty,
+#                 otherwise=empty 
 #                 next_component=Button(text("hej 1"))
 #             ),
 #     )))
@@ -77,29 +78,51 @@ from classes import CharStyle
 # if before then stuff like text cant just override but need to check
 # if after then it gets vierd, but maybe then i can use my pipes???
 
-print(render(40, 12,
-    foreground(Color.YELLOW) ** border ** no_style **vbox_flex([
-        flex() ** v_scroll_bar(0, 1),
-        flex(grow=0, shrink=0, basis=True) ** foreground(Color.MAGENTA) ** separator(),
-        flex() ** foreground(Color.CYAN) ** hbox([
-            border ** no_style ** bold ** text("bold"),
-            foreground(Color.RED) ** border ** italic ** text("italic"),
-            border ** foreground(Color.BLUE) ** underlined ** text("underlined"),
-            border ** no_style ** reverse ** text("reverse"),
+my_position = Coordinate(x=1, y=1)
+my_second_position = Coordinate(x=0, y=4)
+
+
+
+
+
+print(render_to_fit_terminal(
+    vbox_flex([
+        flex() ** text("hej hej"),
+        no_flex ** hbar(),
+        flex() ** hbox_flex([
+            flex() ** min_size(0, 0) ** shrink ** border ** text("hej hej"),
+            flex() ** min_size(0, 0) ** border ** text("hej hej"),
+            flex(3) ** min_size(0, 0) ** border ** text("hej hej"),
+            flex() ** min_size(0, 0) ** border ** text("hej hej"),
+            flex() ** min_size(0, 0) ** border ** text("hej hej"),
         ]),
-        flex(grow=0, shrink=0, basis=True) ** background(Color.GREEN) ** bold ** text("hej hej hej hej"),
+        no_flex ** background(Color.CYAN) ** fill ** hbox_flex([
+            flex() ** hbox([
+                background(Color.BLUE) ** text("text"),
+                text(" "),
+                background(Color.BLUE) ** text("hej"),
+                text(" "),
+                background(Color.BLUE) ** text("patreon"),
+                text(" "),
+                vbar()
+            ]),
+            no_flex ** text(".")
+        ])
     ])
 ))
+
+#TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
+# ok no this is bad idea, i need to add configurable basis and make 1 the default.
 
 # layout = border(vbox_flex([
 #     Flex() | vbox([
 #         text(str(i) + " hi") for i in range(15)
 #     ]),
 #     Flex(grow=0, shrink=0, basis=True) | vbox([
-#         separator(),
+#         separator() 
 #         text("menuhej"),
 #         text("menuhejsan"),
-#     ])
+#     ]k
 # ]))
 
 # print(render(layout))
