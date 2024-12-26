@@ -9,7 +9,10 @@ import os
 __all__ = [
     "render",
 
-    # decorators
+    # debug decorators
+    "print_debug",
+
+    # style decorators
     "border",
     "add_style",
     "bold",
@@ -20,16 +23,24 @@ __all__ = [
     "no_style",
     "foreground",
     "background",
+    "fill",
+    "fill_custom",
+
+    # sizing decorators
+    "flex",
+    "no_flex",
+    "min_size",
 
     # data
-    "separator",
+    "hbar",
+    "vbar",
     "text",
 
     # containers
     "vbox",
     "hbox",
     "vbox_flex",
-    "flex"
+    "hbox_flex",
 ]
 
 @dataclass(frozen=True)
@@ -41,15 +52,22 @@ class BorderStyle:
     corner_br: str
     corner_bl: str
 
+# BORDER_ROUNDED = BorderStyle(
+#     line_v="│",
+#     line_h="─",
+#     corner_tl="┌",
+#     corner_tr="┐",
+#     corner_bl="└",
+#     corner_br="┘",
+# )
 BORDER_ROUNDED = BorderStyle(
     line_v="│",
     line_h="─",
-    corner_tl="┌",
-    corner_tr="┐",
-    corner_bl="└",
-    corner_br="┘",
+    corner_tl="╭",
+    corner_tr="╮",
+    corner_bl="╰",
+    corner_br="╯",
 )
-
 
 
 # type Node = Callable[[Frame], Result]
@@ -119,6 +137,12 @@ def render(width: int, height: int, root_node: Node):
     return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines())
 
 
+@applicable
+def print_debug(node: Node):
+    print("child minsize:", node.min_size)
+    def render(frame: Frame, box: Box):
+        node.render(frame, box)
+    return Node(node.min_size, render)
 
 
 def text(string: str):
@@ -246,6 +270,23 @@ def hbox(nodes: list[Node]):
             at_x += child_box.width
     return Node(min_size, render)
 
+def _fill_custom(char: str, node: Node):
+    def render(frame: Frame, box: Box):
+        frame.draw_box(char, box.width, box.height, box.offset)
+        node.render(frame, box)
+    return Node(node.min_size, render)
+
+def fill_custom(char: str):
+    @applicable
+    def out(node: Node):
+        return _fill_custom(char, node)
+    return out
+
+@applicable
+def fill(node: Node):
+    return _fill_custom(" ", node)
+
+
 @applicable
 def shrink(node: Node):
     def render(frame: Frame, box: Box):
@@ -257,18 +298,35 @@ def shrink(node: Node):
         node.render(frame.shrink_to(child_box), child_box)
     return Node(node.min_size, render)
 
+def _min_size(width: int, height: int, node: Node):
+    def render(frame: Frame, box: Box):
+        node.render(frame, box)
+    return Node(Box(width, height, node.min_size.offset), render)
+
+def min_size(width: int, height: int):
+    @applicable
+    def out(node: Node):
+        return _min_size(width, height, node)
+    return out
+
+
+
+
 @dataclass
 class Flex:
     node: Node
     grow: int
     shrink: int
-    basis: bool
 
-def flex(grow=1, shrink=1, basis=False):
+def flex(grow=1, shrink=1):
     @applicable
     def out(node: Node):
-        return Flex(node, grow, shrink, basis)
+        return Flex(node, grow, shrink)
     return out
+
+@applicable
+def no_flex(node: Node):
+    return flex(0, 0) ** node
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
@@ -279,7 +337,8 @@ def vbox_flex(nodes: list[Flex]):
         sum(i.node.min_size.height for i in nodes)
     ) if nodes else Box(0, 0)
 
-    reserved_space = sum(i.node.min_size.height if i.basis else 0 for i in nodes)
+    reserved_space = sum(i.node.min_size.height for i in nodes)
+    print(reserved_space)
     total_grow = sum(i.grow for i in nodes)
     total_shrink = sum(i.shrink for i in nodes)
 
@@ -290,14 +349,45 @@ def vbox_flex(nodes: list[Flex]):
         for flex in nodes:
             child_box = Box(
                 width=box.width,
-                height=(flex.node.min_size.height if flex.basis else 0) + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+                height=flex.node.min_size.height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
             )
             child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
             flex.node.render(frame.shrink_to(child_box), child_box)
             at_y += child_box.height
     return Node(min_size, render)
 
-def separator():
+def hbox_flex(nodes: list[Flex]):
+    min_size = Box(
+        sum(i.node.min_size.width for i in nodes),
+        max(i.node.min_size.height for i in nodes)
+    ) if nodes else Box(0, 0)
+
+    reserved_space = sum(i.node.min_size.width for i in nodes)
+    total_grow = sum(i.grow for i in nodes)
+    total_shrink = sum(i.shrink for i in nodes)
+
+    def render(frame: Frame, box: Box):
+        available_space = box.width - reserved_space
+        space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+        at_x = 0
+        for flex in nodes:
+            child_box = Box(
+                width=flex.node.min_size.width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
+                height=box.height,
+            )
+            child_box = child_box.offset_by(box.offset + Coordinate(at_x, 0))
+            flex.node.render(frame.shrink_to(child_box), child_box)
+            at_x += child_box.width
+    return Node(min_size, render)
+
+
+def vbar():
+    min_size = Box(1, 0)
+    def render(frame: Frame, box: Box):
+        frame.draw_box("|", 1, box.height, box.offset)
+    return Node(min_size, render)
+
+def hbar():
     min_size = Box(0, 1)
     def render(frame: Frame, box: Box):
         frame.draw_box("-", box.width, 1, box.offset)
@@ -308,7 +398,6 @@ V_PROGRESS = " ▁▂▃▄▅▆▇█"
 def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
     min_size = Box(1, 0)
     def render(frame: Frame, box: Box):
-        print(box)
         start_at = box.height * start
         start_at_int = floor(start_at)
         start_at_progress = abs(start_at - start_at_int - 1)
@@ -316,15 +405,16 @@ def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
         end_at = box.height * end
         end_at_int = floor(end_at)
         end_at_progress = end_at - end_at_int
-        print("start: ", start_at, "end: ", end_at)
-        print("starti: ", start_at_int, "endi: ", end_at_int)
-        print("startp: ", start_at_progress, "endp: ", end_at_progress)
+        # print("start: ", start_at, "end: ", end_at)
+        # print("starti: ", start_at_int, "endi: ", end_at_int)
+        # print("startp: ", start_at_progress, "endp: ", end_at_progress)
 
         for i in range(box.height):
             if i == start_at_int:
                 pixel = progress_gradient[int(start_at_progress * (len(progress_gradient)-1))]
             elif i == end_at_int:
                 pixel = progress_gradient[int(end_at_progress * (len(progress_gradient)-1))]
+                frame = frame.with_pixel(frame.default_pixel.add_styles(CharStyle.REVERSED))
             elif start_at_int < i < end_at_int:
                 pixel = progress_gradient[-1]
             else:
@@ -333,4 +423,3 @@ def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
             frame.draw_pixel(pixel, Coordinate(0, i) + box.offset)
 
     return Node(min_size, render)
-print("█▉▊▋▌▍▎▏")
