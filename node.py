@@ -8,21 +8,23 @@ import os
 
 __all__ = [
     "render",
+    "render_to_fit_terminal",
 
     # debug decorators
     "print_debug",
 
     # style decorators
-    "border",
     "add_style",
     "bold",
     "italic",
     "underlined",
     "reverse",
-    "shrink",
     "no_style",
     "foreground",
     "background",
+
+    # additional information decorators
+    "border",
     "fill",
     "fill_custom",
 
@@ -30,6 +32,10 @@ __all__ = [
     "flex",
     "no_flex",
     "min_size",
+    "shrink",
+    "offset",
+    "custom_padding",
+    "padding",
 
     # data
     "hbar",
@@ -41,6 +47,7 @@ __all__ = [
     "hbox",
     "vbox_flex",
     "hbox_flex",
+    "static_box",
 ]
 
 @dataclass(frozen=True)
@@ -76,6 +83,7 @@ def render_to_fit_terminal(root_node: Node) -> str:
     width = terminal_size.columns
     height = terminal_size.lines - 1
     return render(width, height, root_node)
+
 
 class Color(Enum):
     BLACK = 30
@@ -282,9 +290,44 @@ def fill_custom(char: str):
         return _fill_custom(char, node)
     return out
 
+def _offset(x: int, y: int, node: Node):
+    min_size = Box(
+        width=node.min_size.width + x,
+        height=node.min_size.height + y,
+        offset=node.min_size.offset
+    )
+    def render(frame: Frame, box: Box):
+        node.render(frame, box.offset_by(Coordinate(x, y)))
+    return Node(min_size, render)
+
+def offset(x: int=0, y: int=0):
+    @applicable
+    def out(node: Node):
+        return _offset(x, y, node)
+    return out
+
+
 @applicable
 def fill(node: Node):
     return _fill_custom(" ", node)
+
+def _padding(top: int, bottom: int, left: int, right: int, node: Node):
+    min_size = Box(
+        node.min_size.width + left + right,
+        node.min_size.height + top + bottom,
+    )
+    def render(frame: Frame, box: Box):
+        node.render(frame, box.shrink(top, bottom, left, right))
+    return Node(min_size, render)
+
+def custom_padding(top=0, bottom=0, left=0, right=0):
+    @applicable
+    def out(node: Node):
+        return _padding(top, bottom, left, right, node)
+    return out
+
+def padding(value: int):
+    return custom_padding(value, value, value, value)
 
 
 @applicable
@@ -381,21 +424,33 @@ def hbox_flex(nodes: list[Flex]):
     return Node(min_size, render)
 
 
-def vbar():
+def vbar(char: str = "|"):
     min_size = Box(1, 0)
     def render(frame: Frame, box: Box):
-        frame.draw_box("|", 1, box.height, box.offset)
+        frame.draw_box(char, 1, box.height, box.offset)
     return Node(min_size, render)
 
-def hbar():
+def hbar(char: str = "-"):
     min_size = Box(0, 1)
     def render(frame: Frame, box: Box):
-        frame.draw_box("-", box.width, 1, box.offset)
+        frame.draw_box(char, box.width, 1, box.offset)
     return Node(min_size, render)
 
 V_PROGRESS = " ▁▂▃▄▅▆▇█"
 
-def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
+def static_box(nodes: list[Node]):
+    min_size = Box(
+        max(i.min_size.width for i in nodes),
+        max(i.min_size.height for i in nodes)
+    ) if nodes else Box(0, 0)
+
+    def render(frame: Frame, box: Box):
+        for node in nodes:
+            node.render(frame, box)
+    return Node(min_size, render)
+# ╵╷│
+
+def v_scroll_bar(start: float, end: float, progress_gradient=V_PROGRESS):
     min_size = Box(1, 0)
     def render(frame: Frame, box: Box):
         start_at = box.height * start
@@ -408,18 +463,18 @@ def v_scroll_bar(start: float, end: float, progress_gradient: str = V_PROGRESS):
         # print("start: ", start_at, "end: ", end_at)
         # print("starti: ", start_at_int, "endi: ", end_at_int)
         # print("startp: ", start_at_progress, "endp: ", end_at_progress)
-
         for i in range(box.height):
+            render_frame = frame
             if i == start_at_int:
                 pixel = progress_gradient[int(start_at_progress * (len(progress_gradient)-1))]
             elif i == end_at_int:
                 pixel = progress_gradient[int(end_at_progress * (len(progress_gradient)-1))]
-                frame = frame.with_pixel(frame.default_pixel.add_styles(CharStyle.REVERSED))
+                render_frame = frame.with_pixel(frame.default_pixel.add_styles(CharStyle.REVERSED))
             elif start_at_int < i < end_at_int:
                 pixel = progress_gradient[-1]
             else:
                 pixel = progress_gradient[0]
 
-            frame.draw_pixel(pixel, Coordinate(0, i) + box.offset)
+            render_frame.draw_pixel(pixel, Coordinate(0, i) + box.offset)
 
     return Node(min_size, render)

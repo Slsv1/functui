@@ -1,7 +1,7 @@
 import asyncio
 from node import *
 from classes import Coordinate
-from node import empty, render, v_scroll_bar, Color, render_to_fit_terminal
+from node import empty, render, Color, render_to_fit_terminal, v_scroll_bar
 from functools import lru_cache
 from dataclasses import dataclass
 from component import NavDirection, ContainerV, Button, IfHover
@@ -83,54 +83,19 @@ my_second_position = Coordinate(x=0, y=4)
 
 
 
+layout = border ** padding(1) ** hbox_flex([
+    flex() ** min_size(0, 0) ** shrink ** static_box([
+        border ** padding(1) ** text("hi hur 'r det \ntest test\n\nhej"),
+        custom_padding(right=3) ** offset(x=2) ** text("hi hej"),
+    ]),
+    no_flex ** vbar(":"),
+    flex() ** min_size(0, 0) ** padding(1) ** text("hej hej, test")
+])
 
-
-print(render_to_fit_terminal(
-    vbox_flex([
-        flex() ** text("hej hej"),
-        no_flex ** hbar(),
-        flex() ** hbox_flex([
-            flex() ** min_size(0, 0) ** shrink ** border ** text("hej hej"),
-            flex() ** min_size(0, 0) ** border ** text("hej hej"),
-            flex(3) ** min_size(0, 0) ** border ** text("hej hej"),
-            flex() ** min_size(0, 0) ** border ** text("hej hej"),
-            flex() ** min_size(0, 0) ** border ** text("hej hej"),
-        ]),
-        no_flex ** background(Color.CYAN) ** fill ** hbox_flex([
-            flex() ** hbox([
-                background(Color.BLUE) ** text("text"),
-                text(" "),
-                background(Color.BLUE) ** text("hej"),
-                text(" "),
-                background(Color.BLUE) ** text("patreon"),
-                text(" "),
-                vbar()
-            ]),
-            no_flex ** text(".")
-        ])
-    ])
-))
+print(render_to_fit_terminal(layout))
 
 #TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
 # ok no this is bad idea, i need to add configurable basis and make 1 the default.
-
-# layout = border(vbox_flex([
-#     Flex() | vbox([
-#         text(str(i) + " hi") for i in range(15)
-#     ]),
-#     Flex(grow=0, shrink=0, basis=True) | vbox([
-#         separator() 
-#         text("menuhej"),
-#         text("menuhejsan"),
-#     ]k
-# ]))
-
-# print(render(layout))
-# ok now
-
-# so screenview and allocated space is different
-# allocated space may change after every node
-# screenview changes only on containers so that elements think they have more space han they have
 
 
 # TODO:
