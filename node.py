@@ -3,10 +3,12 @@ from typing import Self, Any
 from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle
 from math import floor, ceil
 from enum import Enum, auto
+from functools import reduce
 
 import os
 
 __all__ = [
+    "Justify",
     "render",
     "render_to_fit_terminal",
 
@@ -23,7 +25,7 @@ __all__ = [
     "foreground",
     "background",
 
-    # additional information decorators
+    # misc decorators
     "border",
     "fill",
     "fill_custom",
@@ -36,11 +38,13 @@ __all__ = [
     "offset",
     "custom_padding",
     "padding",
+    "center",
 
     # data
     "hbar",
     "vbar",
     "text",
+    "adaptive_text",
 
     # containers
     "vbox",
@@ -49,6 +53,8 @@ __all__ = [
     "hbox_flex",
     "static_box",
 ]
+
+LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 @dataclass(frozen=True)
 class BorderStyle:
@@ -59,7 +65,7 @@ class BorderStyle:
     corner_br: str
     corner_bl: str
 
-# BORDER_ROUNDED = BorderStyle(
+# BORDER_SHARP = BorderStyle(
 #     line_v="│",
 #     line_h="─",
 #     corner_tl="┌",
@@ -163,6 +169,48 @@ def text(string: str):
         frame.draw_string(string, box.offset)
     return Node(min_size, render)
 
+class Justify(Enum):
+    LEFT = auto()
+    CENTER = auto()
+    RIGHT = auto()
+
+def _line_len(line: list[str]) -> int:
+    return sum(len(i) for i in line) + len(line) - 1
+
+def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
+    lines: list[list[str]] = []
+    curr_line: list[str] = []
+    for word in words:
+        if _line_len(curr_line) + len(word) <= max_width:
+            curr_line.append(word)
+        else:
+            lines.append(curr_line)
+            curr_line = [word]
+    if curr_line != "":
+        lines.append(curr_line)
+    return [" ".join(i) for i in lines]
+
+def adaptive_text(string: str=LOREM, justify=Justify.LEFT):
+    min_size = Box(width=len(string), height=1)
+    words = string.split()
+    def render(frame: Frame, box: Box):
+        lines = _split_by_lines(box.width, words)
+        print(lines)
+        match justify:
+            case Justify.LEFT:
+                for index, line in enumerate(lines):
+                    frame.draw_string(line, box.offset + Coordinate(0, index))
+            case Justify.CENTER:
+                for index, line in enumerate(lines):
+                    available_space = box.width - len(line)
+                    frame.draw_string(line, box.offset + Coordinate(available_space // 2, index))
+            case Justify.RIGHT:
+                for index, line in enumerate(lines):
+                    available_space = box.width - len(line)
+                    frame.draw_string(line, box.offset + Coordinate(available_space, index))
+    return Node(min_size, render)
+
+
 @applicable
 def empty(node: Node):
     return node
@@ -241,7 +289,6 @@ def border(node: Node):
     )
     style = BORDER_ROUNDED
     def render(frame: Frame, box: Box):
-        node.render(frame, box.shrink(1, 1, 1, 1))
         frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset )
         frame.draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset )
         frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset + Coordinate(box.width-1, 0))
@@ -250,6 +297,7 @@ def border(node: Node):
         frame.draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
         frame.draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
         frame.draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
+        node.render(frame, box.shrink(1, 1, 1, 1))
     return Node(min_size, render)
 
 def vbox(nodes: list[Node]):
@@ -277,6 +325,23 @@ def hbox(nodes: list[Node]):
             node.render(frame.shrink_to(child_box), child_box)
             at_x += child_box.width
     return Node(min_size, render)
+
+@applicable
+def center(node: Node):
+    def render(frame: Frame, box: Box):
+        empty_space_x = even_divide(box.width - node.min_size.width, 2)
+        empty_space_y = even_divide(box.height - node.min_size.height, 2)
+        node.render(
+            frame,
+            box.shrink(
+                top=empty_space_y[0],
+                bottom=empty_space_y[1],
+                left=empty_space_x[0],
+                right=empty_space_x[1]
+            )
+        )
+
+    return Node(node.min_size, render)
 
 def _fill_custom(char: str, node: Node):
     def render(frame: Frame, box: Box):
@@ -338,7 +403,7 @@ def shrink(node: Node):
             node.min_size.height,
             box.offset
         )
-        node.render(frame.shrink_to(child_box), child_box)
+        node.render(frame, child_box)
     return Node(node.min_size, render)
 
 def _min_size(width: int, height: int, node: Node):
@@ -351,9 +416,6 @@ def min_size(width: int, height: int):
     def out(node: Node):
         return _min_size(width, height, node)
     return out
-
-
-
 
 @dataclass
 class Flex:
@@ -450,31 +512,31 @@ def static_box(nodes: list[Node]):
     return Node(min_size, render)
 # ╵╷│
 
-def v_scroll_bar(start: float, end: float, progress_gradient=V_PROGRESS):
-    min_size = Box(1, 0)
-    def render(frame: Frame, box: Box):
-        start_at = box.height * start
-        start_at_int = floor(start_at)
-        start_at_progress = abs(start_at - start_at_int - 1)
+# def v_scroll_bar(start: float, end: float, progress_gradient=V_PROGRESS):
+#     min_size = Box(1, 0)
+#     def render(frame: Frame, box: Box):
+#         start_at = box.height * start
+#         start_at_int = floor(start_at)
+#         start_at_progress = abs(start_at - start_at_int - 1)
 
-        end_at = box.height * end
-        end_at_int = floor(end_at)
-        end_at_progress = end_at - end_at_int
-        # print("start: ", start_at, "end: ", end_at)
-        # print("starti: ", start_at_int, "endi: ", end_at_int)
-        # print("startp: ", start_at_progress, "endp: ", end_at_progress)
-        for i in range(box.height):
-            render_frame = frame
-            if i == start_at_int:
-                pixel = progress_gradient[int(start_at_progress * (len(progress_gradient)-1))]
-            elif i == end_at_int:
-                pixel = progress_gradient[int(end_at_progress * (len(progress_gradient)-1))]
-                render_frame = frame.with_pixel(frame.default_pixel.add_styles(CharStyle.REVERSED))
-            elif start_at_int < i < end_at_int:
-                pixel = progress_gradient[-1]
-            else:
-                pixel = progress_gradient[0]
+#         end_at = box.height * end
+#         end_at_int = floor(end_at)
+#         end_at_progress = end_at - end_at_int
+#         # print("start: ", start_at, "end: ", end_at)
+#         # print("starti: ", start_at_int, "endi: ", end_at_int)
+#         # print("startp: ", start_at_progress, "endp: ", end_at_progress)
+#         for i in range(box.height):
+#             render_frame = frame
+#             if i == start_at_int:
+#                 pixel = progress_gradient[int(start_at_progress * (len(progress_gradient)-1))]
+#             elif i == end_at_int:
+#                 pixel = progress_gradient[int(end_at_progress * (len(progress_gradient)-1))]
+#                 render_frame = frame.with_pixel(frame.default_pixel.add_styles(CharStyle.REVERSED))
+#             elif start_at_int < i < end_at_int:
+#                 pixel = progress_gradient[-1]
+#             else:
+#                 pixel = progress_gradient[0]
 
-            render_frame.draw_pixel(pixel, Coordinate(0, i) + box.offset)
+#             render_frame.draw_pixel(pixel, Coordinate(0, i) + box.offset)
 
-    return Node(min_size, render)
+#     return Node(min_size, render)

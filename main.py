@@ -1,7 +1,7 @@
 import asyncio
 from node import *
 from classes import Coordinate
-from node import empty, render, Color, render_to_fit_terminal, v_scroll_bar
+from node import empty, render, Color, render_to_fit_terminal
 from functools import lru_cache
 from dataclasses import dataclass
 from component import NavDirection, ContainerV, Button, IfHover
@@ -83,16 +83,23 @@ my_second_position = Coordinate(x=0, y=4)
 
 
 
-layout = border ** padding(1) ** hbox_flex([
-    flex() ** min_size(0, 0) ** shrink ** static_box([
-        border ** padding(1) ** text("hi hur 'r det \ntest test\n\nhej"),
-        custom_padding(right=3) ** offset(x=2) ** text("hi hej"),
+layout = vbox_flex([
+    no_flex ** static_box([
+        hbar("="),
+        bold ** center ** foreground(Color.CYAN) ** text(" hej "),
     ]),
-    no_flex ** vbar(":"),
-    flex() ** min_size(0, 0) ** padding(1) ** text("hej hej, test")
+    # flex() ** min_size(0, 0) ** border ** center ** border ** text("hej"),
+    flex(2) ** padding(2) ** vbox([
+        border ** padding(1) ** adaptive_text(justify=Justify.LEFT),
+        border ** padding(1) ** adaptive_text(justify=Justify.CENTER),
+        shrink ** border ** padding(1) ** adaptive_text(justify=Justify.RIGHT),
+        border ** padding(1) ** adaptive_text("hej", justify=Justify.LEFT),
+    ])
 ])
-
 print(render_to_fit_terminal(layout))
+
+# TODO TODO TODO:
+# uh oh, time for dinamic min_sizes i guess
 
 #TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
 # ok no this is bad idea, i need to add configurable basis and make 1 the default.
