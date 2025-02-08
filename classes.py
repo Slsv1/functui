@@ -101,6 +101,20 @@ class Box:
             height=self.height - top - bottom,
             offset=self.offset + Coordinate(left, top)
         )
+
+    def expand(
+        self,
+        top: int = 0,
+        bottom: int = 0,
+        left: int = 0,
+        right: int = 0,
+    ) -> Self:
+        return self.__class__(
+            width=self.width + left + right,
+            height=self.height + top + bottom,
+            offset=self.offset - Coordinate(left, top)
+        )
+
     def intersect(self, other: Self) -> Self:
         x1 = max(self.offset.x, other.offset.x)
         x2 = min(self.offset.x+self.width, other.offset.x+other.width)
@@ -137,25 +151,65 @@ class Box:
         return self.offset.x <= point.x < (self.offset.x + self.width)\
             and self.offset.y <= point.y < (self.offset.y + self.height) 
 
+#
+# Instructions
+#
+
+type DrawInstruction = DrawPixel | DrawBox | DrawString
 
 @dataclass(frozen=True)
-class Frame:
+class DrawPixel:
+    pixel: Pixel
+    at: Coordinate = Coordinate(0, 0)
+
+@dataclass(frozen=True)
+class DrawBox:
+    fill: Pixel
+    width: int
+    height: int
+    at: Coordinate = Coordinate(0, 0)
+
+@dataclass(frozen=True)
+class DrawString:
+    content: str
+    at: Coordinate = Coordinate(0, 0)
+
+def apply_draw_instructions(screen: Screen, instructions: list[DrawInstruction]):
+    for instruction in instructions:
+        if isinstance(instruction, DrawPixel):
+            screen.set(instruction.at, instruction.pixel)
+        elif isinstance(instruction, DrawBox):
+            for x in range(instruction.at.x, instruction.at.x + instruction.width):
+                for y in range(instruction.at.y, instruction.at.y + instruction.height):
+                    screen.set(Coordinate(x, y), instruction.fill)
+        else:
+            for y, line in enumerate(instruction.content.split('\n')):
+                for x, char in enumerate(line):
+                    at = Coordinate(x+instruction.at.x, y+instruction.at.y)
+                    screen.set(at, screen.get(at).with_char(char))
+
+
+
+@dataclass(frozen=True)
+class View:
     """a sub part of the screen"""
-    view_box: Box
+    box: Box
     screen: Screen
     default_pixel: Pixel
 
     def with_pixel(self, pixel: Pixel):
         return self.__class__(
-            view_box=self.view_box,
+            box=self.box,
             screen=self.screen,
             default_pixel=pixel
         )
 
-    def draw_pixel(self, fill: str, at: Coordinate) -> None:
-        if not self.view_box.is_point_inside(at):
-            return
-        self.screen.set(at, self.default_pixel.with_char(fill))
+    def draw_pixel(self, fill: str, at: Coordinate) -> DrawPixel:
+        if self.box.is_point_inside(at):
+            return DrawPixel(self.default_pixel.with_char(fill), at)
+            # TODO:
+            # this can returen none and if we are adding to list it will get annoying
+            # maybe the command list may be stored in view (which is hella wierd, but think about caching also)
 
     def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
         for x in range(start.x, start.x + width):
@@ -166,27 +220,54 @@ class Frame:
         for y, line in enumerate(content.split('\n')):
             for x, char in enumerate(line):
                 self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
-    
-    # def get_and_set_pixel(self, func: Callable[[Pixel], Pixel], at: Coordinate) -> None:
-    #     """i use get and set because then this all can be converted into commands in the future.
-    #     If i have get functions then it cant be really implemented as commands because immidiate feedback would be needed"""
-    #     return self.screen.set(at, func(self.screen.get(at)))
-    
-    # def get_and_set_box(self, func: Callable[[Pixel], Pixel], width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
-    #     for x in range(start.x, start.x + width):
-    #         for y in range(start.y, start.y + height):
-    #             self.get_and_set_pixel(func, Coordinate(x, y))
 
     def shrink_to(self, other_box):
-        return Frame(
-            view_box=self.view_box.intersect(other_box),
+        return View(
+            box=self.box.intersect(other_box),
             screen=self.screen,
             default_pixel=self.default_pixel
         )
 
-@dataclass(frozen=True)
+
+
+
+@dataclass
+class Result:
+    size: Box
+    instructions: list
+
+@dataclass
 class Node:
-    min_size: Box
-    render: Callable[[Frame, Box], None]
-    # Frame is the view to the screen
-    # Box is the dimensions for the node
+    fixed_width: Callable[[int, bool], Result]
+    fixed_height: Callable[[int, bool], Result]
+
+def border(child: Node):
+    # return Partial(_border, child)
+
+# cached
+def _border_process(child, view, max_box, shrink):
+    result = child(view, max_box.shrink(1, 1, 1, 1), shrink)
+    box = result.box.expand(1, 1, 1, 1) if shrink else max_box
+    return Result(box, view.add_after([
+        ...,
+        ...,
+        ...,
+    ]))
+
+
+
+
+
+
+
+
+
+
+# def border(child: Node):
+#     instructions = lambda size: [DrawBox(size.origin, ..., ..., ...)]
+#     expand = lambda box: box.expand(1, 1, 1, 1)
+
+#     return Node(
+#         fixed_width=lambda width, shrink: child.fixed_width(width-2, shrink).add_instructions_after(instructions).expand_by(expand)
+#         fixed_height=lambda width, shrink: child.fixed_height(height-2, shrink).add_instructions_after(instructions).expand_by(expand)
+#     )

@@ -145,6 +145,7 @@ def default_color_to_ansi_driver(pixel: Pixel):
     return "".join(out)
 
 
+
 def render(width: int, height: int, root_node: Node):
     screen = Screen(width, height)
     root_node.render(Frame(Box(width, height), screen, Pixel()), Box(width, height))
