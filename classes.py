@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Self, Callable, Protocol
 from enum import IntFlag, auto
 
@@ -8,7 +8,7 @@ __all__ = [
     "Box",
     "View",
     "Node",
-    "applicable",
+    # "applicable",
     "DrawInstruction",
 ]
 
@@ -175,25 +175,12 @@ class DrawString:
     content: str
     at: Coordinate = Coordinate(0, 0)
 
-def apply_draw_instructions(screen: Screen, instructions: list[DrawInstruction]):
-    for instruction in instructions:
-        if isinstance(instruction, DrawPixel):
-            screen.set(instruction.at, instruction.pixel)
-        elif isinstance(instruction, DrawBox):
-            for x in range(instruction.at.x, instruction.at.x + instruction.width):
-                for y in range(instruction.at.y, instruction.at.y + instruction.height):
-                    screen.set(Coordinate(x, y), instruction.fill)
-        else:
-            for y, line in enumerate(instruction.content.split('\n')):
-                for x, char in enumerate(line):
-                    at = Coordinate(x+instruction.at.x, y+instruction.at.y)
-                    screen.set(at, screen.get(at).with_char(char))
 
 @dataclass
 class InstructionConstructor():
     box: Box
     default_pixel: Pixel
-    instruction_list: list[DrawInstruction] = []
+    instruction_list: list[DrawInstruction] = field(default_factory=list)
 
     def draw_pixel(self, fill: str, at: Coordinate):
         if self.box.is_point_inside(at):
