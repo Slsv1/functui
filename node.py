@@ -10,7 +10,8 @@ import os
 __all__ = [
     "render",
     "text",
-    "border"
+    "border",
+    "vbox",
 ]
 
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
@@ -136,7 +137,7 @@ def _text_render(string: str, view: View, box: Box, shrink: bool):
     min_size = Box(
         width=max([len(i) for i in split_string]),
         height=len(split_string)
-    )
+    ) if shrink else box
     return Result(min_size, [DrawString(string, box.offset)])
 
 def text(string: str):
@@ -253,36 +254,38 @@ def text(string: str):
 def _border_render(child: Node, view: View, box: Box, shrink: bool):
     child_res = child(view, box.shrink(1, 1, 1, 1), shrink)
     style = BORDER_ROUNDED
+    self_box = child_res.size.expand(1, 1, 1, 1)
     child_res.instructions.extend(view.start_drawing()
-        .draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset )
-        .draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset )
-        .draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset + Coordinate(box.width-1, 0))
-        .draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset + Coordinate(0, box.height-1))
+        .draw_box(fill=style.line_v, width=1, height=self_box.height, start=box.offset )
+        .draw_box(fill=style.line_h, width=self_box.width, height=1, start=box.offset )
+        .draw_box(fill=style.line_v, width=1, height=self_box.height, start=box.offset + Coordinate(self_box.width-1, 0))
+        .draw_box(fill=style.line_h, width=self_box.width, height=1, start=box.offset + Coordinate(0, self_box.height-1))
         .draw_pixel(fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
-        .draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
-        .draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
-        .draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
+        .draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(self_box.width-1, 0))
+        .draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(self_box.width-1, self_box.height-1))
+        .draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, self_box.height-1))
         .finish_drawing()
     )
-    return Result(
-        child_res.size.expand(1, 1, 1, 1),
-        child_res.instructions,
-    )
+    return Result(self_box, child_res.instructions)
+
 def border(child: Node):
     return partial(_border_render, child)
 
-# def vbox(nodes: list[Node]):
-#     min_size = Box(
-#         max(i.min_size.width for i in nodes),
-#         sum(i.min_size.height for i in nodes)
-#     ) if nodes else Box(0, 0)
-#     def render(frame: Frame, box: Box):
-#         at_y = 0
-#         for node in nodes:
-#             child_box = Box(box.width, node.min_size.height).offset_by(box.offset + Coordinate(0, at_y))
-#             node.render(frame.shrink_to(child_box), child_box)
-#             at_y += child_box.height
-#     return Node(min_size, render)
+def vbox(children: list[Node]):
+    return partial(_vbox_render, children)
+
+def _vbox_render(children: list[Node], view: View, box: Box, shrink: bool):
+    at_y = 0
+    instructions = []
+    child_widths = []
+    for child in children:
+        result = child(view.shrink_to(box), box.offset_by(Coordinate(0, at_y)), True)
+        instructions.extend(result.instructions)
+        child_widths.append(result.size.width)
+        at_y += result.size.height
+    return Result(Box(max(child_widths), at_y) if shrink else box, instructions)
+
+
 
 # def hbox(nodes: list[Node]):
 #     min_size = Box(

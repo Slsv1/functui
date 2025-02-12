@@ -27,7 +27,19 @@ from classes import CharStyle
 #TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
 # ok no this is bad idea, i need to add configurable basis and make 1 the default.
 
-print(render(40, 10, border(border(text("he\nh ehehed")))))
+print(render(40, 20, border(
+    vbox([
+        border(text("hi")),
+        border(text("hej")),
+        text("hej"),
+        border(vbox([
+            border(text("hi")),
+            border(text("hej")),
+            text("hej"),
+        ])),
+        text("brooo")
+    ])
+)))
 
 # TODO:
 # navigation up down left right, maybe a function nav(direction)
