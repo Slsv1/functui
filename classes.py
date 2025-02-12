@@ -1,28 +1,29 @@
 from dataclasses import dataclass
-from typing import Any, Self, Callable
+from typing import Any, Self, Callable, Protocol
 from enum import IntFlag, auto
 
 __all__ = [
     "Coordinate",
     "Screen",
     "Box",
-    "Frame",
+    "View",
     "Node",
-    "applicable"
+    "applicable",
+    "DrawInstruction",
 ]
 
 
-@dataclass(frozen=True)
-class Applicable[T, U]:
-    func: Callable[[T], U]
-    def __pow__(self, other: T) -> U:
-        return self.func(other)
-    def __call__(self, arg: T) -> U:
-        return self.func(arg)
+# @dataclass(frozen=True)
+# class Applicable[T, U]:
+#     func: Callable[[T], U]
+#     def __pow__(self, other: T) -> U:
+#         return self.func(other)
+#     def __call__(self, arg: T) -> U:
+#         return self.func(arg)
 
 
-def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
-    return Applicable(func)
+# def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
+#     return Applicable(func)
 
 @dataclass(frozen=True)
 class Coordinate:
@@ -188,71 +189,69 @@ def apply_draw_instructions(screen: Screen, instructions: list[DrawInstruction])
                     at = Coordinate(x+instruction.at.x, y+instruction.at.y)
                     screen.set(at, screen.get(at).with_char(char))
 
+@dataclass
+class InstructionConstructor():
+    box: Box
+    default_pixel: Pixel
+    instruction_list: list[DrawInstruction] = []
+
+    def draw_pixel(self, fill: str, at: Coordinate):
+        if self.box.is_point_inside(at):
+            self.instruction_list.append(DrawPixel(self.default_pixel.with_char(fill), at))
+            # TODO:
+            # this can returen none and if we are adding to list it will get annoying
+            # maybe the command list may be stored in view (which is hella wierd, but think about caching also)
+        return self
+
+    def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)):
+        for x in range(start.x, start.x + width):
+            for y in range(start.y, start.y + height):
+                self.draw_pixel(fill, Coordinate(x, y))
+        return self
+
+    def draw_string(self, content: str, at: Coordinate = Coordinate(0, 0)):
+        for y, line in enumerate(content.split('\n')):
+            for x, char in enumerate(line):
+                self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
+        return self
+    def finish_drawing(self):
+        return self.instruction_list
 
 
 @dataclass(frozen=True)
 class View:
     """a sub part of the screen"""
     box: Box
-    screen: Screen
     default_pixel: Pixel
 
     def with_pixel(self, pixel: Pixel):
         return self.__class__(
             box=self.box,
-            screen=self.screen,
             default_pixel=pixel
         )
-
-    def draw_pixel(self, fill: str, at: Coordinate) -> DrawPixel:
-        if self.box.is_point_inside(at):
-            return DrawPixel(self.default_pixel.with_char(fill), at)
-            # TODO:
-            # this can returen none and if we are adding to list it will get annoying
-            # maybe the command list may be stored in view (which is hella wierd, but think about caching also)
-
-    def draw_box(self, fill: str, width: int, height: int, start: Coordinate = Coordinate(0, 0)) -> None:
-        for x in range(start.x, start.x + width):
-            for y in range(start.y, start.y + height):
-                self.draw_pixel(fill, Coordinate(x, y))
-
-    def draw_string(self, content: str, at: Coordinate = Coordinate(0, 0)) -> None:
-        for y, line in enumerate(content.split('\n')):
-            for x, char in enumerate(line):
-                self.draw_pixel(char, Coordinate(x+at.x, y+at.y))
-
+    def start_drawing(self):
+        return InstructionConstructor(
+            self.box,
+            self.default_pixel
+        )
     def shrink_to(self, other_box):
         return View(
             box=self.box.intersect(other_box),
-            screen=self.screen,
             default_pixel=self.default_pixel
         )
-
-
-
 
 @dataclass
 class Result:
     size: Box
     instructions: list
 
-@dataclass
-class Node:
-    fixed_width: Callable[[int, bool], Result]
-    fixed_height: Callable[[int, bool], Result]
+# type Node = Callable[[View, Box, bool], Result]
 
-def border(child: Node):
-    # return Partial(_border, child)
 
-# cached
-def _border_process(child, view, max_box, shrink):
-    result = child(view, max_box.shrink(1, 1, 1, 1), shrink)
-    box = result.box.expand(1, 1, 1, 1) if shrink else max_box
-    return Result(box, view.add_after([
-        ...,
-        ...,
-        ...,
-    ]))
+class Node(Protocol):
+    def __call__(self, view: View, box: Box, shrink: bool) -> Result:
+        ...
+
 
 
 

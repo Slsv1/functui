@@ -1,57 +1,16 @@
 from dataclasses import dataclass
 from typing import Self, Any
-from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle
+from classes import View, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Result, DrawBox, DrawPixel, DrawString
 from math import floor, ceil
 from enum import Enum, auto
-from functools import reduce
+from functools import reduce, partial
 
 import os
 
 __all__ = [
-    "Justify",
     "render",
-    "render_to_fit_terminal",
-
-    # debug decorators
-    "print_debug",
-
-    # style decorators
-    "add_style",
-    "bold",
-    "italic",
-    "underlined",
-    "reverse",
-    "no_style",
-    "foreground",
-    "background",
-
-    # misc decorators
-    "border",
-    "fill",
-    "fill_custom",
-
-    # sizing decorators
-    "flex",
-    "no_flex",
-    "min_size",
-    "shrink",
-    "offset",
-    "custom_padding",
-    "padding",
-    "center",
-
-    # data
-    "hbar",
-    "vbar",
     "text",
-    "adaptive_text",
-
-    # containers
-    "vbox",
-    "hbox",
-    "vbox_flex",
-    "hbox_flex",
-    "static_box",
+    "border"
 ]
 
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
@@ -148,158 +107,154 @@ def default_color_to_ansi_driver(pixel: Pixel):
 
 def render(width: int, height: int, root_node: Node):
     screen = Screen(width, height)
-    root_node.render(Frame(Box(width, height), screen, Pixel()), Box(width, height))
+    root_node(
+        view=View(Box(width, height),screen, Pixel()),
+        box=Box(width, height), 
+        shrink=False
+    )
     return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines())
 
 
-@applicable
-def print_debug(node: Node):
-    print("child minsize:", node.min_size)
-    def render(frame: Frame, box: Box):
-        node.render(frame, box)
-    return Node(node.min_size, render)
 
-
-def text(string: str):
+def _text_render(string: str, view: View, box: Box, shrink: bool):
     split_string = string.split('\n')
     min_size = Box(
         width=max([len(i) for i in split_string]),
         height=len(split_string)
     )
-    def render(frame: Frame, box: Box):
-        frame.draw_string(string, box.offset)
-    return Node(min_size, render)
+    return Result(min_size, [DrawString(string, box.offset)])
 
-class Justify(Enum):
-    LEFT = auto()
-    CENTER = auto()
-    RIGHT = auto()
+def text(string: str):
+    return partial(_text_render, string)
 
-def _line_len(line: list[str]) -> int:
-    return sum(len(i) for i in line) + len(line) - 1
+# class Justify(Enum):
+#     LEFT = auto()
+#     CENTER = auto()
+#     RIGHT = auto()
 
-def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
-    lines: list[list[str]] = []
-    curr_line: list[str] = []
-    for word in words:
-        if _line_len(curr_line) + len(word) <= max_width:
-            curr_line.append(word)
-        else:
-            lines.append(curr_line)
-            curr_line = [word]
-    if curr_line != "":
-        lines.append(curr_line)
-    return [" ".join(i) for i in lines]
+# def _line_len(line: list[str]) -> int:
+#     return sum(len(i) for i in line) + len(line) - 1
 
-def adaptive_text(string: str=LOREM, justify=Justify.LEFT):
-    min_size = Box(width=len(string), height=1)
-    words = string.split()
-    def render(frame: Frame, box: Box):
-        lines = _split_by_lines(box.width, words)
-        print(lines)
-        match justify:
-            case Justify.LEFT:
-                for index, line in enumerate(lines):
-                    frame.draw_string(line, box.offset + Coordinate(0, index))
-            case Justify.CENTER:
-                for index, line in enumerate(lines):
-                    available_space = box.width - len(line)
-                    frame.draw_string(line, box.offset + Coordinate(available_space // 2, index))
-            case Justify.RIGHT:
-                for index, line in enumerate(lines):
-                    available_space = box.width - len(line)
-                    frame.draw_string(line, box.offset + Coordinate(available_space, index))
-    return Node(min_size, render)
+# def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
+#     lines: list[list[str]] = []
+#     curr_line: list[str] = []
+#     for word in words:
+#         if _line_len(curr_line) + len(word) <= max_width:
+#             curr_line.append(word)
+#         else:
+#             lines.append(curr_line)
+#             curr_line = [word]
+#     if curr_line != "":
+#         lines.append(curr_line)
+#     return [" ".join(i) for i in lines]
+
+# def adaptive_text(string: str=LOREM, justify=Justify.LEFT):
+#     min_size = Box(width=len(string), height=1)
+#     words = string.split()
+#     def render(frame: Frame, box: Box):
+#         lines = _split_by_lines(box.width, words)
+#         print(lines)
+#         match justify:
+#             case Justify.LEFT:
+#                 for index, line in enumerate(lines):
+#                     frame.draw_string(line, box.offset + Coordinate(0, index))
+#             case Justify.CENTER:
+#                 for index, line in enumerate(lines):
+#                     available_space = box.width - len(line)
+#                     frame.draw_string(line, box.offset + Coordinate(available_space // 2, index))
+#             case Justify.RIGHT:
+#                 for index, line in enumerate(lines):
+#                     available_space = box.width - len(line)
+#                     frame.draw_string(line, box.offset + Coordinate(available_space, index))
+#     return Node(min_size, render)
 
 
-@applicable
-def empty(node: Node):
-    return node
+# def add_style(style: CharStyle, node: Node):
+#     def render(frame: Frame, box: Box):
+#         node.render(
+#             frame.with_pixel(frame.default_pixel.add_styles(style)),
+#             box
+#         )
+#     return Node(node.min_size, render)
+# @applicable
+# def no_style(node: Node):
+#     def render(frame: Frame, box: Box):
+#         node.render(
+#             frame.with_pixel(Pixel(style=CharStyle(0))),
+#             box
+#         )
+#     return Node(node.min_size, render)
+# @applicable
+# def bold(node: Node):
+#     return add_style(CharStyle.BOLD, node)
+# @applicable
+# def reverse(node: Node):
+#     return add_style(CharStyle.REVERSED, node)
+# @applicable
+# def underlined(node: Node):
+#     return add_style(CharStyle.UNDERLINED, node)
+# @applicable
+# def italic(node: Node):
+#     return add_style(CharStyle.ITALIC, node)
 
-def add_style(style: CharStyle, node: Node):
-    def render(frame: Frame, box: Box):
-        node.render(
-            frame.with_pixel(frame.default_pixel.add_styles(style)),
-            box
-        )
-    return Node(node.min_size, render)
-@applicable
-def no_style(node: Node):
-    def render(frame: Frame, box: Box):
-        node.render(
-            frame.with_pixel(Pixel(style=CharStyle(0))),
-            box
-        )
-    return Node(node.min_size, render)
-@applicable
-def bold(node: Node):
-    return add_style(CharStyle.BOLD, node)
-@applicable
-def reverse(node: Node):
-    return add_style(CharStyle.REVERSED, node)
-@applicable
-def underlined(node: Node):
-    return add_style(CharStyle.UNDERLINED, node)
-@applicable
-def italic(node: Node):
-    return add_style(CharStyle.ITALIC, node)
+# def _foreground(color: Any, node: Node):
+#     def render(frame: Frame, box: Box):
+#         node.render(
+#             frame.with_pixel(Pixel(
+#                 fg_color=color,
+#                 bg_color=frame.default_pixel.bg_color,
+#                 style=frame.default_pixel.style
+#             )),
+#             box
+#         )
+#     return Node(node.min_size, render)
 
-def _foreground(color: Any, node: Node):
-    def render(frame: Frame, box: Box):
-        node.render(
-            frame.with_pixel(Pixel(
-                fg_color=color,
-                bg_color=frame.default_pixel.bg_color,
-                style=frame.default_pixel.style
-            )),
-            box
-        )
-    return Node(node.min_size, render)
+# def _background(color: Any, node: Node):
+#     def render(frame: Frame, box: Box):
+#         node.render(
+#             frame.with_pixel(Pixel(
+#                 fg_color=frame.default_pixel.fg_color,
+#                 bg_color=color,
+#                 style=frame.default_pixel.style
+#             )),
+#             box
+#         )
+#     return Node(node.min_size, render)
 
-def _background(color: Any, node: Node):
-    def render(frame: Frame, box: Box):
-        node.render(
-            frame.with_pixel(Pixel(
-                fg_color=frame.default_pixel.fg_color,
-                bg_color=color,
-                style=frame.default_pixel.style
-            )),
-            box
-        )
-    return Node(node.min_size, render)
+# @applicable
+# def foreground(color: Any):
+#     @applicable
+#     def out(node: Node):
+#         return _foreground(color, node)
+#     return out
 
-@applicable
-def foreground(color: Any):
-    @applicable
-    def out(node: Node):
-        return _foreground(color, node)
-    return out
+# @applicable
+# def background(color: Any):
+#     @applicable
+#     def out(node: Node):
+#         return _background(color, node)
+#     return out
 
-@applicable
-def background(color: Any):
-    @applicable
-    def out(node: Node):
-        return _background(color, node)
-    return out
-
-@applicable
-def border(node: Node):
-    min_size = Box(
-        node.min_size.width + 2,
-        node.min_size.height + 2,
-    )
+def _border_render(child: Node, view: View, box: Box, shrink: bool):
+    child_res = child(view, box.shrink(1, 1, 1, 1), shrink)
     style = BORDER_ROUNDED
-    def render(frame: Frame, box: Box):
-        frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset )
-        frame.draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset )
-        frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset + Coordinate(box.width-1, 0))
-        frame.draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset + Coordinate(0, box.height-1))
-        frame.draw_pixel(fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
-        frame.draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
-        frame.draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
-        frame.draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
-        node.render(frame, box.shrink(1, 1, 1, 1))
-    return Node(min_size, render)
+    child_res.instructions.extend(view.start_drawing()
+        .draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset )
+        .draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset )
+        .draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset + Coordinate(box.width-1, 0))
+        .draw_box(fill=style.line_h, width=box.width, height=1, start=box.offset + Coordinate(0, box.height-1))
+        .draw_pixel(fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
+        .draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
+        .draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
+        .draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
+        .finish_drawing()
+    )
+    return Result(
+        child_res.size.expand(1, 1, 1, 1),
+        child_res.instructions,
+    )
+def border(child: Node):
+    return partial(_border_render, child)
 
 def vbox(nodes: list[Node]):
     min_size = Box(
@@ -327,7 +282,6 @@ def hbox(nodes: list[Node]):
             at_x += child_box.width
     return Node(min_size, render)
 
-@applicable
 def center(node: Node):
     def render(frame: Frame, box: Box):
         empty_space_x = even_divide(box.width - node.min_size.width, 2)
