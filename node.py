@@ -14,7 +14,10 @@ __all__ = [
     "vbox",
     "v_adaptive_text",
     "Justify",
-    "LOREM"
+    "LOREM",
+    "vbox_flex",
+    "Flex",
+    "flex",
 ]
 
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
@@ -232,6 +235,56 @@ def _vbox_render(children: list[Node], view: View, box: Box, shrink: bool, class
         at_y += result.size.height
     min_rect = Rect(max(child_widths), at_y)
     return Result(min_rect.limit(box.rect) if shrink else box.rect, instructions)
+
+@dataclass
+class Flex:
+    node: Node
+    grow: int
+    shrink: int
+
+def flex(grow=1, shrink=1):
+    @applicable
+    def out(child: Node):
+        return Flex(child, grow, shrink)
+    return out
+
+def even_divide(num, denomenator) -> list[int]:
+    return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
+
+
+def vbox_flex(children: list[Flex]):
+    return partial(_vbox_flex_render, children)
+
+def _vbox_flex_render(children: list[Flex], view: View, box: Box, shrink: bool, class_dict: ClassDict):
+    child_minsizes = []
+    for flex in children:
+        child_minsizes.append(flex.node(view, box, True, class_dict).size)
+    min_size = Rect(
+        max(i.width for i in child_minsizes),
+        sum(i.height for i in child_minsizes)
+    ) if children else Rect(0, 0)
+
+    reserved_space = sum(i.node.min_size.height for i in child_minsizes)
+    print(reserved_space)
+    total_grow = sum(i.grow for i in children)
+    total_shrink = sum(i.shrink for i in children)
+    available_space = box.height - reserved_space
+    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    at_y = 0
+    results = []
+    for i, flex in enumerate(children):
+        child_box = Box(
+            width=box.width,
+            height=child_minsizes[i].height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+        )
+        child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
+        results.append(flex.node(view.shrink_to(child_box), child_box, False, class_dict).instructions)
+        at_y += child_box.height
+    
+
+    return Result(min_size, results)
+
+
 
 # def add_style(style: CharStyle, node: Node):
 #     def render(frame: Frame, box: Box):

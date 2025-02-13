@@ -28,11 +28,9 @@ from classes import CharStyle
 # ok no this is bad idea, i need to add configurable basis and make 1 the default.
 
 print(render(47, 20, ClassDict(), border(
-    vbox([
-        text("hi, how are ya maite"),
-        border ** v_adaptive_text(LOREM, justify=Justify.CENTER),
-        border ** text("hi, how are ya maite\nhej"),
-    ]) # what boxes are have coordinate coordinate no the 
+    vbox_flex([
+        flex(1, 1) ** text("he")
+    ])
 )))
 
 # TODO:
