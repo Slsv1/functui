@@ -1,6 +1,6 @@
 import asyncio
 from node import *
-from classes import Coordinate
+from classes import Coordinate, ClassDict
 from node import render, Color, render_to_fit_terminal
 from functools import lru_cache
 from dataclasses import dataclass
@@ -27,11 +27,11 @@ from classes import CharStyle
 #TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
 # ok no this is bad idea, i need to add configurable basis and make 1 the default.
 
-print(render(42, 20, border(
+print(render(47, 20, ClassDict(), border(
     vbox([
         text("hi, how are ya maite"),
-        border(v_adaptive_text(LOREM, justify=Justify.CENTER)),
-        border(text("hi, how are ya maite\nhej")),
+        border ** v_adaptive_text(LOREM, justify=Justify.CENTER),
+        border ** text("hi, how are ya maite\nhej"),
     ]) # what boxes are have coordinate coordinate no the 
 )))
 

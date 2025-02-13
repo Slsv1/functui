@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Self, Any
-from classes import View, Box, Node, Screen, Coordinate, Pixel, CharStyle, Result, DrawBox, DrawPixel, DrawString, DrawInstruction
+from classes import View, Box, Node, Screen, Coordinate, Pixel, CharStyle, Result, DrawBox, DrawPixel, DrawInstruction, Rect, ClassDict, applicable
 from math import floor, ceil
 from enum import Enum, auto
 from functools import reduce, partial
@@ -122,27 +122,31 @@ def apply_draw_instructions(screen: Screen, instructions: list[DrawInstruction])
                     at = Coordinate(x+instruction.at.x, y+instruction.at.y)
                     screen.set(at, screen.get(at).with_char(char))
 
-def render(width: int, height: int, root_node: Node):
+def render(width: int, height: int, class_dict: ClassDict, root_node: Node):
     screen = Screen(width, height)
     result = root_node(
         view=View(Box(width, height), Pixel()),
         box=Box(width, height), 
-        shrink=False
+        shrink=False,
+        class_dict=class_dict
     )
     apply_draw_instructions(screen, result.instructions)
 
     return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines())
 
 
+def pick_rect(min_rect: Rect, max_rect: Rect, shrink: bool):
+    return min_rect if shrink else min_rect.union(max_rect)
 
-def _text_render(string: str, view: View, box: Box, shrink: bool):
+def _text_render(string: str, view: View, box: Box, shrink: bool, class_dict: ClassDict):
     split_string = string.split('\n')
-    min_size = Box(
-        width=max([len(i) for i in split_string]),
-        height=len(split_string)
-    ) if shrink else box
-    return Result(min_size, [DrawString(string, box.offset)])
-
+    return Result(
+        pick_rect(Rect(
+            width=max([len(i) for i in split_string]),
+            height=len(split_string)
+        ), box.rect, shrink),
+        view.start_drawing().draw_string(string, box.offset).finish_drawing()
+    )
 def text(string: str):
     return partial(_text_render, string)
 
@@ -170,7 +174,7 @@ def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
 def v_adaptive_text(string: str="sample text", justify: Justify=Justify.LEFT):
     return partial(_v_adaptive_text_render, string, justify)
 
-def _v_adaptive_text_render(string: str, justify: Justify, view: View, box: Box, shrink: bool):
+def _v_adaptive_text_render(string: str, justify: Justify, view: View, box: Box, shrink: bool, class_dict: ClassDict):
     words = string.split()
     lines = _split_by_lines(box.width, words)
     drawer = view.start_drawing()
@@ -187,10 +191,47 @@ def _v_adaptive_text_render(string: str, justify: Justify, view: View, box: Box,
                 available_space = box.width - len(line)
                 drawer.draw_string(line, box.offset + Coordinate(available_space, index))
     return Result(
-        Box(box.width, len(lines)) if shrink else box,
+        pick_rect(Rect(box.width, len(lines)), box.rect, shrink),
         drawer.finish_drawing()
     )
 
+
+def _border_render(child: Node, view: View, box: Box, shrink: bool, class_dict: ClassDict):
+    child_res = child(view, box.shrink(1, 1, 1, 1), shrink, class_dict)
+    style = BORDER_ROUNDED
+    rect = child_res.size.expand(2, 2)
+    child_res.instructions.extend(view.start_drawing()
+        .draw_box(fill=style.line_v, width=1, height=rect.height, start=box.offset )
+        .draw_box(fill=style.line_h, width=rect.width, height=1, start=box.offset )
+        .draw_box(fill=style.line_v, width=1, height=rect.height, start=box.offset + Coordinate(rect.width-1, 0))
+        .draw_box(fill=style.line_h, width=rect.width, height=1, start=box.offset + Coordinate(0, rect.height-1))
+        .draw_pixel(fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
+        .draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(rect.width-1, 0))
+        .draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(rect.width-1, rect.height-1))
+        .draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, rect.height-1))
+        .finish_drawing()
+    )
+    return Result(rect, child_res.instructions)
+
+@applicable
+def border(child: Node):
+    return partial(_border_render, child)
+
+def vbox(children: list[Node]):
+    return partial(_vbox_render, children)
+
+ADDITIONAL_SPACE = 64
+def _vbox_render(children: list[Node], view: View, box: Box, shrink: bool, class_dict: ClassDict):
+    at_y = 0
+    instructions = []
+    child_widths = []
+    for child in children:
+        result = child(view.shrink_to(box), box.offset_by(Coordinate(0, at_y)).expand(bottom=ADDITIONAL_SPACE), True, class_dict)
+        instructions.extend(result.instructions)
+        child_widths.append(result.size.width)
+        at_y += result.size.height
+    min_rect = Rect(max(child_widths), at_y)
+    return Result(min_rect.limit(box.rect) if shrink else box.rect, instructions)
 
 # def add_style(style: CharStyle, node: Node):
 #     def render(frame: Frame, box: Box):
@@ -257,44 +298,6 @@ def _v_adaptive_text_render(string: str, justify: Justify, view: View, box: Box,
 #     def out(node: Node):
 #         return _background(color, node)
 #     return out
-
-def _border_render(child: Node, view: View, box: Box, shrink: bool):
-    child_res = child(view, box.shrink(1, 1, 1, 1), shrink)
-    style = BORDER_ROUNDED
-    self_box = child_res.size.expand(1, 1, 1, 1)
-    child_res.instructions.extend(view.start_drawing()
-        .draw_box(fill=style.line_v, width=1, height=self_box.height, start=box.offset )
-        .draw_box(fill=style.line_h, width=self_box.width, height=1, start=box.offset )
-        .draw_box(fill=style.line_v, width=1, height=self_box.height, start=box.offset + Coordinate(self_box.width-1, 0))
-        .draw_box(fill=style.line_h, width=self_box.width, height=1, start=box.offset + Coordinate(0, self_box.height-1))
-        .draw_pixel(fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
-        .draw_pixel(fill=style.corner_tr, at=box.offset + Coordinate(self_box.width-1, 0))
-        .draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(self_box.width-1, self_box.height-1))
-        .draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, self_box.height-1))
-        .finish_drawing()
-    )
-    return Result(self_box, child_res.instructions)
-
-def border(child: Node):
-    return partial(_border_render, child)
-
-def vbox(children: list[Node]):
-    return partial(_vbox_render, children)
-
-def _vbox_render(children: list[Node], view: View, box: Box, shrink: bool):
-    at_y = 0
-    instructions = []
-    child_widths = []
-    for child in children:
-        result = child(view.shrink_to(box), box.offset_by(Coordinate(0, at_y)), True)
-        instructions.extend(result.instructions)
-        child_widths.append(result.size.width)
-        at_y += result.size.height
-    return Result(pick_box(Box(max(child_widths), at_y), box, shrink), instructions)
-
-def pick_box(min_box: Box, max_box: Box, shrink: bool):
-    return min_box if shrink else max_box
-
 
 # def hbox(nodes: list[Node]):
 #     min_size = Box(

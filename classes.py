@@ -8,22 +8,32 @@ __all__ = [
     "Box",
     "View",
     "Node",
-    # "applicable",
+    "Rect",
     "DrawInstruction",
+    "applicable",
+    "ClassDict",
 ]
 
 
-# @dataclass(frozen=True)
-# class Applicable[T, U]:
-#     func: Callable[[T], U]
-#     def __pow__(self, other: T) -> U:
-#         return self.func(other)
-#     def __call__(self, arg: T) -> U:
-#         return self.func(arg)
+@dataclass(frozen=True)
+class Applicable[T, U]:
+    func: Callable[[T], U]
+    def __pow__(self, other: T) -> U:
+        return self.func(other)
+    def __call__(self, arg: T) -> U:
+        return self.func(arg)
 
 
-# def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
-#     return Applicable(func)
+def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
+    return Applicable(func)
+
+class ClassDict:
+    def __init__(self) -> None:
+        self._data = {}
+    def set(self, item):
+        self._data[item.__class__] = item
+    def try_get[T](self, item_type: type[T]) -> T | None:
+        return self._data.get(item_type, None)
 
 @dataclass(frozen=True)
 class Coordinate:
@@ -86,10 +96,33 @@ class Screen:
         return tuple(out)
 
 @dataclass(frozen=True)
+class Rect:
+    width: int
+    height: int
+    def expand(self, width: int=0, height: int=0) -> Self:
+        return self.__class__(
+            width = self.width + width,
+            height = self.height + height,
+        )
+    def union(self, other: Self) -> Self:
+        return self.__class__(
+            width = self.width if other.width < self.width else other.width,
+            height = self.height if other.height < self.height else other.height,
+        )
+    def limit(self, other: Self) -> Self:
+        return self.__class__(
+            width = self.width if other.width > self.width else other.width,
+            height = self.height if other.height > self.height else other.height,
+        )
+
+@dataclass(frozen=True)
 class Box:
     width: int
     height: int
     offset: Coordinate = Coordinate(0, 0)
+    @property
+    def rect(self) -> Rect:
+        return Rect(self.width, self.height)
     def shrink(
         self,
         top: int = 0,
@@ -130,8 +163,8 @@ class Box:
     def is_empty(self) -> bool:
         return self.width <= 0 or self.height <= 0
 
-    def offset_by(self, coordinate: Coordinate):
-        return Box(
+    def offset_by(self, coordinate: Coordinate) -> Self:
+        return self.__class__(
             width=self.width,
             height=self.height,
             offset=self.offset + coordinate
@@ -151,6 +184,7 @@ class Box:
     def is_point_inside(self, point: Coordinate):
         return self.offset.x <= point.x < (self.offset.x + self.width)\
             and self.offset.y <= point.y < (self.offset.y + self.height) 
+
 
 #
 # Instructions
@@ -229,14 +263,14 @@ class View:
 
 @dataclass
 class Result:
-    size: Box
+    size: Rect
     instructions: list
 
 # type Node = Callable[[View, Box, bool], Result]
 
 
 class Node(Protocol):
-    def __call__(self, view: View, box: Box, shrink: bool) -> Result:
+    def __call__(self, view: View, box: Box, shrink: bool, class_dict: ClassDict) -> Result:
         ...
 
 
