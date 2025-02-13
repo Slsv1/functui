@@ -290,8 +290,10 @@ def _vbox_render(children: list[Node], view: View, box: Box, shrink: bool):
         instructions.extend(result.instructions)
         child_widths.append(result.size.width)
         at_y += result.size.height
-    return Result(Box(max(child_widths), at_y) if shrink else box, instructions)
+    return Result(pick_box(Box(max(child_widths), at_y), box, shrink), instructions)
 
+def pick_box(min_box: Box, max_box: Box, shrink: bool):
+    return min_box if shrink else max_box
 
 
 # def hbox(nodes: list[Node]):

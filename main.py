@@ -31,7 +31,8 @@ print(render(42, 20, border(
     vbox([
         text("hi, how are ya maite"),
         border(v_adaptive_text(LOREM, justify=Justify.CENTER)),
-    ])
+        border(text("hi, how are ya maite\nhej")),
+    ]) # what boxes are have coordinate coordinate no the 
 )))
 
 # TODO:
