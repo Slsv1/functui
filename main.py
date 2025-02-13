@@ -27,17 +27,10 @@ from classes import CharStyle
 #TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
 # ok no this is bad idea, i need to add configurable basis and make 1 the default.
 
-print(render(40, 20, border(
+print(render(42, 20, border(
     vbox([
-        border(text("hi")),
-        border(text("hej")),
-        text("hej"),
-        border(vbox([
-            border(text("hi")),
-            border(text("hej")),
-            text("hej"),
-        ])),
-        text("brooo")
+        text("hi, how are ya maite"),
+        border(v_adaptive_text(LOREM, justify=Justify.CENTER)),
     ])
 )))
 

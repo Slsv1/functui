@@ -12,6 +12,9 @@ __all__ = [
     "text",
     "border",
     "vbox",
+    "v_adaptive_text",
+    "Justify",
+    "LOREM"
 ]
 
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
@@ -143,46 +146,50 @@ def _text_render(string: str, view: View, box: Box, shrink: bool):
 def text(string: str):
     return partial(_text_render, string)
 
-# class Justify(Enum):
-#     LEFT = auto()
-#     CENTER = auto()
-#     RIGHT = auto()
+class Justify(Enum):
+    LEFT = auto()
+    CENTER = auto()
+    RIGHT = auto()
 
-# def _line_len(line: list[str]) -> int:
-#     return sum(len(i) for i in line) + len(line) - 1
+def _line_len(line: list[str]) -> int:
+    return sum(len(i) for i in line) + len(line) - 1
 
-# def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
-#     lines: list[list[str]] = []
-#     curr_line: list[str] = []
-#     for word in words:
-#         if _line_len(curr_line) + len(word) <= max_width:
-#             curr_line.append(word)
-#         else:
-#             lines.append(curr_line)
-#             curr_line = [word]
-#     if curr_line != "":
-#         lines.append(curr_line)
-#     return [" ".join(i) for i in lines]
+def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
+    lines: list[list[str]] = []
+    curr_line: list[str] = []
+    for word in words:
+        if _line_len(curr_line) + len(word) + 1 <= max_width: # +1 because space
+            curr_line.append(word)
+        else:
+            lines.append(curr_line)
+            curr_line = [word]
+    if curr_line != "":
+        lines.append(curr_line)
+    return [" ".join(i) for i in lines]
 
-# def adaptive_text(string: str=LOREM, justify=Justify.LEFT):
-#     min_size = Box(width=len(string), height=1)
-#     words = string.split()
-#     def render(frame: Frame, box: Box):
-#         lines = _split_by_lines(box.width, words)
-#         print(lines)
-#         match justify:
-#             case Justify.LEFT:
-#                 for index, line in enumerate(lines):
-#                     frame.draw_string(line, box.offset + Coordinate(0, index))
-#             case Justify.CENTER:
-#                 for index, line in enumerate(lines):
-#                     available_space = box.width - len(line)
-#                     frame.draw_string(line, box.offset + Coordinate(available_space // 2, index))
-#             case Justify.RIGHT:
-#                 for index, line in enumerate(lines):
-#                     available_space = box.width - len(line)
-#                     frame.draw_string(line, box.offset + Coordinate(available_space, index))
-#     return Node(min_size, render)
+def v_adaptive_text(string: str="sample text", justify: Justify=Justify.LEFT):
+    return partial(_v_adaptive_text_render, string, justify)
+
+def _v_adaptive_text_render(string: str, justify: Justify, view: View, box: Box, shrink: bool):
+    words = string.split()
+    lines = _split_by_lines(box.width, words)
+    drawer = view.start_drawing()
+    match justify:
+        case Justify.LEFT:
+            for index, line in enumerate(lines):
+                drawer.draw_string(line, box.offset + Coordinate(0, index))
+        case Justify.CENTER:
+            for index, line in enumerate(lines):
+                available_space = box.width - len(line)
+                drawer.draw_string(line, box.offset + Coordinate(available_space // 2, index))
+        case Justify.RIGHT:
+            for index, line in enumerate(lines):
+                available_space = box.width - len(line)
+                drawer.draw_string(line, box.offset + Coordinate(available_space, index))
+    return Result(
+        Box(box.width, len(lines)) if shrink else box,
+        drawer.finish_drawing()
+    )
 
 
 # def add_style(style: CharStyle, node: Node):
