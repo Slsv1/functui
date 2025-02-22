@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Self, Any
-from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle
+from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical
 from math import floor, ceil
 from enum import Enum, auto
 from functools import reduce
@@ -161,7 +161,7 @@ def print_debug(node: Node):
 
 def text(string: str):
     split_string = string.split('\n')
-    min_size = Box(
+    min_size = lambda _: Rect(
         width=max([len(i) for i in split_string]),
         height=len(split_string)
     )
@@ -174,6 +174,10 @@ class Justify(Enum):
     CENTER = auto()
     RIGHT = auto()
 
+class Expand(Enum):
+    VERTICAL = auto()
+    HORIZONTAL = auto()
+
 def _line_len(line: list[str]) -> int:
     return sum(len(i) for i in line) + len(line) - 1
 
@@ -181,7 +185,7 @@ def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
     lines: list[list[str]] = []
     curr_line: list[str] = []
     for word in words:
-        if _line_len(curr_line) + len(word) <= max_width:
+        if _line_len(curr_line) + 1 + len(word)<= max_width: # +1 because space between existing line and new word
             curr_line.append(word)
         else:
             lines.append(curr_line)
@@ -190,8 +194,8 @@ def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
         lines.append(curr_line)
     return [" ".join(i) for i in lines]
 
-def adaptive_text(string: str=LOREM, justify=Justify.LEFT):
-    min_size = Box(width=len(string), height=1)
+def adaptive_text(string: str=LOREM, justify=Justify.LEFT, overflow=Expand.VERTICAL):
+    # min_size = Box(width=len(string), height=1)
     words = string.split()
     def render(frame: Frame, box: Box):
         lines = _split_by_lines(box.width, words)
@@ -208,6 +212,12 @@ def adaptive_text(string: str=LOREM, justify=Justify.LEFT):
                 for index, line in enumerate(lines):
                     available_space = box.width - len(line)
                     frame.draw_string(line, box.offset + Coordinate(available_space, index))
+    def min_size(available: Rect):
+        lines = _split_by_lines(available.width, words)
+        return Rect(
+            max(len(i) for i in lines),
+            len(lines)
+        )
     return Node(min_size, render)
 
 
@@ -283,10 +293,6 @@ def background(color: Any):
 
 @applicable
 def border(node: Node):
-    min_size = Box(
-        node.min_size.width + 2,
-        node.min_size.height + 2,
-    )
     style = BORDER_ROUNDED
     def render(frame: Frame, box: Box):
         frame.draw_box(fill=style.line_v, width=1, height=box.height, start=box.offset )
@@ -298,20 +304,17 @@ def border(node: Node):
         frame.draw_pixel(fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
         frame.draw_pixel(fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
         node.render(frame, box.shrink(1, 1, 1, 1))
-    return Node(min_size, render)
+    return Node(min_size_expand(node.min_size, 2, 2), render)
 
 def vbox(nodes: list[Node]):
-    min_size = Box(
-        max(i.min_size.width for i in nodes),
-        sum(i.min_size.height for i in nodes)
-    ) if nodes else Box(0, 0)
     def render(frame: Frame, box: Box):
         at_y = 0
         for node in nodes:
-            child_box = Box(box.width, node.min_size.height).offset_by(box.offset + Coordinate(0, at_y))
-            node.render(frame.shrink_to(child_box), child_box)
+            child_min_size = node.min_size(box.rect)
+            child_box = Box(box.width, child_min_size.height).offset_by(box.offset + Coordinate(0, at_y))
+            node.render(frame.shrink_to(child_box.intersect(box)), child_box)
             at_y += child_box.height
-    return Node(min_size, render)
+    return Node(min_size_vertical([i.min_size for i in nodes]), render)
 
 def hbox(nodes: list[Node]):
     min_size = Box(
@@ -437,29 +440,24 @@ def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
 
 def vbox_flex(nodes: list[Flex]):
-    min_size = Box(
-        max(i.node.min_size.width for i in nodes),
-        sum(i.node.min_size.height for i in nodes)
-    ) if nodes else Box(0, 0)
-
-    reserved_space = sum(i.node.min_size.height for i in nodes)
-    print(reserved_space)
-    total_grow = sum(i.grow for i in nodes)
-    total_shrink = sum(i.shrink for i in nodes)
-
     def render(frame: Frame, box: Box):
+        reserved_space = sum(i.node.min_size(box.rect).height for i in nodes)
+        total_grow = sum(i.grow for i in nodes)
+        total_shrink = sum(i.shrink for i in nodes)
+
         available_space = box.height - reserved_space
         space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
         at_y = 0
         for flex in nodes:
+            child_min_size = flex.node.min_size(box.rect)
             child_box = Box(
                 width=box.width,
-                height=flex.node.min_size.height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+                height=child_min_size.height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
             )
             child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
             flex.node.render(frame.shrink_to(child_box), child_box)
             at_y += child_box.height
-    return Node(min_size, render)
+    return Node(min_size_vertical([i.node.min_size for i in nodes]), render)
 
 def hbox_flex(nodes: list[Flex]):
     min_size = Box(
