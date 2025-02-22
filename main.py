@@ -78,25 +78,28 @@ from classes import CharStyle
 # if before then stuff like text cant just override but need to check
 # if after then it gets vierd, but maybe then i can use my pipes???
 
-my_position = Coordinate(x=1, y=1)
-my_second_position = Coordinate(x=0, y=4)
+# layout = vbox_flex([
+#     no_flex ** static_box([
+#         hbar("="),
+#         bold ** center ** foreground(Color.CYAN) ** text(" hej "),
+#     ]),
+#     # flex() ** min_size(0, 0) ** border ** center ** border ** text("hej"),
+#     flex(2) ** padding(2) ** vbox([
+#         border ** padding(1) ** adaptive_text(justify=Justify.LEFT),
+#         border ** padding(1) ** adaptive_text(justify=Justify.CENTER),
+#         shrink ** border ** padding(1) ** adaptive_text(justify=Justify.RIGHT),
+#         border ** padding(1) ** adaptive_text("hej", justify=Justify.LEFT),
+#     ])
+# ])
 
 
-
-layout = vbox_flex([
-    no_flex ** static_box([
-        hbar("="),
-        bold ** center ** foreground(Color.CYAN) ** text(" hej "),
-    ]),
-    # flex() ** min_size(0, 0) ** border ** center ** border ** text("hej"),
-    flex(2) ** padding(2) ** vbox([
-        border ** padding(1) ** adaptive_text(justify=Justify.LEFT),
-        border ** padding(1) ** adaptive_text(justify=Justify.CENTER),
-        shrink ** border ** padding(1) ** adaptive_text(justify=Justify.RIGHT),
-        border ** padding(1) ** adaptive_text("hej", justify=Justify.LEFT),
-    ])
+layout = border ** vbox_flex([
+    no_flex ** border ** text("hej"),
+    flex(1) ** foreground(Color.CYAN) ** border ** no_style ** italic ** adaptive_text(justify=Justify.LEFT),
+    no_flex ** border ** text("hej\ntest\nbroo"),
 ])
-print(render_to_fit_terminal(layout))
+
+print(render(90, 19,layout))
 
 # TODO TODO TODO:
 # uh oh, time for dinamic min_sizes i guess

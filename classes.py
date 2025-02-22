@@ -8,6 +8,7 @@ __all__ = [
     "Box",
     "Frame",
     "Node",
+    "Rect",
     "applicable"
 ]
 
@@ -83,6 +84,26 @@ class Screen:
             current_row = tuple([self.get(Coordinate(w, h)) for w in range(self.width)])
             out.append(current_row)
         return tuple(out)
+        
+@dataclass(frozen=True)
+class Rect:
+    width: int
+    height: int
+    def expand(self, width: int=0, height: int=0) -> Self:
+        return self.__class__(
+            width = self.width + width,
+            height = self.height + height,
+        )
+    def union(self, other: Self) -> Self:
+        return self.__class__(
+            width = self.width if other.width < self.width else other.width,
+            height = self.height if other.height < self.height else other.height,
+        )
+    def limit(self, other: Self) -> Self:
+        return self.__class__(
+            width = self.width if other.width > self.width else other.width,
+            height = self.height if other.height > self.height else other.height,
+        )
 
 @dataclass(frozen=True)
 class Box:
@@ -101,6 +122,9 @@ class Box:
             height=self.height - top - bottom,
             offset=self.offset + Coordinate(left, top)
         )
+    @property
+    def rect(self) -> Rect:
+        return Rect(self.width, self.height)
     def intersect(self, other: Self) -> Self:
         x1 = max(self.offset.x, other.offset.x)
         x2 = min(self.offset.x+self.width, other.offset.x+other.width)
@@ -184,9 +208,32 @@ class Frame:
             default_pixel=self.default_pixel
         )
 
+type MinSize = Callable[[Rect], Rect]
+
 @dataclass(frozen=True)
 class Node:
-    min_size: Box
+    min_size: MinSize
     render: Callable[[Frame, Box], None]
     # Frame is the view to the screen
     # Box is the dimensions for the node
+
+# minsize util functions
+
+def min_size_expand(
+    child_size: MinSize,
+    width_change: int,
+    height_change: int
+) -> MinSize:
+    def out(from_size: Rect):
+        return child_size(from_size.expand(-width_change, -height_change)).expand(width_change, height_change)
+    return out
+
+def min_size_vertical(
+    children_sizes: list[MinSize],
+) -> MinSize:
+    def out(from_size):
+        return Rect(
+            max(i(from_size).width for i in children_sizes),
+            sum(i(from_size).height for i in children_sizes),
+        ) if children_sizes else Rect(0, 0)
+    return out
