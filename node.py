@@ -45,6 +45,7 @@ __all__ = [
     "vbar",
     "text",
     "adaptive_text",
+    "v_scroll_bar",
 
     # containers
     "vbox",
@@ -509,6 +510,45 @@ def static_box(nodes: list[Node]):
             node.render(frame, box)
     return Node(min_size, render)
 # ╵╷│
+def clamp(n, smallest, largest): return max(smallest, min(n, largest))
+
+def v_scroll_bar(start: float, showing: float):
+    def render(frame: Frame, box: Box):
+        start_at_pixel = box.height * start
+        start_at_pixel_int = floor(start_at_pixel)
+        start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
+
+        end_at_pixel = box.height * start + box.height * showing # should be clampt
+        end_at_pixel_int = floor(end_at_pixel)
+        end_at_progress = end_at_pixel - end_at_pixel_int
+
+        match [start_at_progress > 0.33, start_at_progress > 0.66]:
+            case [True, True]:
+                start_char = "│"
+            case [True, False]:
+                start_char = "╷"
+            case _:
+                start_char = " "
+
+        match [end_at_progress > 0.33, end_at_progress > 0.66]:
+            case [True, True]:
+                end_char = "│"
+            case [True, False]:
+                end_char = "╵"
+            case _:
+                end_char = " "
+        
+        for i in range(box.height):
+            if i == start_at_pixel_int:
+                frame.draw_pixel(start_char, box.offset + Coordinate(0, i))
+            elif i == end_at_pixel_int:
+                frame.draw_pixel(end_char, box.offset + Coordinate(0, i))
+            elif start_at_pixel_int < i < end_at_pixel_int:
+                frame.draw_pixel("│", box.offset + Coordinate(0, i))
+    return Node(lambda _: Rect(1, 1), render)
+
+def clamp(n, smallest, largest): return max(smallest, min(n, largest))
+
 
 # def v_scroll_bar(start: float, end: float, progress_gradient=V_PROGRESS):
 #     min_size = Box(1, 0)
