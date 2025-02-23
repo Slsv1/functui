@@ -16,6 +16,7 @@ __all__ = [
     "print_debug",
 
     # style decorators
+    "Color",
     "add_style",
     "bold",
     "italic",
@@ -24,11 +25,13 @@ __all__ = [
     "no_style",
     "foreground",
     "background",
+    "strike_through",
 
     # misc decorators
     "border",
     "fill",
     "fill_custom",
+    "empty",
 
     # sizing decorators
     "flex",
@@ -130,6 +133,8 @@ def style_to_ansi(style: CharStyle):
         out.append("\033[4m")
     if CharStyle.REVERSED in style:
         out.append("\033[7m")
+    if CharStyle.STRIKE_THROUGH in style:
+        out.append("\033[9m")
     return "".join(out)
 
 def default_color_to_ansi_driver(pixel: Pixel):
@@ -253,6 +258,9 @@ def underlined(node: Node):
 @applicable
 def italic(node: Node):
     return add_style(CharStyle.ITALIC, node)
+@applicable
+def strike_through(node: Node):
+    return add_style(CharStyle.STRIKE_THROUGH, node)
 
 def _foreground(color: Any, node: Node):
     def render(frame: Frame, box: Box):
