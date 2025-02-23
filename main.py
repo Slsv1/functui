@@ -96,7 +96,10 @@ from classes import CharStyle
 layout = border ** vbox_flex([
     no_flex ** text("hej"),
     flex(1) ** foreground(Color.CYAN) ** border ** no_style ** italic ** adaptive_text(justify=Justify.LEFT),
-    flex(1) ** border ** bold ** v_scroll_bar(0.1, 0.5)
+    flex(1) ** border ** hbox_flex([
+        flex(1) ** adaptive_text(),
+        no_flex ** v_scroll_bar(0.1, 0.5)
+    ])
 ])
 
 print(render(90, 19,layout))

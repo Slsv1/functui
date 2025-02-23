@@ -237,3 +237,13 @@ def min_size_vertical(
             sum(i(from_size).height for i in children_sizes),
         ) if children_sizes else Rect(0, 0)
     return out
+
+def min_size_horizontal(
+    children_sizes: list[MinSize],
+) -> MinSize:
+    def out(from_size):
+        return Rect(
+            sum(i(from_size).width for i in children_sizes),
+            max(i(from_size).height for i in children_sizes),
+        ) if children_sizes else Rect(0, 0)
+    return out

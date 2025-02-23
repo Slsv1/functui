@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Self, Any
-from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical
+from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical, min_size_horizontal
 from math import floor, ceil
 from enum import Enum, auto
 from functools import reduce
@@ -318,17 +318,15 @@ def vbox(nodes: list[Node]):
     return Node(min_size_vertical([i.min_size for i in nodes]), render)
 
 def hbox(nodes: list[Node]):
-    min_size = Box(
-        sum(i.min_size.width for i in nodes),
-        max(i.min_size.height for i in nodes)
-    ) if nodes else Box(0, 0)
     def render(frame: Frame, box: Box):
         at_x = 0
         for node in nodes:
-            child_box = Box(node.min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
-            node.render(frame.shrink_to(child_box), child_box)
+            child_min_size = node.min_size(box.rect)
+            print(at_x, child_min_size)
+            child_box = Box(child_min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
+            node.render(frame.shrink_to(child_box.intersect(box)), child_box)
             at_x += child_box.width
-    return Node(min_size, render)
+    return Node(min_size_horizontal([i.min_size for i in nodes]), render)
 
 @applicable
 def center(node: Node):
@@ -461,28 +459,24 @@ def vbox_flex(nodes: list[Flex]):
     return Node(min_size_vertical([i.node.min_size for i in nodes]), render)
 
 def hbox_flex(nodes: list[Flex]):
-    min_size = Box(
-        sum(i.node.min_size.width for i in nodes),
-        max(i.node.min_size.height for i in nodes)
-    ) if nodes else Box(0, 0)
-
-    reserved_space = sum(i.node.min_size.width for i in nodes)
-    total_grow = sum(i.grow for i in nodes)
-    total_shrink = sum(i.shrink for i in nodes)
-
     def render(frame: Frame, box: Box):
+        reserved_space = sum(i.node.min_size(box.rect).width for i in nodes)
+        total_grow = sum(i.grow for i in nodes)
+        total_shrink = sum(i.shrink for i in nodes)
+
         available_space = box.width - reserved_space
         space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
         at_x = 0
         for flex in nodes:
+            child_min_size = flex.node.min_size(box.rect)
             child_box = Box(
-                width=flex.node.min_size.width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
+                width=child_min_size.width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
                 height=box.height,
             )
             child_box = child_box.offset_by(box.offset + Coordinate(at_x, 0))
             flex.node.render(frame.shrink_to(child_box), child_box)
             at_x += child_box.width
-    return Node(min_size, render)
+    return Node(min_size_horizontal([i.node.min_size for i in nodes]), render)
 
 
 def vbar(char: str = "|"):
@@ -547,7 +541,6 @@ def v_scroll_bar(start: float, showing: float):
                 frame.draw_pixel("│", box.offset + Coordinate(0, i))
     return Node(lambda _: Rect(1, 1), render)
 
-def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
 
 # def v_scroll_bar(start: float, end: float, progress_gradient=V_PROGRESS):
