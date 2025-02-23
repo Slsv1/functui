@@ -39,6 +39,7 @@ class CharStyle(IntFlag):
     REVERSED = auto()
     ITALIC = auto()
     UNDERLINED = auto()
+    STRIKE_THROUGH = auto()
 
 @dataclass(frozen=True)
 class Pixel:
