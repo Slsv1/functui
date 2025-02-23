@@ -94,9 +94,9 @@ from classes import CharStyle
 
 
 layout = border ** vbox_flex([
-    no_flex ** border ** text("hej"),
+    no_flex ** text("hej"),
     flex(1) ** foreground(Color.CYAN) ** border ** no_style ** italic ** adaptive_text(justify=Justify.LEFT),
-    no_flex ** border ** text("hej\ntest\nbroo"),
+    flex(1) ** border ** bold ** v_scroll_bar(0.1, 0.5)
 ])
 
 print(render(90, 19,layout))
