@@ -248,3 +248,12 @@ def min_size_horizontal(
             max(i(from_size).height for i in children_sizes),
         ) if children_sizes else Rect(0, 0)
     return out
+def min_size_union(
+    children_sizes: list[MinSize],
+) -> MinSize:
+    def out(from_size):
+        return Rect(
+            max(i(from_size).width for i in children_sizes),
+            max(i(from_size).height for i in children_sizes),
+        ) if children_sizes else Rect(0, 0)
+    return out

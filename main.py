@@ -1,12 +1,10 @@
 import asyncio
 from node import *
-from classes import Coordinate
+from classes import Coordinate, Node
 from node import empty, render, Color, render_to_fit_terminal
 from functools import lru_cache
 from dataclasses import dataclass
-from component import NavDirection, ContainerV, Button, IfHover
 from classes import CharStyle
-
 # desing requirements:
 
 # MOVEMENT
@@ -92,17 +90,6 @@ from classes import CharStyle
 #     ])
 # ])
 
-
-layout = border ** vbox_flex([
-    no_flex ** text("hej"),
-    flex(1) ** foreground(Color.CYAN) ** border ** no_style ** adaptive_text(justify=Justify.LEFT),
-    flex(1) ** border ** hbox_flex([
-        flex(1) ** adaptive_text(justify=Justify.CENTER),
-        no_flex ** v_scroll_bar(0.1, 0.5)
-    ])
-])
-
-print(render(90, 19,layout))
 
 # TODO TODO TODO:
 # uh oh, time for dinamic min_sizes i guess
