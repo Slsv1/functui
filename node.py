@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Self, Any
-from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical, min_size_horizontal
+from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical, min_size_horizontal, min_size_union
 from math import floor, ceil
 from enum import Enum, auto
 from functools import reduce
@@ -32,6 +32,7 @@ __all__ = [
     "fill",
     "fill_custom",
     "empty",
+    "border_with_title",
 
     # sizing decorators
     "flex",
@@ -366,20 +367,27 @@ def fill_custom(char: str):
     return out
 
 def _offset(x: int, y: int, node: Node):
-    min_size = Box(
-        width=node.min_size.width + x,
-        height=node.min_size.height + y,
-        offset=node.min_size.offset
-    )
     def render(frame: Frame, box: Box):
         node.render(frame, box.offset_by(Coordinate(x, y)))
-    return Node(min_size, render)
+    return Node(min_size_expand(node.min_size, x, y), render)
 
 def offset(x: int=0, y: int=0):
     @applicable
     def out(node: Node):
         return _offset(x, y, node)
     return out
+
+def border_with_title(title: Node, border_node=border):
+    @applicable
+    def out(node: Node):
+        return _border_with_title(title, border_node, node)
+    return out
+
+def _border_with_title(title: Node, border_style, node: Node):
+    return static_box([
+        border_style ** node,
+        offset(1, 0) ** title,
+    ])
 
 
 @applicable
@@ -502,15 +510,10 @@ def hbar(char: str = "-"):
 V_PROGRESS = " ▁▂▃▄▅▆▇█"
 
 def static_box(nodes: list[Node]):
-    min_size = Box(
-        max(i.min_size.width for i in nodes),
-        max(i.min_size.height for i in nodes)
-    ) if nodes else Box(0, 0)
-
     def render(frame: Frame, box: Box):
         for node in nodes:
             node.render(frame, box)
-    return Node(min_size, render)
+    return Node(min_size_union([i.min_size for i in nodes]), render)
 # ╵╷│
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
