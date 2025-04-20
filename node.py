@@ -39,12 +39,13 @@ __all__ = [
     # sizing decorators
     "flex",
     "no_flex",
-    "min_size",
+    # "min_size",
     "shrink",
     "offset",
     "custom_padding",
     "padding",
     "center",
+    "floating",
 
     # data
     "hbar",
@@ -184,6 +185,13 @@ def combine(*node_constructors: NodeConstructor) -> NodeConstructor:
         rnode_constructors = reversed(node_constructors)
         return reduce(lambda a, b: b(a), rnode_constructors, child)
     return out
+
+@applicable
+def floating(node: Node):
+    def render(frame: Frame, box: Box):
+        new_box = Box(frame.screen.width, frame.screen.height)
+        node.render(Frame(box, frame.screen, frame.default_pixel), new_box)
+    return Node(lambda _: Rect(0, 0), render)
 
 class Justify(Enum):
     LEFT = auto()
@@ -419,24 +427,25 @@ padding = custom_padding(1, 1, 1, 1)
 @applicable
 def shrink(node: Node):
     def render(frame: Frame, box: Box):
+        min_size = node.min_size(box.rect)
         child_box = Box(
-            node.min_size.width,
-            node.min_size.height,
+            min_size.width,
+            min_size.height,
             box.offset
         )
         node.render(frame, child_box)
     return Node(node.min_size, render)
 
-def _min_size(width: int, height: int, node: Node):
-    def render(frame: Frame, box: Box):
-        node.render(frame, box)
-    return Node(Box(width, height, node.min_size.offset), render)
+# def _min_size(width: int, height: int, node: Node):
+#     def render(frame: Frame, box: Box):
+#         node.render(frame, box)
+#     return Node(Box(width, height, node.min_size.offset), render)
 
-def min_size(width: int, height: int):
-    @applicable
-    def out(node: Node):
-        return _min_size(width, height, node)
-    return out
+# def min_size(width: int, height: int):
+#     @applicable
+#     def out(node: Node):
+#         return _min_size(width, height, node)
+#     return out
 
 @dataclass
 class Flex:
