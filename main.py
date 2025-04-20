@@ -7,105 +7,20 @@ from dataclasses import dataclass
 from classes import CharStyle
 # desing requirements:
 
-# MOVEMENT
-# jk for vertical box
-# lh for horizontal box (if j or k pressed it takes you further down)
 
-# VISIBILITY CONTROL
-# different elements visible declerativly (functions return ui)
+# app_state = AppState()
+# BOX_ID = 1
 
-# LAYOUT
-# containers addapt size to fill content
-# boxes get layouted outside of eachother
-# parent may decide children (RULES)
-
-# layout_tree = ContainerV(vbox, (
-#     IfHover(
-#         then=border,
-#         otherwise=empty,
-#         next_component=Button(text("hej 1"))
-#     ),
-#     IfHover(
-#         then=border,
-#         otherwise=empty,
-#         next_component=Button(text("hej 1"))
-#     ),
-#     IfHover(
-#         then=border,
-#         otherwise=empty,
-#         next_component=Button(text("hej 1"))
-#     ),
-#     IfHover(
-#         then=border,
-#         otherwise=empty,
-#         next_component=ContainerV(vbox, (
-#             IfHover(
-#                 then=border,
-#                 otherwise=empty,
-#                 next_component=Button(text("hej 1"))
-#             ),
-#             IfHover(
-#                 then=border,
-#                 otherwise=empty,
-#                 next_component=Button(text("hej 1"))
-#             ),
-#             IfHover(
-#                 then=border,
-#                 otherwise=empty 
-#                 next_component=Button(text("hej 1"))
-#             ),
-#     )))
-# ))
-
-# layout_tree.use_nav(NavDirection.DOWN)
-# while True:
-#     i = input()
-#     if i == "k":
-#         if not layout_tree.use_nav(NavDirection.UP):
-#             layout_tree.use_input(i)
-#     elif i == "j":
-#         if not layout_tree.use_nav(NavDirection.DOWN):
-#             layout_tree.use_input(i)
-#     else:
-#         layout_tree.use_input(i)
-
-#     print(render(layout_tree.get_node()))
-
-# TODO:
-# think about this. Should colour be applied after child renders or before.
-# if before then stuff like text cant just override but need to check
-# if after then it gets vierd, but maybe then i can use my pipes???
-
-# layout = vbox_flex([
-#     no_flex ** static_box([
-#         hbar("="),
-#         bold ** center ** foreground(Color.CYAN) ** text(" hej "),
-#     ]),
-#     # flex() ** min_size(0, 0) ** border ** center ** border ** text("hej"),
-#     flex(2) ** padding(2) ** vbox([
-#         border ** padding(1) ** adaptive_text(justify=Justify.LEFT),
-#         border ** padding(1) ** adaptive_text(justify=Justify.CENTER),
-#         shrink ** border ** padding(1) ** adaptive_text(justify=Justify.RIGHT),
-#         border ** padding(1) ** adaptive_text("hej", justify=Justify.LEFT),
-#     ])
+# layout = border ** app_state.on_hover(
+#     id=(BOX_ID),
+#     hover=foreground(Color.RED)
+#     default=foreground(Color.GREEN)
+# ) ** vbox([
+#     app_state.on_hover(BOX_ID, 1)
 # ])
+# vidget.next()
 
-
-# TODO TODO TODO:
-# uh oh, time for dinamic min_sizes i guess
-
-#TODO: when there are items with different basis properties flexbox shold prioritese expanding those with basis 0 perchance?
-# ok no this is bad idea, i need to add configurable basis and make 1 the default.
-
-
-# TODO:
-# navigation up down left right, maybe a function nav(direction)
-# some way to have different nodes depending on state. (for example button chaning color)
-#   and preferably without needing to re-initialize (not render there is a difference!) the whole node tree but only the changed branch
- 
-
-# OPTIMISATIONS:
-# dont even start renderign stuff out of screen.
+# print(render(100, 10, layout))
 
 # define getchar
 try:

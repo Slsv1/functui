@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Self, Any
+from typing import Self, Any, Callable
 from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical, min_size_horizontal, min_size_union
 from math import floor, ceil
 from enum import Enum, auto
@@ -11,6 +11,7 @@ __all__ = [
     "Justify",
     "render",
     "render_to_fit_terminal",
+    "get_box",
 
     # debug decorators
     "print_debug",
@@ -175,6 +176,15 @@ def text(string: str):
     def render(frame: Frame, box: Box):
         frame.draw_string(string, box.offset)
     return Node(min_size, render)
+
+def get_box(box_func: Callable[[Box], None]):
+    @applicable
+    def _gen(child: Node):
+        def render(frame: Frame, box: Box):
+            box_func(box)
+            child.render(frame, box)
+        return Node(child.min_size, render)
+    return _gen
 
 class Justify(Enum):
     LEFT = auto()

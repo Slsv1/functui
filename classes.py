@@ -8,6 +8,7 @@ __all__ = [
     "Box",
     "Frame",
     "Node",
+    "NodeConstructor",
     "Rect",
     "applicable"
 ]
@@ -217,6 +218,8 @@ class Node:
     render: Callable[[Frame, Box], None]
     # Frame is the view to the screen
     # Box is the dimensions for the node
+
+type NodeConstructor = Applicable[Node, Node]
 
 # minsize util functions
 
