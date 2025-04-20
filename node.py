@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import Self, Any, Callable
-from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical, min_size_horizontal, min_size_union
+from classes import Frame, Box, Node, Screen, Coordinate, applicable, Pixel, CharStyle, Rect, min_size_expand, min_size_vertical, min_size_horizontal, min_size_union, NodeConstructor
 from math import floor, ceil
 from enum import Enum, auto
-from functools import reduce
+from functools import reduce, partial
+
 
 import os
 
@@ -11,7 +12,7 @@ __all__ = [
     "Justify",
     "render",
     "render_to_fit_terminal",
-    "get_box",
+    "combine",
 
     # debug decorators
     "print_debug",
@@ -177,14 +178,12 @@ def text(string: str):
         frame.draw_string(string, box.offset)
     return Node(min_size, render)
 
-def get_box(box_func: Callable[[Box], None]):
+def combine(*node_constructors: NodeConstructor) -> NodeConstructor:
     @applicable
-    def _gen(child: Node):
-        def render(frame: Frame, box: Box):
-            box_func(box)
-            child.render(frame, box)
-        return Node(child.min_size, render)
-    return _gen
+    def out(child: Node):
+        rnode_constructors = reversed(node_constructors)
+        return reduce(lambda a, b: b(a), rnode_constructors, child)
+    return out
 
 class Justify(Enum):
     LEFT = auto()
@@ -405,22 +404,16 @@ def fill(node: Node):
     return _fill_custom(" ", node)
 
 def _padding(top: int, bottom: int, left: int, right: int, node: Node):
-    min_size = Box(
-        node.min_size.width + left + right,
-        node.min_size.height + top + bottom,
-    )
     def render(frame: Frame, box: Box):
         node.render(frame, box.shrink(top, bottom, left, right))
-    return Node(min_size, render)
+    return Node(min_size_expand(node.min_size, left+right, top+bottom), render)
 
 def custom_padding(top=0, bottom=0, left=0, right=0):
     @applicable
     def out(node: Node):
         return _padding(top, bottom, left, right, node)
     return out
-
-def padding(value: int):
-    return custom_padding(value, value, value, value)
+padding = custom_padding(1, 1, 1, 1)
 
 
 @applicable
