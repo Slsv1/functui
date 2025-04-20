@@ -19,8 +19,10 @@ from classes import CharStyle
 #     app_state.on_hover(BOX_ID, 1)
 # ])
 # vidget.next()
+g = combine(border, border, padding)
 
-# print(render(100, 10, layout))
+layout = g ** text("hej")
+print(render(100, 10, layout))
 
 # define getchar
 try:
