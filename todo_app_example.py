@@ -32,7 +32,13 @@ def main_component():
         ])
     return Component(get_node, lambda: sum(i.indicies() for i in child_components))
 
-
+# min_size <- min_size
+# wrap around with min_size
+# 
+# a unit must store
+#  its size
+#  children units and be able to access their size
+# method for getting the component out
 selected_index = 0
 while True:
     user_in = input()
