@@ -5,7 +5,7 @@ from node import empty, render, Color, render_to_fit_terminal
 from functools import lru_cache
 from dataclasses import dataclass
 from classes import CharStyle
-from component import AppState
+from component import AppState, ContainerType
 
 import sys, re
 if(sys.platform == "win32"):
@@ -30,39 +30,46 @@ else:
 state = AppState()
 x = 0
 y = 0
+nav_y = 0
 active = combine(foreground(Color.CYAN), border, no_style)
 while True:
     user_in = input()
+    nav_y = 0
     if user_in == "esc":
         break
-    if user_in == "s":
+    elif user_in == "s":
         y += 1
-    if user_in == "w":
+    elif user_in == "w":
         y -= 1
-    if user_in == "a":
+    elif user_in == "a":
         x -= 1
-    if user_in == "d":
+    elif user_in == "d":
         x += 1
+    elif user_in == "j":
+        nav_y = 1
+    elif user_in == "k":
+        nav_y = -1
     mouse_pos = Coordinate(x, y)
     print(mouse_pos)
-    state.step(mouse_pos)
+    state.step(mouse_pos, Coordinate(0, nav_y))
 
     layout = static_box([
-        border ** vbox([
-            shrink ** state.on_mouse(
-                key=(1,),
+        state.container((0,), ContainerType.VERTICAL) ** border ** vbox([
+            shrink ** state.interaction(
+                key=(0, 0,),
                 default=border ** text("hej"),
-                hover=active ** text("eeee\nhej"),
+                hover=foreground(Color.CYAN) ** border ** no_style ** text("hej\nsand"),
             ),
-            shrink ** state.on_mouse(
-                key=(2,),
-                default=border ** text("crem"),
-                hover=active ** text("ddds\nddd"),
-            ),
+            shrink ** state.interaction(
+                key=(0, 1,),
+                default=border ** text("hej h"),
+                hover=foreground(Color.CYAN) ** border ** no_style ** text("hej  \nhej"),
+            )
         ]),
-        custom_padding(mouse_pos.y, 0, mouse_pos.x) ** text("x"),
+        offset(mouse_pos.x, mouse_pos.y) ** text("x")
     ])
-    print(render(10, 10, layout))
+    print(render(20, 10, layout))
+    # state._nav(Coordinate(0, 0))
 
 
 # define getchar

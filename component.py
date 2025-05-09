@@ -5,73 +5,97 @@ from dataclasses import dataclass, field
 
 from classes import *
 from classes import Node
-from node import *
+from node import empty
 from enum import Enum, auto
 
-type DataID = list[int]
+type DataID = tuple[int, ...]
 
-class Direction(Enum):
+class ContainerType(Enum):
     VERTICAL = auto()
     HORIZONTAL = auto()
-    
-
-@dataclass
-class ContainerNode:
-    node: Node
-    child_nav: Direction
-
-def _get_children_dict(d: Iterable[DataID]) -> dict[DataID, list[DataID]]:
-    out = {}
-    for id in d:
-        out.setdefault(id[:-1], []).append(out[id])
-    return out
 
 @dataclass
 class AppState:
     _mouse_position: Coordinate = Coordinate(-1, -1)
-    _data_current: dict[DataID, ContainerNode] = field(default_factory=dict)
-    _data_next: dict[DataID, ContainerNode] = field(default_factory=dict)
-    def queue_state(self, key: DataID, state: ContainerNode):
+
+    _data_current: dict[DataID, Node] = field(default_factory=dict)
+
+    _data_next: dict[DataID, Node] = field(default_factory=dict)
+    """will become _data_current when step() is called"""
+
+    _containers: dict[DataID, ContainerType] = field(default_factory=dict)
+
+    _selected_key: DataID | None = None
+    #
+    # state management
+    #
+    def queue_state(self, key: DataID, state: Node):
         self._data_next[key] = state
-    
-    def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav_positon=Coordinate(-1, -1)):
+
+    def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav=Coordinate(0, 0)):
         self._mouse_position = mouse_position
         self._data_current = self._data_next
         self._data_next = {}
 
+        if new_key := self._nav(self._selected_key or (0, 0), ContainerType.VERTICAL, nav.y):
+            print("new selected key ! !!")
+            self._selected_key = new_key
     
-    def _nav(self, nav: Coordinate):
-        x_remaining = nav.x
-        y_remaining = nav.y
-        current_container_id = [0]
-        access = lambda x: self._data_current[x]
-        child_dict = _get_children_dict(self._data_current.keys())
+    #
+    # navigation
+    #
+    def get_children(self, parent_key: DataID)-> list[int]:
+        out = []
+        target_len = len(parent_key)
+        for key in self._data_current:
+            if len(key) == target_len and key[:target_len-1] == parent_key:
+                out.append(key[target_len])
+        return out
 
-        while True:
-            if access(current_container_id).child_nav == Direction.VERTICAL:
-                children_amount = len(child_dict[current_container_id])
-                if children_amount >= y_remaining:
-                    self.queue_state(child_dict[current_container_id+])
-                    # maybe make it so that children need to be in order
-
-
-
-
-
-    def interaction(self, key: DataID, default: Node, hover: Node, child_nav=Direction.VERTICAL):
+    def _try_nearest_container(self, key: DataID, type: ContainerType) -> DataID | None:
+        for i in range(len(key)):
+            current_key = key[:-i]
+            result = self._containers.get(current_key)
+            if not result:
+                continue
+            if result != type:
+                continue
+            return key
+        return None
+    
+    def _nav(self, current_key: DataID, direction: ContainerType, delta: int) -> DataID | None:
+        if nearest_container := self._try_nearest_container(current_key, direction):
+            current_id = current_key[-1]
+            children = self.get_children(nearest_container)
+            new_index = current_id - delta
+            if new_index < 0: # if overflowing container
+                return self._nav(current_key[:-1], direction, new_index)
+            elif new_index > len(children):
+                return self._nav(current_key[:-1], direction, new_index - len(children))
+            return (*current_key[:-1], new_index)
+        
+        return None
+    #
+    # nodes
+    #
+    def interaction(self, key: DataID, default: Node, hover: Node):
         return read_box(
             self,
             key,
             self._mouse_position,
-            ContainerNode(default, child_nav),
-            ContainerNode(hover, child_nav),
-            self._data_current.get(key, ContainerNode(default, child_nav)).node
+            default,
+            hover,
+            self._data_current.get(key, default)
         )
+    
+    def container(self, key: DataID, direction: ContainerType):
+        self._containers[key] = direction
+        return empty # just so that this function can be used with this syntax " container(KEY, DIRECTION) ** vbox([...])"
  
 
-def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, default: ContainerNode, hover: ContainerNode, child: Node) -> Node:
+def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, default: Node, hover: Node, child: Node) -> Node:
     def render(frame: Frame, box: Box):
-        if box.is_point_inside(mouse_position):
+        if box.is_point_inside(mouse_position) or key == app_state._selected_key:
             app_state.queue_state(key, hover)
         else:
             app_state.queue_state(key, default)
