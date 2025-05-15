@@ -7,26 +7,6 @@ from dataclasses import dataclass
 from classes import CharStyle
 from component import AppState, DataID, Direction
 
-import sys, re
-if(sys.platform == "win32"):
-    import ctypes
-    from ctypes import wintypes
-else:
-    import termios
-
-
-# app_state = AppState()
-# BOX_ID = 1
-
-# layout = border ** app_state.on_hover(
-#     id=(BOX_ID),
-#     hover=foreground(Color.RED)
-#     default=foreground(Color.GREEN)
-# ) ** vbox([
-#     app_state.on_hover(BOX_ID, 1)
-# ])
-# vidget.next()
-
 state = AppState()
 x = 0
 y = 0
@@ -59,17 +39,17 @@ while True:
             shrink ** state.interaction(
                 key=nav.child(0),
                 default=border ** text("hej"),
-                hover=foreground(Color.CYAN) ** border ** no_style ** text("hej\nsand"),
+                hover=active ** text("hej\nsand"),
             ),
             shrink ** state.interaction(
                 key=nav.child(1),
                 default=border ** text("hej h"),
-                hover=foreground(Color.CYAN) ** border ** no_style ** text("hej  \nhej"),
+                hover=active ** text("hej  \nhej"),
             ),
             shrink ** state.interaction(
                 key=nav.child(2),
                 default=border ** text("hej h"),
-                hover=foreground(Color.CYAN) ** border ** no_style ** text("hej  \nhej"),
+                hover=active ** text("hej  \nhej"),
             )
         ]),
         offset(mouse_pos.x, mouse_pos.y) ** text("x")
