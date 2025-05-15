@@ -1,6 +1,6 @@
 from enum import Enum, auto
 from abc import ABC, abstractmethod
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Self
 from dataclasses import dataclass, field
 
 from classes import *
@@ -8,24 +8,49 @@ from classes import Node
 from node import empty
 from enum import Enum, auto
 
-type DataID = tuple[int, ...]
-
-class ContainerType(Enum):
+class Direction(Enum):
     VERTICAL = auto()
     HORIZONTAL = auto()
+
+@dataclass(frozen=True)
+class DataID:
+    data: tuple[tuple[Direction, int], ...]
+    def child(self, id: int, direction: None | Direction = None) -> Self:
+        if len(self.data):
+            return self.__class__((*self.data, (self.data[-1][0], id)))
+        return self.__class__((*self.data, (direction or Direction.VERTICAL, id)))
+
+def try_find_nearest(nav_data: list[DataID], current_index: int, direction: Direction, backwards: bool) -> int | None:
+    next_index = current_index
+    advance = lambda: current_index + (-1 if backwards else 1)
+    next_index = advance()
+
+    original_depth = len(nav_data[current_index].data)
+    nested = False
+
+    while True:
+        if next_index > len(nav_data) or next_index < 0:
+            return None
+        if nav_data[next_index] != direction:
+            nested = True 
+            next_index = advance()
+            continue
+        if nested and len(nav_data[next_index].data) > original_depth:
+            next_index = advance()
+            continue
+        return next_index
 
 @dataclass
 class AppState:
     _mouse_position: Coordinate = Coordinate(-1, -1)
 
     _data_current: dict[DataID, Node] = field(default_factory=dict)
-
     _data_next: dict[DataID, Node] = field(default_factory=dict)
+
+    _nav_data: list[DataID] = field(default_factory=list)
+    _current_selected_index: int | None = None
     """will become _data_current when step() is called"""
 
-    _containers: dict[DataID, ContainerType] = field(default_factory=dict)
-
-    _selected_key: DataID | None = None
     #
     # state management
     #
@@ -33,52 +58,27 @@ class AppState:
         self._data_next[key] = state
 
     def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav=Coordinate(0, 0)):
+        self._nav_data.clear()
         self._mouse_position = mouse_position
         self._data_current = self._data_next
         self._data_next = {}
-
-        if new_key := self._nav(self._selected_key or (0, 0), ContainerType.VERTICAL, nav.y):
-            print("new selected key ! !!")
-            self._selected_key = new_key
     
-    #
-    # navigation
-    #
-    def get_children(self, parent_key: DataID)-> list[int]:
-        out = []
-        target_len = len(parent_key)
-        for key in self._data_current:
-            if len(key) == target_len and key[:target_len-1] == parent_key:
-                out.append(key[target_len])
-        return out
-
-    def _try_nearest_container(self, key: DataID, type: ContainerType) -> DataID | None:
-        for i in range(len(key)):
-            current_key = key[:-i]
-            result = self._containers.get(current_key)
-            if not result:
-                continue
-            if result != type:
-                continue
-            return key
-        return None
-    
-    def _nav(self, current_key: DataID, direction: ContainerType, delta: int) -> DataID | None:
-        if nearest_container := self._try_nearest_container(current_key, direction):
-            current_id = current_key[-1]
-            children = self.get_children(nearest_container)
-            new_index = current_id - delta
-            if new_index < 0: # if overflowing container
-                return self._nav(current_key[:-1], direction, new_index)
-            elif new_index > len(children):
-                return self._nav(current_key[:-1], direction, new_index - len(children))
-            return (*current_key[:-1], new_index)
+        if (nav.x == 0 and nav.y == 0) or not len(self._nav_data):
+            return
+        if self._current_selected_index is None:
+            self._current_selected_index = 0
+        direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
+        if direction == Direction.HORIZONTAL:
+            backwards = True if nav.x < 0 else False
+        elif direction == Direction.VERTICAL:
+            backwards = True if nav.y < 0 else False
+        try_find_nearest(self._nav_data, self._current_selected_index, direction, backwards)
         
-        return None
     #
     # nodes
     #
-    def interaction(self, key: DataID, default: Node, hover: Node):
+    def interaction(self, key: DataID, direction: Direction, default: Node, hover: Node):
+        self._nav_data.append(key)
         return read_box(
             self,
             key,
@@ -87,11 +87,6 @@ class AppState:
             hover,
             self._data_current.get(key, default)
         )
-    
-    def container(self, key: DataID, direction: ContainerType):
-        self._containers[key] = direction
-        return empty # just so that this function can be used with this syntax " container(KEY, DIRECTION) ** vbox([...])"
- 
 
 def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, default: Node, hover: Node, child: Node) -> Node:
     def render(frame: Frame, box: Box):

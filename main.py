@@ -52,9 +52,9 @@ while True:
     mouse_pos = Coordinate(x, y)
     print(mouse_pos)
     state.step(mouse_pos, Coordinate(0, nav_y))
-
+    nav
     layout = static_box([
-        state.container((0,), ContainerType.VERTICAL) ** border ** vbox([
+        border ** vbox([
             shrink ** state.interaction(
                 key=(0, 0,),
                 default=border ** text("hej"),
