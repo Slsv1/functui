@@ -5,7 +5,7 @@ from node import empty, render, Color, render_to_fit_terminal
 from functools import lru_cache
 from dataclasses import dataclass
 from classes import CharStyle
-from component import AppState, ContainerType
+from component import AppState, DataID, Direction
 
 import sys, re
 if(sys.platform == "win32"):
@@ -52,16 +52,22 @@ while True:
     mouse_pos = Coordinate(x, y)
     print(mouse_pos)
     state.step(mouse_pos, Coordinate(0, nav_y))
-    nav
+
+    nav = DataID(((Direction.VERTICAL, 0),))
     layout = static_box([
         border ** vbox([
             shrink ** state.interaction(
-                key=(0, 0,),
+                key=nav.child(0),
                 default=border ** text("hej"),
                 hover=foreground(Color.CYAN) ** border ** no_style ** text("hej\nsand"),
             ),
             shrink ** state.interaction(
-                key=(0, 1,),
+                key=nav.child(1),
+                default=border ** text("hej h"),
+                hover=foreground(Color.CYAN) ** border ** no_style ** text("hej  \nhej"),
+            ),
+            shrink ** state.interaction(
+                key=nav.child(2),
                 default=border ** text("hej h"),
                 hover=foreground(Color.CYAN) ** border ** no_style ** text("hej  \nhej"),
             )
