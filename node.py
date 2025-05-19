@@ -508,16 +508,14 @@ def hbox_flex(nodes: list[Flex]):
 
 
 def vbar(char: str = "|"):
-    min_size = Box(1, 0)
     def render(frame: Frame, box: Box):
         frame.draw_box(char, 1, box.height, box.offset)
-    return Node(min_size, render)
+    return Node(lambda _: Rect(1, 0), render)
 
 def hbar(char: str = "-"):
-    min_size = Box(0, 1)
     def render(frame: Frame, box: Box):
         frame.draw_box(char, box.width, 1, box.offset)
-    return Node(min_size, render)
+    return Node(lambda _: Rect(0, 1), render)
 
 V_PROGRESS = " ▁▂▃▄▅▆▇█"
 

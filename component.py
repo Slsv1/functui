@@ -8,6 +8,13 @@ from classes import Node
 from node import empty
 from enum import Enum, auto
 
+__all__ = [
+    "Direction",
+    "DataID",
+    "root_vertical",
+    "AppState"
+]
+
 class Direction(Enum):
     VERTICAL = auto()
     HORIZONTAL = auto()
@@ -22,6 +29,9 @@ class DataID:
     @property
     def direction(self):
         return self.data[-1][0]
+
+def root_vertical():
+    return DataID(((Direction.VERTICAL, 0),))
 
 def try_find_nearest(nav_data: list[DataID], current_index: int, direction: Direction, backwards: bool) -> int | None:
     next_index = current_index
@@ -49,7 +59,7 @@ def try_find_nearest(nav_data: list[DataID], current_index: int, direction: Dire
 
 @dataclass
 class AppState:
-    _mouse_position: Coordinate = Coordinate(-1, -1)
+    mouse_position: Coordinate = Coordinate(-1, -1)
 
     _data_current: dict[DataID, Node] = field(default_factory=dict)
     _data_next: dict[DataID, Node] = field(default_factory=dict)
@@ -66,7 +76,7 @@ class AppState:
         self._data_next[key] = state
 
     def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav=Coordinate(0, 0)):
-        self._mouse_position = mouse_position
+        self.mouse_position = mouse_position
         self._data_current = self._data_next
         self._data_next = {}
         print(self._nav_data)
@@ -101,14 +111,14 @@ class AppState:
         return read_box(
             self,
             key,
-            self._mouse_position,
+            self.mouse_position,
             default,
             hover,
             self._data_current.get(key, default)
         ) if key != self._current_selected_dataid else read_box(
             self,
             key,
-            self._mouse_position,
+            self.mouse_position,
             default,
             hover,
             hover,
