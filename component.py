@@ -60,29 +60,29 @@ def try_find_nearest(nav_data: list[DataID], current_index: int, direction: Dire
 @dataclass
 class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
-
-    _data_current: dict[DataID, Node] = field(default_factory=dict)
-    _data_next: dict[DataID, Node] = field(default_factory=dict)
-
+    _next_data_id: DataID = DataID(())
     _nav_data: list[DataID] = field(default_factory=list)
     _current_selected_index: int = -1
     _current_selected_dataid: DataID = DataID(())
-    """will become _data_current when step() is called"""
 
     #
     # state management
     #
-    def queue_state(self, key: DataID, state: Node):
-        self._data_next[key] = state
+    def is_selected(self, key: DataID) -> bool:
+        return key == self._current_selected_dataid
+    def queue_to_become_selected(self, key: DataID):
+        print("queued", key)
+        self._next_data_id = key
 
     def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav=Coordinate(0, 0)):
         self.mouse_position = mouse_position
-        self._data_current = self._data_next
-        self._data_next = {}
-        print(self._nav_data)
+        self._current_selected_dataid = self._next_data_id
+        print(self._current_selected_dataid)
+        self._next_data_id = DataID(())
+        print(self._current_selected_dataid)
     
 
-        if not((nav.x == 0 and nav.y == 0) or not len(self._nav_data)):
+        if (nav.x != 0 or nav.y != 0) and len(self._nav_data):
             print("selected index before", self._current_selected_index)
             if self._current_selected_index == -1:
                 self._current_selected_index = 0
@@ -106,29 +106,16 @@ class AppState:
     #
     # nodes
     #
-    def interaction(self, key: DataID, default: Node, hover: Node):
+    def interaction(self, key: DataID):
         self._nav_data.append(key)
-        return read_box(
-            self,
-            key,
-            self.mouse_position,
-            default,
-            hover,
-            self._data_current.get(key, default)
-        ) if key != self._current_selected_dataid else read_box(
-            self,
-            key,
-            self.mouse_position,
-            default,
-            hover,
-            hover,
-        )
+        @applicable
+        def _out(child: Node):
+            return read_box(self, key, self.mouse_position, child)
+        return _out
 
-def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, default: Node, hover: Node, child: Node) -> Node:
+def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, child: Node) -> Node:
     def render(frame: Frame, box: Box):
         if box.is_point_inside(mouse_position):
-            app_state.queue_state(key, hover)
-        else:
-            app_state.queue_state(key, default)
+            app_state.queue_to_become_selected(key)
         child.render(frame, box)
     return Node(child.min_size, render)
