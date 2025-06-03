@@ -27,15 +27,19 @@ except ImportError:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
+def interactive(id: DataID, app: AppState, default, hover):
+    return app.interaction(id) ** (hover if app.is_selected(id) else default)
+
 
 state = AppState()
+active = combine(foreground(Color.CYAN), border, no_style)
 nav_y = 0
 while True:
     x = 0
     y = 0
     user_in = get_char()
     nav_y = 0
-    if user_in == "esc":
+    if user_in == "x":
         break
     elif user_in == "s":
         y += 1
@@ -54,23 +58,26 @@ while True:
     nav = DataID(((Direction.VERTICAL, 0),))
     layout = static_box([
         border ** vbox([
-            shrink ** state.interaction(
-                key=nav.child(0),
+            shrink ** interactive(
+                id=nav.child(0),
+                app=state,
                 default=border ** text("hej"),
                 hover=active ** text("hej\nsand"),
             ),
-            shrink ** state.interaction(
-                key=nav.child(1),
+            shrink ** interactive(
+                id=nav.child(1),
+                app=state,
                 default=border ** text("hej h"),
                 hover=active ** text("hej  \nhej"),
             ),
-            shrink ** state.interaction(
-                key=nav.child(2),
+            shrink ** interactive( 
+                id=nav.child(2),
+                app=state,
                 default=border ** text("hej h"),
                 hover=active ** text("hej  \nhej"),
             )
         ]),
-        offset(mouse_pos.x, mouse_pos.y) ** text("x")
+        offset(state.mouse_position.x, state.mouse_position.y) ** text("x")
     ])
     print(render(20, 10, layout))
     # state._nav(Coordinate(0, 0))
