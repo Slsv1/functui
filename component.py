@@ -53,11 +53,9 @@ def try_find_nearest(nav_data: list[DataID], current_index: int, direction: Dire
         if nav_data[next_index].data[-2][0] != direction:
             changed_directions = True 
             next_index = advance()
-            print("direction is different")
             continue
         if changed_directions and (len(nav_data[next_index].data) > original_depth):
             next_index = advance()
-            print("depth is different")
             continue
         return next_index
 
@@ -95,8 +93,6 @@ class AppState:
         #   incremented if nav is not Coordinte(0, 0)
         self._current_selected_dataid = self._next_data_id if self._next_data_id else self._current_selected_dataid
         self._next_data_id = DataID(())
-        print("prenavigation:")
-        print(visualise_nav_data(self._nav_data, self._current_selected_dataid))
 
         if (nav.x != 0 or nav.y != 0) and len(self._nav_data):
             if self._current_selected_dataid == DataID(()): # if no previous selected dataid
@@ -110,9 +106,6 @@ class AppState:
                     backwards = True if nav.y < 0 else False
 
                 next_index = try_find_nearest(self._nav_data, self._data_id_to_index[self._current_selected_dataid], direction, backwards)
-                if next_index is not None:
-                    print("next is:")
-                    print(visualise_nav_data([self._nav_data[next_index]]))
 
                 # if found next index
                 if next_index is not None:
