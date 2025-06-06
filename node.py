@@ -92,11 +92,11 @@ BORDER_ROUNDED = BorderStyle(
 
 
 # type Node = Callable[[Frame], Result]
-def render_to_fit_terminal(root_node: Node) -> str:
+def render_to_fit_terminal(root_node: Node, end='\033[H') -> str:
     terminal_size = os.get_terminal_size()
     width = terminal_size.columns
     height = terminal_size.lines - 1
-    return render(width, height, root_node)
+    return render(width, height, root_node, end=end)
 
 
 class Color(Enum):
@@ -155,10 +155,10 @@ def default_color_to_ansi_driver(pixel: Pixel):
     return "".join(out)
 
 
-def render(width: int, height: int, root_node: Node):
+def render(width: int, height: int, root_node: Node, end = "\033[H"):
     screen = Screen(width, height)
     root_node.render(Frame(Box(width, height), screen, Pixel()), Box(width, height))
-    return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines())
+    return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in screen.split_by_lines()) + end
 
 
 @applicable
@@ -223,7 +223,6 @@ def adaptive_text(string: str=LOREM, justify=Justify.LEFT, overflow=Expand.VERTI
     words = string.split()
     def render(frame: Frame, box: Box):
         lines = _split_by_lines(box.width, words)
-        print(lines)
         match justify:
             case Justify.LEFT:
                 for index, line in enumerate(lines):
@@ -348,7 +347,6 @@ def hbox(nodes: list[Node]):
         at_x = 0
         for node in nodes:
             child_min_size = node.min_size(box.rect)
-            print(at_x, child_min_size)
             child_box = Box(child_min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
             node.render(frame.shrink_to(child_box.intersect(box)), child_box)
             at_x += child_box.width
@@ -453,15 +451,19 @@ class Flex:
     grow: int
     shrink: int
 
-def flex(grow=1, shrink=1):
+def flex_custom(grow=1, shrink=1):
     @applicable
     def out(node: Node):
         return Flex(node, grow, shrink)
     return out
 
 @applicable
+def flex(node: Node):
+    return flex_custom(1, 1) ** node
+
+@applicable
 def no_flex(node: Node):
-    return flex(0, 0) ** node
+    return flex_custom(0, 0) ** node
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
