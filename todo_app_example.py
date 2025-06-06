@@ -7,27 +7,6 @@ from typing import Callable
 from component import *
 from pynput import keyboard, mouse
 
-# try:
-#     # if on windows
-#     import msvcrt
-#     def get_char():
-#         return msvcrt.getwch()
-# except ImportError:
-#     # if on linux (thx chatgippity)
-#     import sys
-#     import tty
-#     import termios
-
-#     def get_char():
-#         fd = sys.stdin.fileno()
-#         old_settings = termios.tcgetattr(fd)
-#         try:
-#             tty.setraw(fd)
-#             ch = sys.stdin.read(1)
-#         finally:
-#             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-#         return ch
-
 @dataclass
 class Task():
     text: str
@@ -40,7 +19,7 @@ def button(state: AppState, key: DataID, text: Node):
     return state.interaction(key) ** (active_border if state.is_selected(key) else border) ** text
 
 def todo_item(state: AppState, key: DataID, task: Task):
-    button_container = key.child(0, Direction.VERTICAL)
+    button_container = key.child(0, Direction.HORIZONTAL)
     return state.interaction(key) ** (active_border if state.is_selected(key) else border)\
         ** vbox([
             hbox([text("Task "), adaptive_text(task.text)]),
@@ -70,6 +49,7 @@ with keyboard.Events() as events:
             break
         user_in = event.key.char
         nav_y = 0
+        nav_h = 0
         x=0
         y=0
         if user_in == "e":
@@ -86,5 +66,12 @@ with keyboard.Events() as events:
             nav_y = 1
         elif user_in == "k":
             nav_y = -1
-        state.step(state.mouse_position + Coordinate(x, y), Coordinate(0, nav_y))
-        print(render_to_fit_terminal(get_layout(state, root), end=''))
+        elif user_in == "l":
+            nav_h = 1
+        elif user_in == "h":
+            nav_h = -1
+        state.step(state.mouse_position + Coordinate(x, y), Coordinate(nav_h, nav_y))
+        print(render_to_fit_terminal(static_box([
+            get_layout(state, root),
+            offset(state.mouse_position.x, state.mouse_position.y) ** foreground(Color.RED) ** bold **  text("x")
+        ])))
