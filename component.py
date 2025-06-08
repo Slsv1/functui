@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 
 from classes import *
 from classes import Node
-from node import empty
 from enum import Enum, auto
 
 __all__ = [
@@ -91,8 +90,6 @@ class AppState:
         #   same as in previous cycle
         #   set to value in self._next_data_id (this happens when mouse_positoin overlaps with a read_box node)
         #   incremented if nav is not Coordinte(0, 0)
-        self._current_selected_dataid = self._next_data_id if self._next_data_id else self._current_selected_dataid
-        self._next_data_id = DataID(())
 
         if (nav.x != 0 or nav.y != 0) and len(self._nav_data):
             if self._current_selected_dataid == DataID(()): # if no previous selected dataid
@@ -110,9 +107,13 @@ class AppState:
                 # if found next index
                 if next_index is not None:
                     self._current_selected_dataid = self._nav_data[next_index]
+        else:
+            self._current_selected_dataid = self._next_data_id if self._next_data_id else DataID(())
+
 
         self._nav_data.clear()
         self._data_id_to_index.clear()
+        self._next_data_id = DataID(())
         
     #
     # nodes
