@@ -31,9 +31,9 @@ __all__ = [
 
     # misc decorators
     "border",
+    "empty",
     "fill",
     "fill_custom",
-    "empty",
     "border_with_title",
 
     # sizing decorators
@@ -53,6 +53,7 @@ __all__ = [
     "text",
     "adaptive_text",
     "v_scroll_bar",
+    "nothing",
 
     # containers
     "vbox",
@@ -244,9 +245,14 @@ def adaptive_text(string: str=LOREM, justify=Justify.LEFT, overflow=Expand.VERTI
     return Node(min_size, render)
 
 
-@applicable
+nothing = Node(
+    min_size=lambda _:Rect(0, 0),
+    render=lambda f, b: None,
+)
+
 def empty(node: Node):
     return node
+
 
 def add_style(style: CharStyle, node: Node):
     def render(frame: Frame, box: Box):

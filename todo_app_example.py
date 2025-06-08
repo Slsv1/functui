@@ -26,7 +26,7 @@ def todo_item(state: AppState, key: DataID, task: Task):
             hbox([
                 button(state, button_container.child(0), text("edit")),
                 button(state, button_container.child(1), text("delte")),
-            ]) if state.is_selected(key) else text("")
+            ]) if state.is_selected(key) else nothing
         ])
 
 def get_layout(state: AppState, root: DataID):
@@ -35,7 +35,7 @@ def get_layout(state: AppState, root: DataID):
             todo_item(state, root.child(0).child(i), task) for i, task in enumerate(tasks)
         ]),
         no_flex ** hbar(),
-        no_flex ** hbox([]),
+        no_flex ** hbox([text("hi")]),
     ])
 
 state = AppState()
@@ -73,5 +73,5 @@ with keyboard.Events() as events:
         state.step(state.mouse_position + Coordinate(x, y), Coordinate(nav_h, nav_y))
         print(render_to_fit_terminal(static_box([
             get_layout(state, root),
-            offset(state.mouse_position.x, state.mouse_position.y) ** foreground(Color.RED) ** bold **  text("x")
+            offset(state.mouse_position.x, state.mouse_position.y) ** foreground(Color.RED) ** bold ** text("x")
         ])))
