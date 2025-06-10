@@ -77,13 +77,19 @@ class AppState:
     #
     # state management
     #
-    def is_selected(self, key: DataID) -> bool:
+    def is_active(self, key: DataID) -> bool:
         return key.data == self._current_selected_dataid.data[: len(key.data)]
+    def is_just_activated(self, key: DataID) -> bool:
+        ...
+    def is_selected(self, key: DataID) -> bool:
+        ...
+    def is_just_selected(self, key: DataID) -> bool:
+        ...
 
     def queue_to_become_selected(self, key: DataID):
         self._next_data_id = key
 
-    def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav=Coordinate(0, 0)):
+    def step(self, mouse_position: Coordinate=Coordinate(-1, -1), nav=Coordinate(0, 0), confirm_pressed: bool = False):
         self.mouse_position = mouse_position
 
         # current selected dataid can be either
@@ -129,7 +135,8 @@ class AppState:
 
 def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, child: Node) -> Node:
     def render(frame: Frame, box: Box):
-        if box.is_point_inside(mouse_position):
+        availabe_box = frame.view_box.intersect(box)
+        if availabe_box.is_point_inside(mouse_position):
             app_state.queue_to_become_selected(key)
         child.render(frame, box)
     return Node(child.min_size, render)
