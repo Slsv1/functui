@@ -219,7 +219,7 @@ def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
         lines.append(curr_line)
     return [" ".join(i) for i in lines]
 
-def adaptive_text(string: str=LOREM, justify=Justify.LEFT, overflow=Expand.VERTICAL):
+def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
     # min_size = Box(width=len(string), height=1)
     words = string.split()
     def render(frame: Frame, box: Box):
@@ -338,9 +338,9 @@ def border(node: Node):
         node.render(frame, box.shrink(1, 1, 1, 1))
     return Node(min_size_expand(node.min_size, 2, 2), render)
 
-def vbox(nodes: list[Node]):
+def vbox(nodes: list[Node], at_y: int=0):
     def render(frame: Frame, box: Box):
-        at_y = 0
+        nonlocal at_y
         for node in nodes:
             child_min_size = node.min_size(box.rect)
             child_box = Box(box.width, child_min_size.height).offset_by(box.offset + Coordinate(0, at_y))

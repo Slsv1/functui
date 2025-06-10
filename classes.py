@@ -102,6 +102,7 @@ class Rect:
             height = self.height if other.height < self.height else other.height,
         )
     def limit(self, other: Self) -> Self:
+        """if box width or hight is bigger than other, then scale down"""
         return self.__class__(
             width = self.width if other.width > self.width else other.width,
             height = self.height if other.height > self.height else other.height,
