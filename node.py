@@ -5,6 +5,9 @@ from math import floor, ceil
 from enum import Enum, auto
 from functools import reduce, partial
 
+# nodes
+# 
+
 
 import os
 
@@ -121,7 +124,6 @@ class Color(Enum):
 #     WHITE = auto()
 
 
-
 def default_color_to_fg_ansi(color: Color):
     return f"\033[{color.value}m"
 
@@ -186,6 +188,7 @@ def combine(*node_constructors: NodeConstructor) -> NodeConstructor:
         rnode_constructors = reversed(node_constructors)
         return reduce(lambda a, b: b(a), rnode_constructors, child)
     return out
+
 
 @applicable
 def floating(node: Node):
