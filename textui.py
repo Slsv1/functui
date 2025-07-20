@@ -111,9 +111,6 @@ class Box:
             offset=Coordinate(x1, y1),
         )
 
-    def is_empty(self) -> bool:
-        return self.width <= 0 or self.height <= 0
-
     def offset_by(self, coordinate: Coordinate):
         return Box(
             width=self.width,
@@ -193,19 +190,20 @@ type DrawCommand = DrawPixel | DrawBox | DrawStringLine
 class Frame:
     """a view on to the canvas"""
     view_box: Box
+    screen_rect: Rect
     default_pixel: Pixel
-
 
     def with_pixel(self, pixel: Pixel):
         return self.__class__(
             view_box=self.view_box,
+            screen_rect=self.screen_rect,
             default_pixel=pixel,
         )
-
 
     def shrink_to(self, other_box):
         return Frame(
             view_box=self.view_box.intersect(other_box),
+            screen_rect=self.screen_rect,
             default_pixel=self.default_pixel,
         )
 
@@ -323,20 +321,54 @@ class Result:
             frame.default_pixel.with_char(fill),
             frame.view_box.intersect(box)
         ))
-    def draw_string(
+    def draw_string_line(
         self,
         frame: Frame,
         content: str,
         at: Coordinate = Coordinate(0, 0)
     ):
-        for y, line in enumerate(content.split('\n')):
-            self._draw_commands.append(DrawStringLine(
-                frame.default_pixel,
-                line,
-                frame.view_box.offset + at + Coordinate(0, y), 
+        bounds = frame.view_box
+        #       content
+        #         #---#
+        #         |   |
+        #         #---#
+        #       content
+        if at.y < bounds.offset.y or at.y >= bounds.offset.y + bounds.height:
+            return
+
+        content_len = measure_text(content)
+        outer_x_bound = bounds.offset.x + bounds.width
+        #         #---#
+        # content |   | content
+        #         #---#
+        if at.x +content_len < bounds.offset.x or at.x >= outer_x_bound:
+            return
+
+
+        required_offset = bounds.offset.x - at.x
+        x_content_offset = 0
+        char_offset = 0
+        if required_offset > 0:
+            for char in content:
+                x_content_offset += measure_text(char)
+                char_offset += 0
+                if x_content_offset >= required_offset:
+                    break
+        out = []
+        for char in content[char_offset:]:
+            x_content_offset += measure_text(char)
+            if x_content_offset + at.x >= outer_x_bound:
+                break
+            out.append(char)
+        self._draw_commands.append(DrawStringLine(
+            frame.default_pixel, "".join(out), at
         ))
     def get_commands(self):
         return tuple(self._draw_commands)
+
+            
+            
+
 
 def measure_text(text: str) -> int:
     return wcswidth(text)
@@ -438,6 +470,7 @@ def render(width: int, height: int, root_node: Node, end = ""):
     measure_text_func = lambda text: wcswidth(text)
     result = root_node.render(
         Frame(
+            screen_rect=Rect(width, height),
             view_box=Box(width, height),
             default_pixel=Pixel(),
         ),
@@ -482,7 +515,7 @@ def text(string: str):
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     res = Result()
     for line in text:
-        res.draw_string(frame, line, box.offset)
+        res.draw_string_line(frame, line, box.offset)
     return res
 
 # border
@@ -530,65 +563,65 @@ def _border_render(child: Node, frame: Frame, box: Box):
     return res
 
 
-# @applicable
-# def floating(node: Node):
-#     return create_node(
-#         name="floating",
-#         min_size=lambda _: Rect(0, 0), render)
-#
-# def _render_floating(frame: Frame, box: Box):
-#     nw_box = Box(frame.screen.width, frame.screen.height)
-#     node.render(Frame(box, frame.screen, frame.default_pixel), new_box)
-#
-# class Justify(Enum):
-#     LEFT = auto()
-#     CENTER = auto()
-#     RIGHT = auto()
-#
-# class Expand(Enum):
-#     VERTICAL = auto()
-#     HORIZONTAL = auto()
-#
-# def _line_len(line: list[str]) -> int:
-#     return sum(len(i) for i in line) + len(line) - 1
-#
-# def _split_by_lines(max_width: int, words: list[str]) -> list[str]:
-#     lines: list[list[str]] = []
-#     curr_line: list[str] = []
-#     for word in words:
-#         if _line_len(curr_line) + 1 + len(word)<= max_width: # +1 because space between existing line and new word
-#             curr_line.append(word)
-#         else:
-#             lines.append(curr_line)
-#             curr_line = [word]
-#     if curr_line != "":
-#         lines.append(curr_line)
-#     return [" ".join(i) for i in lines]
-#
-# def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
-#     # min_size = Box(width=len(string), height=1)
-#     words = string.split()
-#     def render(frame: Frame, box: Box):
-#         lines = _split_by_lines(box.width, words)
-#         match justify:
-#             case Justify.LEFT:
-#                 for index, line in enumerate(lines):
-#                     frame.draw_string(line, box.offset + Coordinate(0, index))
-#             case Justify.CENTER:
-#                 for index, line in enumerate(lines):
-#                     available_space = box.width - len(line)
-#                     frame.draw_string(line, box.offset + Coordinate(available_space // 2, index))
-#             case Justify.RIGHT:
-#                 for index, line in enumerate(lines):
-#                     available_space = box.width - len(line)
-#                     frame.draw_string(line, box.offset + Coordinate(available_space, index))
-#     def min_size(available: Rect):
-#         lines = _split_by_lines(available.width, words)
-#         return Rect(
-#             max(len(i) for i in lines),
-#             len(lines)
-#         )
-#     return Node(min_size, render)
+
+class Justify(Enum):
+    LEFT = auto()
+    CENTER = auto()
+    RIGHT = auto()
+
+class Expand(Enum):
+    VERTICAL = auto()
+    HORIZONTAL = auto()
+
+def _line_len(line: list[str]) -> int:
+    return sum(len(i) for i in line) + len(line) - 1
+
+def _split_by_lines(max_width: int, words: tuple[str, ...]) -> list[str]:
+    lines: list[list[str]] = []
+    curr_line: list[str] = []
+    for word in words:
+        if _line_len(curr_line) + 1 + len(word)<= max_width: # +1 because space between existing line and new word
+            curr_line.append(word)
+        else:
+            lines.append(curr_line)
+            curr_line = [word]
+    if curr_line != "":
+        lines.append(curr_line)
+    return [" ".join(i) for i in lines]
+
+
+def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
+    words = tuple(string.split())
+    def min_size(available: Rect):
+        lines = _split_by_lines(available.width, words)
+        return Rect(
+            max(len(i) for i in lines),
+            len(lines)
+        )
+    return Node(
+        name="adaptive_text",
+        hash=(),
+        min_size=min_size,
+        render=partial(_adaptive_text_render, words, justify),
+    )
+
+@cache
+def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box: Box):
+    res = Result()
+    lines = _split_by_lines(box.width, words)
+    match justify:
+        case Justify.LEFT:
+            for index, line in enumerate(lines):
+                res.draw_string_line(frame, line, box.offset + Coordinate(0, index))
+        case Justify.CENTER:
+            for index, line in enumerate(lines):
+                available_space = box.width - len(line)
+                res.draw_string_line(frame, line, box.offset + Coordinate(available_space // 2, index))
+        case Justify.RIGHT:
+            for index, line in enumerate(lines):
+                available_space = box.width - len(line)
+                res.draw_string_line(frame, line, box.offset + Coordinate(available_space, index))
+    return res
 #
 #
 # nothing = Node(
