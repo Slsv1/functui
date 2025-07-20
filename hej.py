@@ -1,13 +1,19 @@
 import dataclasses
 from functools import cache, lru_cache, partial
-from textui import render, text, border, _border_render, _text_render, Node, combine, adaptive_text, _adaptive_text_render, LOREM
+from textui import *
+from textui import _border_render
 from dataclasses import dataclass
 from typing import Callable
 
-print(render(20, 20, adaptive_text(LOREM)))
-print(render(20, 20, adaptive_text(LOREM)))
-
-print(_text_render.cache_info())
+# print(render(20, 20, border ** border ** adaptive_text(LOREM)))
+# print(render(20, 20, border ** border ** adaptive_text(LOREM)))
+print(render(100, 15,\
+    border ** vbox_flex([
+        flex ** border ** adaptive_text(LOREM),
+        no_flex ** hbar(),
+        flex ** text("hej")
+    ])
+))
 print(_border_render.cache_info())
 
 

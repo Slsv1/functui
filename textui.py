@@ -23,9 +23,14 @@ import os
 
 
 #
-# Applicable function
+# utilities
 #
 
+def measure_text(text: str) -> int:
+    return wcswidth(text)
+
+def even_divide(num, denomenator) -> list[int]:
+    return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
 
 @dataclass(frozen=True)
 class Applicable[T, U]:
@@ -366,12 +371,6 @@ class Result:
     def get_commands(self):
         return tuple(self._draw_commands)
 
-            
-            
-
-
-def measure_text(text: str) -> int:
-    return wcswidth(text)
 
 # I have concidered individual classes for this
 # like for example a border being its own class that inherits form node
@@ -393,10 +392,10 @@ def measure_text(text: str) -> int:
 
 @dataclass()
 class Node:
-    min_size: MinSize
-    render: Callable[[Frame, Box], Result]
     name: str
     hash: tuple
+    min_size: MinSize
+    render: Callable[[Frame, Box], Result]
     def __hash__(self) -> int:
         return hash((self.name, self.hash))
     def __eq__(self, value: object, /) -> bool:
@@ -600,7 +599,7 @@ def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
         )
     return Node(
         name="adaptive_text",
-        hash=(),
+        hash=(words, justify),
         min_size=min_size,
         render=partial(_adaptive_text_render, words, justify),
     )
@@ -624,15 +623,16 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
     return res
 #
 #
-# nothing = Node(
-#     min_size=lambda _: Rect(0, 0),
-#     render=lambda f, b: None,
-# )
-#
-# def empty(node: Node):
-#     return node
-#
-#
+nothing = Node(
+    name="nothing",
+    hash=(),
+    min_size=lambda _: Rect(0, 0),
+    render=lambda f, b: Result(),
+)
+
+def empty(node: Node):
+    return node
+
 # def add_style(style: CharStyle, node: Node):
 #     def render(frame: Frame, box: Box):
 #         node.render(
@@ -702,15 +702,26 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
 #         return _background(color, node)
 #     return out
 #
-# def vbox(nodes: list[Node], at_y: int=0):
-#     def render(frame: Frame, box: Box):
-#         nonlocal at_y
-#         for node in nodes:
-#             child_min_size = node.min_size(box.rect)
-#             child_box = Box(box.width, child_min_size.height).offset_by(box.offset + Coordinate(0, at_y))
-#             node.render(frame.shrink_to(child_box.intersect(box)), child_box)
-#             at_y += child_box.height
-#     return Node(min_size_vertical([i.min_size for i in nodes]), render)
+def vbox(children: tuple[Node, ...], at_y: int=0):
+    children = tuple(children)
+    return Node(
+        name="vbox",
+        hash=(children, at_y),
+        min_size=min_size_vertical([i.min_size for i in children]),
+        render=partial(_vbox_render, children, at_y)
+    )
+@cache
+def _vbox_render(children: tuple[Node, ...], at_y: int, frame: Frame, box: Box):
+    res=Result()
+    for node in children:
+        child_min_size = node.min_size(box.rect)
+        child_box = Box(box.width, child_min_size.height).offset_by(box.offset + Coordinate(0, at_y))
+        res.add_children_after([
+                node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+        ])
+        at_y += child_box.height
+    return res
+
 #
 # def hbox(nodes: list[Node]):
 #     def render(frame: Frame, box: Box):
@@ -815,48 +826,58 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
 # #         return _min_size(width, height, node)
 # #     return out
 #
-# @dataclass
-# class Flex:
-#     node: Node
-#     grow: int
-#     shrink: int
-#
-# def flex_custom(grow=1, shrink=1):
-#     @applicable
-#     def out(node: Node):
-#         return Flex(node, grow, shrink)
-#     return out
-#
-# @applicable
-# def flex(node: Node):
-#     return flex_custom(1, 1) ** node
-#
-# @applicable
-# def no_flex(node: Node):
-#     return flex_custom(0, 0) ** node
-#
-# def even_divide(num, denomenator) -> list[int]:
-#     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
-#
-# def vbox_flex(nodes: list[Flex]):
-#     def render(frame: Frame, box: Box):
-#         reserved_space = sum(i.node.min_size(box.rect).height for i in nodes)
-#         total_grow = sum(i.grow for i in nodes)
-#         total_shrink = sum(i.shrink for i in nodes)
-#
-#         available_space = box.height - reserved_space
-#         space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
-#         at_y = 0
-#         for flex in nodes:
-#             child_min_size = flex.node.min_size(box.rect)
-#             child_box = Box(
-#                 width=box.width,
-#                 height=child_min_size.height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
-#             )
-#             child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
-#             flex.node.render(frame.shrink_to(child_box), child_box)
-#             at_y += child_box.height
-#     return Node(min_size_vertical([i.node.min_size for i in nodes]), render)
+@dataclass(frozen=True, eq=True)
+class Flex:
+    node: Node
+    grow: int
+    shrink: int
+    basis: bool
+
+def flex_custom(grow=1, shrink=1, basis=False):
+    @applicable
+    def out(node: Node):
+        return Flex(node, grow, shrink, basis)
+    return out
+
+@applicable
+def flex(node: Node):
+    return flex_custom(1, 1, False) ** node
+
+@applicable
+def no_flex(node: Node):
+    return flex_custom(0, 0, True) ** node
+
+
+def vbox_flex(children: Iterable[Flex]):
+    children = tuple(children)
+    return Node(
+        name="vbox_flex",
+        hash=children,
+        min_size=min_size_vertical([i.node.min_size for i in children]),
+        render=partial(_vbox_flex_render, children)
+    )
+
+
+@cache
+def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
+    reserved_space = sum(i.node.min_size(box.rect).height for i in children if i.basis)
+    total_grow = sum(i.grow for i in children)
+    total_shrink = sum(i.shrink for i in children)
+
+    available_space = box.height - reserved_space
+    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    at_y = 0
+    res = Result()
+    for flex in children:
+        child_min_height = flex.node.min_size(box.rect).height if flex.basis else 0
+        child_box = Box(
+            width=box.width,
+            height=child_min_height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+        )
+        child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
+        res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+        at_y += child_box.height
+    return res
 #
 # def hbox_flex(nodes: list[Flex]):
 #     def render(frame: Frame, box: Box):
@@ -879,15 +900,21 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
 #     return Node(min_size_horizontal([i.node.min_size for i in nodes]), render)
 #
 #
-# def vbar(char: str = "|"):
-#     def render(frame: Frame, box: Box):
-#         frame.draw_box(char, 1, box.height, box.offset)
-#     return Node(lambda _: Rect(1, 0), render)
-#
-# def hbar(char: str = "-"):
-#     def render(frame: Frame, box: Box):
-#         frame.draw_box(char, box.width, 1, box.offset)
-#     return Node(lambda _: Rect(0, 1), render)
+def vbar(char: str = "|"):
+    return Node("hbar", (char,), lambda _: Rect(1, 0), partial(_hbar_render, char))
+@cache
+def _vbar_render(char: str, frame: Frame, box: Box):
+    res = Result()
+    res.draw_box(frame, char, Box(1, box.height, box.offset))
+    return res
+
+def hbar(char: str = "-"):
+    return Node("hbar", (char,), lambda _: Rect(0, 1), partial(_hbar_render, char))
+@cache
+def _hbar_render(char: str, frame: Frame, box: Box):
+    res = Result()
+    res.draw_box(frame, char, Box(box.width, 1, box.offset))
+    return res
 #
 # V_PROGRESS = " ▁▂▃▄▅▆▇█"
 #
