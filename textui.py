@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Self, Callable
 from enum import IntFlag, auto, Enum
 from wcwidth import wcswidth
-# from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 from functools import reduce, partial, cache
 import os
 
@@ -163,12 +163,12 @@ class Pixel:
             self.bg_color,
             self.style
         )
-    def add_styles(self, style: CharStyle) -> Self:
+    def with_style(self, style: CharStyle) -> Self:
         return self.__class__(
             self.char,
             self.fg_color,
             self.bg_color,
-            self.style | style
+            style
         )
 
 @dataclass(frozen=True, eq=True)
@@ -249,7 +249,7 @@ class Canvas:
                 delta_x = 0
                 for char in command.string:
                     at = Coordinate(command.at.x + delta_x, command.at.y)
-                    self.set(at, self.get(at).with_char(char))
+                    self.set(at, command.style.with_char(char))
                     delta_x += measure_text_func(char)
 
 type MeasureTextFunc = Callable[[str], int]
@@ -296,19 +296,31 @@ def min_size_union(
         ) if children_sizes else Rect(0, 0)
     return out
 
+class ResultData(ABC):
+    @abstractmethod
+    def merge(self, child_data: Self) -> Self:
+        ...
+
+
 @dataclass(unsafe_hash=True)
 class Result:
     _draw_commands: list[DrawCommand] = field(default_factory=list)
+    _data: dict[type[ResultData], ResultData] = field(default_factory=dict)
+
     def add_children_after(self, child_results: list[Self]):
         for child in child_results:
             self._draw_commands.extend(child._draw_commands)
+            for k, data in self._data.items():
+                if k in child._data:
+                    data.merge(child._data[k])
 
-    def add_children_before(self, child_results: list[Self]):
-        new_commands = []
-        for child in child_results:
-            new_commands.extend(child._draw_commands)
-        new_commands.extend(self._draw_commands)
-        self._draw_commands = new_commands
+
+    # def add_children_before(self, child_results: list[Self]):
+    #     new_commands = []
+    #     for child in child_results:
+    #         new_commands.extend(child._draw_commands)
+    #     new_commands.extend(self._draw_commands)
+    #     self._draw_commands = new_commands
 
     def draw_pixel(self, frame: Frame, fill: str, at: Coordinate):
         if not frame.view_box.is_point_inside(at):
@@ -392,31 +404,15 @@ class Result:
 
 @dataclass()
 class Node:
-    name: str
+    func: Callable
+    """will be used for hash"""
     hash: tuple
     min_size: MinSize
     render: Callable[[Frame, Box], Result]
     def __hash__(self) -> int:
-        return hash((self.name, self.hash))
+        return hash((self.func, self.hash))
     def __eq__(self, value: object, /) -> bool:
-        return (self.name, self.hash) == (value.name, value.hash)
-
-# def create_node(
-#     *,
-#     name: str,
-#     hash: tuple,
-#     min_size: MinSize,
-#     render: Callable[[Frame, Box], Result]
-# ) -> Node:
-#     return Node(
-#         min_size = min_size,
-#         render = render,
-#         name = name,
-#         _h = hash,
-#     )
-#
-# Rendering
-#
+        return (self.func, self.hash) == (value.func, value.hash)
 
 
 class Color(Enum):
@@ -485,8 +481,9 @@ def render_to_fit_terminal(root_node: Node, end='\033[H') -> str:
     return render(width, height, root_node, end=end)
 
 #
-# Elements
+# Element utils
 #
+
 def combine(*node_constructors: ElementConstructor) -> ElementConstructor:
     @applicable
     def out(child: Node):
@@ -494,14 +491,28 @@ def combine(*node_constructors: ElementConstructor) -> ElementConstructor:
         return reduce(lambda a, b: b(a), rnode_constructors, child)
     return out
 
-# text
+def nothing():
+    return Node(
+        func=nothing,
+        hash=(),
+        min_size=lambda _: Rect(0, 0),
+        render=lambda f, b: Result(),
+    )
+
+@applicable
+def empty(node: Node):
+    return node
+
+#
+# Text Elements
+#
 
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 def text(string: str):
     split_string = tuple(string.split('\n'))
     return Node(
-        name="text",
+        func=text,
         hash=split_string,
         min_size = lambda _: Rect(
             width=max([measure_text(i) for i in split_string]),
@@ -509,59 +520,12 @@ def text(string: str):
         ),
         render = partial(_text_render, split_string)
     )
-
 @cache
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     res = Result()
-    for line in text:
-        res.draw_string_line(frame, line, box.offset)
+    for y, line in enumerate(text):
+        res.draw_string_line(frame, line, box.offset + Coordinate(0, y))
     return res
-
-# border
-
-@dataclass(frozen=True)
-class BorderStyle:
-    line_v: str
-    line_h: str
-    corner_tl: str
-    corner_tr: str
-    corner_br: str
-    corner_bl: str
-
-BORDER_ROUNDED = BorderStyle(
-    line_v="│",
-    line_h="─",
-    corner_tl="╭",
-    corner_tr="╮",
-    corner_bl="╰",
-    corner_br="╯",
-)
-
-@applicable
-def border(child: Node):
-    return Node(
-        name="border",
-        hash=(child,),
-        min_size=min_size_expand(child.min_size, 2, 2),
-        render=partial(_border_render, child),
-    )
-
-@cache
-def _border_render(child: Node, frame: Frame, box: Box):
-    style = BORDER_ROUNDED
-    res = Result()
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.offset))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.offset))
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.offset + Coordinate(box.width-1, 0)))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.offset + Coordinate(0, box.height-1)))
-    res.draw_pixel(frame, fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
-    res.draw_pixel(frame, fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
-    res.draw_pixel(frame, fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
-    res.draw_pixel(frame, fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
-    res.add_children_before([child.render(frame, box.shrink(1, 1, 1, 1))])
-    return res
-
-
 
 class Justify(Enum):
     LEFT = auto()
@@ -598,7 +562,7 @@ def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
             len(lines)
         )
     return Node(
-        name="adaptive_text",
+        func=adaptive_text,
         hash=(words, justify),
         min_size=min_size,
         render=partial(_adaptive_text_render, words, justify),
@@ -622,96 +586,151 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
                 res.draw_string_line(frame, line, box.offset + Coordinate(available_space, index))
     return res
 #
+# Border Elements
 #
-nothing = Node(
-    name="nothing",
-    hash=(),
-    min_size=lambda _: Rect(0, 0),
-    render=lambda f, b: Result(),
+
+@dataclass(frozen=True)
+class BorderStyle:
+    line_v: str
+    line_h: str
+    corner_tl: str
+    corner_tr: str
+    corner_br: str
+    corner_bl: str
+
+BORDER_ROUNDED = BorderStyle(
+    line_v="│",
+    line_h="─",
+    corner_tl="╭",
+    corner_tr="╮",
+    corner_bl="╰",
+    corner_br="╯",
 )
 
-def empty(node: Node):
-    return node
+@applicable
+def border(child: Node):
+    return Node(
+        func=border,
+        hash=(child,),
+        min_size=min_size_expand(child.min_size, 2, 2),
+        render=partial(_border_render, child),
+    )
 
-# def add_style(style: CharStyle, node: Node):
-#     def render(frame: Frame, box: Box):
-#         node.render(
-#             frame.with_pixel(frame.default_pixel.add_styles(style)),
-#             box
-#         )
-#     return Node(node.min_size, render)
-# @applicable
-# def no_style(node: Node):
-#     def render(frame: Frame, box: Box):
-#         node.render(
-#             frame.with_pixel(Pixel(style=CharStyle(0))),
-#             box
-#         )
-#     return Node(node.min_size, render)
-# @applicable
-# def bold(node: Node):
-#     return add_style(CharStyle.BOLD, node)
-# @applicable
-# def reverse(node: Node):
-#     return add_style(CharStyle.REVERSED, node)
-# @applicable
-# def underlined(node: Node):
-#     return add_style(CharStyle.UNDERLINED, node)
-# @applicable
-# def italic(node: Node):
-#     return add_style(CharStyle.ITALIC, node)
-# @applicable
-# def strike_through(node: Node):
-#     return add_style(CharStyle.STRIKE_THROUGH, node)
+@cache
+def _border_render(child: Node, frame: Frame, box: Box):
+    style = BORDER_ROUNDED
+    res = Result()
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.offset))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.offset))
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.offset + Coordinate(box.width-1, 0)))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.offset + Coordinate(0, box.height-1)))
+    res.draw_pixel(frame, fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
+    res.draw_pixel(frame, fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
+    res.draw_pixel(frame, fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
+    res.draw_pixel(frame, fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
+    res.add_children_after([child.render(frame, box.shrink(1, 1, 1, 1))])
+    return res
+
+
+
 #
-# def _foreground(color: Any, node: Node):
-#     def render(frame: Frame, box: Box):
-#         node.render(
-#             frame.with_pixel(Pixel(
-#                 fg_color=color,
-#                 bg_color=frame.default_pixel.bg_color,
-#                 style=frame.default_pixel.style
-#             )),
-#             box
-#         )
-#     return Node(node.min_size, render)
+# Styling Elements
 #
-# def _background(color: Any, node: Node):
-#     def render(frame: Frame, box: Box):
-#         node.render(
-#             frame.with_pixel(Pixel(
-#                 fg_color=frame.default_pixel.fg_color,
-#                 bg_color=color,
-#                 style=frame.default_pixel.style
-#             )),
-#             box
-#         )
-#     return Node(node.min_size, render)
+
+def add_style(style: CharStyle, child: Node):
+    return Node(
+        func=add_style,
+        hash=(child, style),
+        min_size=child.min_size,
+        render=partial(_add_style_render, child, style)
+    )
+def _add_style_render(child: Node, style: CharStyle, frame: Frame, box: Box):
+        return child.render(
+            frame.with_pixel(frame.default_pixel.with_style(
+                frame.default_pixel.style | style
+            )),
+            box
+        )
+
+@applicable
+def no_style(child: Node):
+    return Node(no_style, (child,), child.min_size, partial(_no_style_render, child))
+
+def _no_style_render(child: Node, frame: Frame, box: Box):
+    return child.render(
+        frame.with_pixel(Pixel(style=CharStyle(0))),
+        box
+    )
+@applicable
+def bold(node: Node):
+    return add_style(CharStyle.BOLD, node)
+@applicable
+def reverse(node: Node):
+    return add_style(CharStyle.REVERSED, node)
+@applicable
+def underlined(node: Node):
+    return add_style(CharStyle.UNDERLINED, node)
+@applicable
+def italic(node: Node):
+    return add_style(CharStyle.ITALIC, node)
+@applicable
+def strike_through(node: Node):
+    return add_style(CharStyle.STRIKE_THROUGH, node)
+
+def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
+        return child.render(
+            frame.with_pixel(Pixel(
+                fg_color=color,
+                bg_color=frame.default_pixel.bg_color,
+                style=frame.default_pixel.style
+            )),
+            box
+        )
+def fg(color: Any):
+    @applicable
+    def _create_fg(child: Node):
+        return Node(
+            func=fg,
+            hash=(color,child),
+            min_size=child.min_size,
+            render=partial(_fg_render, color, child)
+        )
+    return _create_fg
+def _bg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
+        return child.render(
+            frame.with_pixel(Pixel(
+                fg_color=frame.default_pixel.fg_color,
+                bg_color=color,
+                style=frame.default_pixel.style
+            )),
+            box
+        )
+def bg(color: Any):
+    @applicable
+    def _create_fg(child: Node):
+        return Node(
+            func=bg,
+            hash=(color, child),
+            min_size=child.min_size,
+            render=partial(_bg_render, color, child)
+        )
+    return _create_fg
+
 #
-# @applicable
-# def foreground(color: Any):
-#     @applicable
-#     def out(node: Node):
-#         return _foreground(color, node)
-#     return out
+# Containers
 #
-# @applicable
-# def background(color: Any):
-#     @applicable
-#     def out(node: Node):
-#         return _background(color, node)
-#     return out
-#
-def vbox(children: tuple[Node, ...], at_y: int=0):
+
+
+def vbox(children: Iterable[Node], at_y: int=0):
     children = tuple(children)
     return Node(
-        name="vbox",
+        func=vbox,
         hash=(children, at_y),
         min_size=min_size_vertical([i.min_size for i in children]),
         render=partial(_vbox_render, children, at_y)
     )
 @cache
-def _vbox_render(children: tuple[Node, ...], at_y: int, frame: Frame, box: Box):
+def _vbox_render(children: Iterable[Node], at_y: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
         child_min_size = node.min_size(box.rect)
@@ -722,17 +741,26 @@ def _vbox_render(children: tuple[Node, ...], at_y: int, frame: Frame, box: Box):
         at_y += child_box.height
     return res
 
-#
-# def hbox(nodes: list[Node]):
-#     def render(frame: Frame, box: Box):
-#         at_x = 0
-#         for node in nodes:
-#             child_min_size = node.min_size(box.rect)
-#             child_box = Box(child_min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
-#             node.render(frame.shrink_to(child_box.intersect(box)), child_box)
-#             at_x += child_box.width
-#     return Node(min_size_horizontal([i.min_size for i in nodes]), render)
-#
+def hbox(children: Iterable[Node], at_x: int=0):
+    children = tuple(children)
+    return Node(
+        func=hbox,
+        hash=(children, at_x),
+        min_size=min_size_horizontal([i.min_size for i in children]),
+        render=partial(_hbox_render, children, at_x)
+    )
+@cache
+def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
+    res=Result()
+    for node in children:
+        child_min_size = node.min_size(box.rect)
+        child_box = Box(child_min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
+        res.add_children_after([
+            node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+        ])
+        at_x += child_box.width
+    return res
+
 # @applicable
 # def center(node: Node):
 #     def render(frame: Frame, box: Box):
@@ -851,7 +879,7 @@ def no_flex(node: Node):
 def vbox_flex(children: Iterable[Flex]):
     children = tuple(children)
     return Node(
-        name="vbox_flex",
+        func=vbox_flex,
         hash=children,
         min_size=min_size_vertical([i.node.min_size for i in children]),
         render=partial(_vbox_flex_render, children)
@@ -901,15 +929,16 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
 #
 #
 def vbar(char: str = "|"):
-    return Node("hbar", (char,), lambda _: Rect(1, 0), partial(_hbar_render, char))
+    return Node(vbar, (char,), lambda _: Rect(1, 0), partial(_vbar_render, char))
 @cache
 def _vbar_render(char: str, frame: Frame, box: Box):
+    print(box)
     res = Result()
     res.draw_box(frame, char, Box(1, box.height, box.offset))
     return res
 
 def hbar(char: str = "-"):
-    return Node("hbar", (char,), lambda _: Rect(0, 1), partial(_hbar_render, char))
+    return Node(hbar, (char,), lambda _: Rect(0, 1), partial(_hbar_render, char))
 @cache
 def _hbar_render(char: str, frame: Frame, box: Box):
     res = Result()
