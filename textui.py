@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any, Iterable, Self, Callable
 from enum import IntFlag, auto, Enum
 from wcwidth import wcswidth
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache
 import os
-
 # TODO:
 # test caching
 # - using partials
@@ -585,6 +585,23 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
                 available_space = box.width - len(line)
                 res.draw_string_line(frame, line, box.offset + Coordinate(available_space, index))
     return res
+
+def vbar(char: str = "|"):
+    return Node(vbar, (char,), lambda _: Rect(1, 1), partial(_vbar_render, char))
+@cache
+def _vbar_render(char: str, frame: Frame, box: Box):
+    print(box)
+    res = Result()
+    res.draw_box(frame, char, Box(1, box.height, box.offset))
+    return res
+
+def hbar(char: str = "-"):
+    return Node(hbar, (char,), lambda _: Rect(1, 1), partial(_hbar_render, char))
+@cache
+def _hbar_render(char: str, frame: Frame, box: Box):
+    res = Result()
+    res.draw_box(frame, char, Box(box.width, 1, box.offset))
+    return res
 #
 # Border Elements
 #
@@ -729,6 +746,7 @@ def vbox(children: Iterable[Node], at_y: int=0):
         min_size=min_size_vertical([i.min_size for i in children]),
         render=partial(_vbox_render, children, at_y)
     )
+
 @cache
 def _vbox_render(children: Iterable[Node], at_y: int, frame: Frame, box: Box):
     res=Result()
@@ -831,29 +849,7 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
 # padding = custom_padding(1, 1, 1, 1)
 #
 #
-# @applicable
-# def shrink(node: Node):
-#     def render(frame: Frame, box: Box):
-#         min_size = node.min_size(box.rect)
-#         child_box = Box(
-#             min_size.width,
-#             min_size.height,
-#             box.offset
-#         )
-#         node.render(frame, child_box)
-#     return Node(node.min_size, render)
-#
-# # def _min_size(width: int, height: int, node: Node):
-# #     def render(frame: Frame, box: Box):
-# #         node.render(frame, box)
-# #     return Node(Box(width, height, node.min_size.offset), render)
-#
-# # def min_size(width: int, height: int):
-# #     @applicable
-# #     def out(node: Node):
-# #         return _min_size(width, height, node)
-# #     return out
-#
+
 @dataclass(frozen=True, eq=True)
 class Flex:
     node: Node
@@ -906,44 +902,59 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
         res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
         at_y += child_box.height
     return res
-#
-# def hbox_flex(nodes: list[Flex]):
-#     def render(frame: Frame, box: Box):
-#         reserved_space = sum(i.node.min_size(box.rect).width for i in nodes)
-#         total_grow = sum(i.grow for i in nodes)
-#         total_shrink = sum(i.shrink for i in nodes)
-#
-#         available_space = box.width - reserved_space
-#         space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
-#         at_x = 0
-#         for flex in nodes:
-#             child_min_size = flex.node.min_size(box.rect)
-#             child_box = Box(
-#                 width=child_min_size.width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
-#                 height=box.height,
-#             )
-#             child_box = child_box.offset_by(box.offset + Coordinate(at_x, 0))
-#             flex.node.render(frame.shrink_to(child_box), child_box)
-#             at_x += child_box.width
-#     return Node(min_size_horizontal([i.node.min_size for i in nodes]), render)
-#
-#
-def vbar(char: str = "|"):
-    return Node(vbar, (char,), lambda _: Rect(1, 0), partial(_vbar_render, char))
+
+def hbox_flex(children: Iterable[Flex]):
+    children = tuple(children)
+    return Node(
+        func=hbox_flex,
+        hash=children,
+        min_size=min_size_horizontal([i.node.min_size for i in children]),
+        render=partial(_hbox_flex_render, children)
+    )
+
 @cache
-def _vbar_render(char: str, frame: Frame, box: Box):
-    print(box)
+def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
+    reserved_space = sum(i.node.min_size(box.rect).width for i in children if i.basis)
+    total_grow = sum(i.grow for i in children)
+    total_shrink = sum(i.shrink for i in children)
+
+    available_space = box.width - reserved_space
+    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    at_x = 0
     res = Result()
-    res.draw_box(frame, char, Box(1, box.height, box.offset))
+    for flex in children:
+        child_min_width = flex.node.min_size(box.rect).width if flex.basis else 0
+        child_box = Box(
+            width=child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
+            height=box.height,
+        )
+        child_box = child_box.offset_by(box.offset + Coordinate(at_x, 0))
+        res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+        at_x += child_box.width
     return res
 
-def hbar(char: str = "-"):
-    return Node(hbar, (char,), lambda _: Rect(0, 1), partial(_hbar_render, char))
-@cache
-def _hbar_render(char: str, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, char, Box(box.width, 1, box.offset))
-    return res
+#
+# sizing manipulations
+#
+
+@applicable
+def shrink(child: Node):
+    return Node(
+        func=shrink,
+        hash=(child,),
+        min_size=child.min_size,
+        render=partial(_shrink_render, child),
+    )
+
+def _shrink_render(child: Node, frame: Frame, box: Box):
+    min_size = child.min_size(box.rect)
+    child_box = Box(
+        min_size.width,
+        min_size.height,
+        box.offset
+    )
+    return child.render(frame, child_box)
+
 #
 # V_PROGRESS = " ▁▂▃▄▅▆▇█"
 #
@@ -989,3 +1000,4 @@ def _hbar_render(char: str, frame: Frame, box: Box):
 #             elif start_at_pixel_int < i < end_at_pixel_int:
 #                 frame.draw_pixel("│", box.offset + Coordinate(0, i))
 #     return Node(lambda _: Rect(1, 1), render)
+
