@@ -18,10 +18,10 @@ print(render(100, 20,\
     border ** vbox_flex([
         flex ** fg(Color.RED) ** border ** adaptive_text(LOREM),
         no_flex ** hbar(),
-        flex ** border ** hbox([
-             text("hejsan"),
-             vbar(),
-             text("hejs\nhej"),
+        flex ** border ** hbox_flex([
+             flex_custom(2, 0) ** text("hejsan"),
+             no_flex ** shrink ** vbar(),
+             flex ** text("hejs\nhej"),
         ])
     ])
 ))
