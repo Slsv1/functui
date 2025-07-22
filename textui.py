@@ -320,6 +320,14 @@ class Result:
                 else:
                     self._data[k] = k.create_dummy().merge(child_data)
 
+    def try_data[T: (ResultData)](self, key: type[T]) -> T | None:
+        if key in self._data:
+            return self._data[key]
+        return None
+
+    def set_data(self, data: ResultData):
+        self._data[data.__class__] = data
+
 
     def draw_pixel(self, frame: Frame, fill: str, at: Coordinate):
         if not frame.view_box.is_point_inside(at):
@@ -511,78 +519,120 @@ class InteractibleID:
     def __bool__(self):
         return bool(len(self.data))
 
-@dataclass(unsafe_hash=True)
-class InteractiveData(ResultData):
-    _data: list[InteractibleID]
+@dataclass(frozen=True, eq=True)
+class InteractibleData(ResultData):
+    data: tuple[InteractibleID]
+    next_interactibles: tuple[InteractibleID]
     def merge(self, child_data):
-        self._data.extend(child_data._data)
-        return self
+        return InteractibleData((*self.data, *child_data.data), (*self.next_interactibles, *child_data.next_interactibles))
+    @classmethod
+    def create_dummy(cls):
+        return cls(tuple(), tuple())
 
+
+
+def try_find_nearest(nav_data: list[InteractibleID], current_index: int, direction: Direction, backwards: bool) -> int | None:
+    next_index = current_index
+    advance = lambda: next_index + (-1 if backwards else 1)
+    next_index = advance()
+
+    original_depth = len(nav_data[current_index].data)
+    changed_directions = False
+
+    while True:
+        # if next index is out of bounds
+        if next_index >= len(nav_data) or next_index < 0:
+            return None
+        # if next index parent is a different direction then inputed,
+        # in this case just keep advancing index untill either end of nav_data or direction matches and nav_depth is same or less than original
+        if nav_data[next_index].data[-2].direction != direction:
+            changed_directions = True 
+            next_index = advance()
+            continue
+        if changed_directions and (len(nav_data[next_index].data) > original_depth):
+            next_index = advance()
+            continue
+        return next_index
+
+def _navigate_by_keyboard(current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
+    direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
+    backwards = False
+    if direction == Direction.HORIZONTAL:
+        backwards = True if nav.x < 0 else False
+    elif direction == Direction.VERTICAL:
+        backwards = True if nav.y < 0 else False
+
+    next_index = try_find_nearest(nav_data, current_index, direction, backwards)
+    # if found next index
+    if next_index is not None:
+        return nav_data[next_index]
 
 @dataclass
 class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
-    _data_id_to_index: dict[InteractibleID, int] = field(default_factory=dict)
-    _current_selected_dataid: InteractibleID = InteractibleID(())
+    _selected: InteractibleID = InteractibleID(())
 
     #
     # state management
     #
     def is_active(self, key: InteractibleID) -> bool:
-        return key.data == self._current_selected_dataid.data[: len(key.data)]
+        return key.data == self._selected.data[: len(key.data)]
     def is_just_activated(self, key: InteractibleID) -> bool:
         ...
     def is_selected(self, key: InteractibleID) -> bool:
         ...
     def is_just_selected(self, key: InteractibleID) -> bool:
         ...
+    # while True:
+    #    res = render
+    #    input()
+    #    step()
+
     def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
         self.mouse_position = mouse_position
-#         nav_data= res.
-#
-#         if (nav.x != 0 or nav.y != 0) and len(self._nav_data): # do keyboard navigation
-#             if self._current_selected_dataid == InteractibleID(()): # if no previous selected dataid
-#                 self._current_selected_dataid = self._nav_data[0]
-#             else:
-#
-#                 direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
-#                 if direction == Direction.HORIZONTAL:
-#                     backwards = True if nav.x < 0 else False
-#                 elif direction == Direction.VERTICAL:
-#                     backwards = True if nav.y < 0 else False
-#
-#                 next_index = try_find_nearest(self._nav_data, self._data_id_to_index[self._current_selected_dataid], direction, backwards)
-#
-#                 # if found next index
-#                 if next_index is not None:
-#                     self._current_selected_dataid = self._nav_data[next_index]
-#         else:
-#             self._current_selected_dataid = self._next_data_id if self._next_data_id else InteractibleID(())
-#
-#
-#         self._nav_data.clear()
-#         self._data_id_to_index.clear()
-#         self._next_data_id = InteractibleID(())
-#
-#     #
-#     # nodes
-#     #
-#     def interaction(self, key: DataID):
-#         # important to add entry to dictionary before appending to nav data, so that key is same as index
-#         self._data_id_to_index[key] = len(self._nav_data)
-#         self._nav_data.append(key)
-#         @applicable
-#         def _out(child: Node):
-#             return read_box(self, key, self.mouse_position, child)
-#         return _out
-#
-# def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, child: Node) -> Node:
-#     def render(frame: Frame, box: Box):
-#         availabe_box = frame.view_box.intersect(box)
-#         if availabe_box.is_point_inside(mouse_position):
-#             app_state.queue_to_become_selected(key)
-#         child.render(frame, box)
-#     return Node(child.min_size, render)
+        interactible_data=res.try_data(InteractibleData)
+        if interactible_data is None:
+            return
+        nav_data = list(interactible_data.data)
+
+        if (nav.x != 0 or nav.y != 0) and len(nav_data):
+            if self._selected in nav_data and self._selected != InteractibleID(()):
+                selected_index = nav_data.index(self._selected)
+                if new_index := _navigate_by_keyboard(selected_index, nav_data, nav):
+                    self._selected = new_index
+            else:
+                self._selected = nav_data[0]
+        else:
+            self._selected = interactible_data. # TODO: ahh interactible data is multiple objects what will i do?????
+
+    def interaction(self, interactible_id: InteractibleID):
+        # important to add entry to dictionary before appending to nav data, so that key is same as index
+        @applicable
+        def _out(child: Node):
+            return Node(
+                func=self.interaction,
+                hash=(child,),
+                min_size=child.min_size,
+                render=partial(_render_read_box, interactible_id, self.mouse_position, child)
+            )
+        return _out
+
+def _render_read_box(
+    interactible_id: InteractibleID,
+    mouse_position: Coordinate,
+    child: Node,
+    frame: Frame,
+    box: Box
+) -> Result:
+    res = Result()
+    availabe_box = frame.view_box.intersect(box)
+    res.set_data(InteractibleData(
+        data=(interactible_id,),
+        next_interactibles=(interactible_id,) if availabe_box.is_point_inside(mouse_position) else tuple(),
+    ))
+    res.add_children_after([child.render(frame, box)])
+    return res
+
 #
 # Element utils
 #
