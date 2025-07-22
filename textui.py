@@ -6,10 +6,8 @@ from wcwidth import wcswidth
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache
 import os
-# TODO:
-# test caching
-# - using partials
-# - using classes
+# FIXME:
+# total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
 
 # Terminology:
 # Node:
@@ -297,6 +295,11 @@ def min_size_union(
     return out
 
 class ResultData(ABC):
+    @classmethod
+    @abstractmethod
+    def create_dummy(cls) -> Self:
+        ...
+
     @abstractmethod
     def merge(self, child_data: Self) -> Self:
         ...
@@ -310,17 +313,13 @@ class Result:
     def add_children_after(self, child_results: list[Self]):
         for child in child_results:
             self._draw_commands.extend(child._draw_commands)
-            for k, data in self._data.items():
-                if k in child._data:
-                    data.merge(child._data[k])
+            # if some node does not provide data of a type but child does, then create a dummy
+            for k, child_data in child._data.items():
+                if k in self._data:
+                    self._data[k] = self._data[k].merge(child_data)
+                else:
+                    self._data[k] = k.create_dummy().merge(child_data)
 
-
-    # def add_children_before(self, child_results: list[Self]):
-    #     new_commands = []
-    #     for child in child_results:
-    #         new_commands.extend(child._draw_commands)
-    #     new_commands.extend(self._draw_commands)
-    #     self._draw_commands = new_commands
 
     def draw_pixel(self, frame: Frame, fill: str, at: Coordinate):
         if not frame.view_box.is_point_inside(at):
@@ -380,8 +379,7 @@ class Result:
         self._draw_commands.append(DrawStringLine(
             frame.default_pixel, "".join(out), at
         ))
-    def get_commands(self):
-        return tuple(self._draw_commands)
+    def get_commands(self): return tuple(self._draw_commands)
 
 
 # I have concidered individual classes for this
@@ -480,6 +478,111 @@ def render_to_fit_terminal(root_node: Node, end='\033[H') -> str:
     height = terminal_size.lines - 1
     return render(width, height, root_node, end=end)
 
+#
+# Reactivity
+#
+
+class Direction(Enum):
+    VERTICAL = auto()
+    HORIZONTAL = auto()
+
+@dataclass(frozen=True, eq=True)
+class InteractibleIDPart:
+    direction: Direction
+    local_id: int
+
+@dataclass(frozen=True, eq=True)
+class InteractibleID:
+    data: tuple[InteractibleIDPart, ...]
+    """every intercatible id stores its own part at the end of the data tuple, and its ancestors part before it"""
+    def new_child(self, local_id: int, direction: None | Direction = None) -> Self:
+        if len(self.data):
+            return self.__class__((*self.data, InteractibleIDPart(
+                direction=self.data[-1].direction if direction is None else direction,
+                local_id=local_id
+            )))
+        return self.__class__((*self.data, InteractibleIDPart(
+            direction=direction if direction is not None else Direction.VERTICAL,
+            local_id=local_id
+        )))
+    @property
+    def local_direction(self):
+        return self.data[-1].direction
+    def __bool__(self):
+        return bool(len(self.data))
+
+@dataclass(unsafe_hash=True)
+class InteractiveData(ResultData):
+    _data: list[InteractibleID]
+    def merge(self, child_data):
+        self._data.extend(child_data._data)
+        return self
+
+
+@dataclass
+class AppState:
+    mouse_position: Coordinate = Coordinate(-1, -1)
+    _data_id_to_index: dict[InteractibleID, int] = field(default_factory=dict)
+    _current_selected_dataid: InteractibleID = InteractibleID(())
+
+    #
+    # state management
+    #
+    def is_active(self, key: InteractibleID) -> bool:
+        return key.data == self._current_selected_dataid.data[: len(key.data)]
+    def is_just_activated(self, key: InteractibleID) -> bool:
+        ...
+    def is_selected(self, key: InteractibleID) -> bool:
+        ...
+    def is_just_selected(self, key: InteractibleID) -> bool:
+        ...
+    def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
+        self.mouse_position = mouse_position
+#         nav_data= res.
+#
+#         if (nav.x != 0 or nav.y != 0) and len(self._nav_data): # do keyboard navigation
+#             if self._current_selected_dataid == InteractibleID(()): # if no previous selected dataid
+#                 self._current_selected_dataid = self._nav_data[0]
+#             else:
+#
+#                 direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
+#                 if direction == Direction.HORIZONTAL:
+#                     backwards = True if nav.x < 0 else False
+#                 elif direction == Direction.VERTICAL:
+#                     backwards = True if nav.y < 0 else False
+#
+#                 next_index = try_find_nearest(self._nav_data, self._data_id_to_index[self._current_selected_dataid], direction, backwards)
+#
+#                 # if found next index
+#                 if next_index is not None:
+#                     self._current_selected_dataid = self._nav_data[next_index]
+#         else:
+#             self._current_selected_dataid = self._next_data_id if self._next_data_id else InteractibleID(())
+#
+#
+#         self._nav_data.clear()
+#         self._data_id_to_index.clear()
+#         self._next_data_id = InteractibleID(())
+#
+#     #
+#     # nodes
+#     #
+#     def interaction(self, key: DataID):
+#         # important to add entry to dictionary before appending to nav data, so that key is same as index
+#         self._data_id_to_index[key] = len(self._nav_data)
+#         self._nav_data.append(key)
+#         @applicable
+#         def _out(child: Node):
+#             return read_box(self, key, self.mouse_position, child)
+#         return _out
+#
+# def read_box(app_state: AppState, key: DataID, mouse_position: Coordinate, child: Node) -> Node:
+#     def render(frame: Frame, box: Box):
+#         availabe_box = frame.view_box.intersect(box)
+#         if availabe_box.is_point_inside(mouse_position):
+#             app_state.queue_to_become_selected(key)
+#         child.render(frame, box)
+#     return Node(child.min_size, render)
 #
 # Element utils
 #
@@ -662,12 +765,12 @@ def add_style(style: CharStyle, child: Node):
         render=partial(_add_style_render, child, style)
     )
 def _add_style_render(child: Node, style: CharStyle, frame: Frame, box: Box):
-        return child.render(
-            frame.with_pixel(frame.default_pixel.with_style(
-                frame.default_pixel.style | style
-            )),
-            box
-        )
+    return child.render(
+        frame.with_pixel(frame.default_pixel.with_style(
+            frame.default_pixel.style | style
+        )),
+        box
+    )
 
 @applicable
 def no_style(child: Node):
@@ -737,6 +840,19 @@ def bg(color: Any):
 # Containers
 #
 
+def static_box(children: Iterable[Node]):
+    children = tuple(children)
+    return Node(
+        func=static_box,
+        hash=children,
+        min_size=min_size_union([i.min_size for i in children]),
+        render=partial(_static_box_render, children),
+    )
+def _static_box_render(children: tuple[Node, ...], frame: Frame, box: Box):
+    res = Result()
+    for child in children:
+        res.add_children_after([child.render(frame, box)])
+    return res
 
 def vbox(children: Iterable[Node], at_y: int=0):
     children = tuple(children)
@@ -808,16 +924,6 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
 #         return _fill_custom(char, node)
 #     return out
 #
-# def _offset(x: int, y: int, node: Node):
-#     def render(frame: Frame, box: Box):
-#         node.render(frame, box.offset_by(Coordinate(x, y)))
-#     return Node(min_size_expand(node.min_size, x, y), render)
-#
-# def offset(x: int=0, y: int=0):
-#     @applicable
-#     def out(node: Node):
-#         return _offset(x, y, node)
-#     return out
 #
 # def border_with_title(title: Node, border_node=border):
 #     @applicable
@@ -911,7 +1017,6 @@ def hbox_flex(children: Iterable[Flex]):
         min_size=min_size_horizontal([i.node.min_size for i in children]),
         render=partial(_hbox_flex_render, children)
     )
-
 @cache
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     reserved_space = sum(i.node.min_size(box.rect).width for i in children if i.basis)
@@ -945,7 +1050,6 @@ def shrink(child: Node):
         min_size=child.min_size,
         render=partial(_shrink_render, child),
     )
-
 def _shrink_render(child: Node, frame: Frame, box: Box):
     min_size = child.min_size(box.rect)
     child_box = Box(
@@ -955,14 +1059,24 @@ def _shrink_render(child: Node, frame: Frame, box: Box):
     )
     return child.render(frame, child_box)
 
+def offset(x: int=0, y: int=0):
+    coord = Coordinate(x, y)
+    @applicable
+    def out(child: Node):
+        return Node(
+            func=offset,
+            hash=(child, coord),
+            min_size=min_size_expand(child.min_size, coord.x, coord.y),
+            render=partial(_offset_render, coord, child),
+        )
+    return out
+def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
+    return node.render(frame, box.offset_by(by))
+
+
 #
 # V_PROGRESS = " ▁▂▃▄▅▆▇█"
 #
-# def static_box(nodes: list[Node]):
-#     def render(frame: Frame, box: Box):
-#         for node in nodes:
-#             node.render(frame, box)
-#     return Node(min_size_union([i.min_size for i in nodes]), render)
 # # ╵╷│
 # def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 #
