@@ -2,10 +2,13 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any, Iterable, Self, Callable
 from enum import IntFlag, auto, Enum
-from wcwidth import wcswidth
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache
+from blessed import Terminal
+from wcwidth import wcswidth
+import math
 import os
+
 # FIXME:
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
 
@@ -23,9 +26,8 @@ import os
 #
 # utilities
 #
-
-def measure_text(text: str) -> int:
-    return wcswidth(text)
+def blessed_handle_input(blessed_lib):
+    term = blessed_lib.Terminal()
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
@@ -188,6 +190,7 @@ class DrawStringLine:
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
 
 
+type MeasureTextFunc = Callable[[str], int]
 
 @dataclass(frozen=True, eq=True)
 class Frame:
@@ -195,12 +198,14 @@ class Frame:
     view_box: Box
     screen_rect: Rect
     default_pixel: Pixel
+    measure_text: MeasureTextFunc
 
     def with_pixel(self, pixel: Pixel):
         return self.__class__(
             view_box=self.view_box,
             screen_rect=self.screen_rect,
             default_pixel=pixel,
+            measure_text=self.measure_text,
         )
 
     def shrink_to(self, other_box):
@@ -208,6 +213,7 @@ class Frame:
             view_box=self.view_box.intersect(other_box),
             screen_rect=self.screen_rect,
             default_pixel=self.default_pixel,
+            measure_text=self.measure_text,
         )
 
 class Canvas:
@@ -250,8 +256,7 @@ class Canvas:
                     self.set(at, command.style.with_char(char))
                     delta_x += measure_text_func(char)
 
-type MeasureTextFunc = Callable[[str], int]
-type MinSize = Callable[[Rect], Rect]
+type MinSize = Callable[[MeasureTextFunc, Rect], Rect]
 type ElementConstructor = Applicable[Node, Node]
 
 # minsize util functions
@@ -261,38 +266,40 @@ def min_size_expand(
     width_change: int,
     height_change: int
 ) -> MinSize:
-    def out(from_size: Rect):
-        return child_size(from_size.expand(-width_change, -height_change)).expand(width_change, height_change)
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
+        return child_size(measure_text, from_size.expand(-width_change, -height_change)).expand(width_change, height_change)
     return out
 
 def min_size_vertical(
     children_sizes: list[MinSize],
 ) -> MinSize:
-    def out(from_size):
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
         return Rect(
-            max(i(from_size).width for i in children_sizes),
-            sum(i(from_size).height for i in children_sizes),
+            max(i(measure_text, from_size).width for i in children_sizes),
+            sum(i(measure_text, from_size).height for i in children_sizes),
         ) if children_sizes else Rect(0, 0)
     return out
 
 def min_size_horizontal(
     children_sizes: list[MinSize],
 ) -> MinSize:
-    def out(from_size):
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
         return Rect(
-            sum(i(from_size).width for i in children_sizes),
-            max(i(from_size).height for i in children_sizes),
+            sum(i(measure_text, from_size).width for i in children_sizes),
+            max(i(measure_text, from_size).height for i in children_sizes),
         ) if children_sizes else Rect(0, 0)
     return out
 def min_size_union(
     children_sizes: list[MinSize],
 ) -> MinSize:
-    def out(from_size):
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
         return Rect(
-            max(i(from_size).width for i in children_sizes),
-            max(i(from_size).height for i in children_sizes),
+            max(i(measure_text, from_size).width for i in children_sizes),
+            max(i(measure_text, from_size).height for i in children_sizes),
         ) if children_sizes else Rect(0, 0)
     return out
+def min_size_constant(return_value: Rect) -> MinSize:
+    return lambda measure_text, available: return_value
 
 class ResultData(ABC):
     @classmethod
@@ -360,7 +367,7 @@ class Result:
         if at.y < bounds.offset.y or at.y >= bounds.offset.y + bounds.height:
             return
 
-        content_len = measure_text(content)
+        content_len = frame.measure_text(content)
         outer_x_bound = bounds.offset.x + bounds.width
         #         #---#
         # content |   | content
@@ -374,14 +381,14 @@ class Result:
         char_offset = 0
         if required_offset > 0:
             for char in content:
-                x_content_offset += measure_text(char)
+                x_content_offset += frame.measure_text(char)
                 char_offset += 0
                 if x_content_offset >= required_offset:
                     break
         out = []
         for char in content[char_offset:]:
-            x_content_offset += measure_text(char)
-            if x_content_offset + at.x >= outer_x_bound:
+            x_content_offset += frame.measure_text(char)
+            if x_content_offset + at.x > outer_x_bound:
                 break
             out.append(char)
         self._draw_commands.append(DrawStringLine(
@@ -466,25 +473,28 @@ def default_color_to_ansi_driver(pixel: Pixel) -> str:
     return "".join(out)
 
 
-def render(width: int, height: int, root_node: Node, end = ""):
+def render(width: int, height: int, root_node: Node, end=True) -> tuple[str, Result]:
     canvas = Canvas(width, height)
-    measure_text_func = lambda text: wcswidth(text)
+    measure_text = lambda s: wcswidth(s)
     result = root_node.render(
         Frame(
             screen_rect=Rect(width, height),
             view_box=Box(width, height),
             default_pixel=Pixel(),
+            measure_text=measure_text
         ),
         Box(width=width, height=height),
     )
-    canvas.apply_draw_commands(measure_text_func, result.get_commands())
-    return "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in canvas.split_by_lines()) + end
+    canvas.apply_draw_commands(measure_text, result.get_commands())
+    string = "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in canvas.split_by_lines())
+    string += f"\033[{height}A" if end else ""
+    return (string, result)
 
-def render_to_fit_terminal(root_node: Node, end='\033[H') -> str:
+def render_to_fit_terminal(root_node: Node, end=True) -> tuple[str, Result]:
     terminal_size = os.get_terminal_size()
     width = terminal_size.columns
     height = terminal_size.lines - 1
-    return render(width, height, root_node, end=end)
+    return render(width, height, root_node, end)
 
 #
 # Reactivity
@@ -522,12 +532,20 @@ class InteractibleID:
 @dataclass(frozen=True, eq=True)
 class InteractibleData(ResultData):
     data: tuple[InteractibleID]
-    next_interactibles: tuple[InteractibleID]
     def merge(self, child_data):
-        return InteractibleData((*self.data, *child_data.data), (*self.next_interactibles, *child_data.next_interactibles))
+        return InteractibleData((*self.data, *child_data.data))
     @classmethod
     def create_dummy(cls):
-        return cls(tuple(), tuple())
+        return cls(tuple())
+
+@dataclass(frozen=True, eq=True)
+class NextInteractible(ResultData):
+    next_id: InteractibleID
+    def merge(self, child_data):
+        return child_data
+    @classmethod
+    def create_dummy(cls):
+        return cls(InteractibleID(()))
 
 
 
@@ -602,8 +620,8 @@ class AppState:
                     self._selected = new_index
             else:
                 self._selected = nav_data[0]
-        else:
-            self._selected = interactible_data. # TODO: ahh interactible data is multiple objects what will i do?????
+        elif next_inderactible := res.try_data(NextInteractible):
+            self._selected = next_inderactible.next_id # TODO: ahh interactible data is multiple objects what will i do?????
 
     def interaction(self, interactible_id: InteractibleID):
         # important to add entry to dictionary before appending to nav data, so that key is same as index
@@ -628,8 +646,9 @@ def _render_read_box(
     availabe_box = frame.view_box.intersect(box)
     res.set_data(InteractibleData(
         data=(interactible_id,),
-        next_interactibles=(interactible_id,) if availabe_box.is_point_inside(mouse_position) else tuple(),
     ))
+    if availabe_box.is_point_inside(mouse_position):
+        res.set_data(NextInteractible(interactible_id))
     res.add_children_after([child.render(frame, box)])
     return res
 
@@ -648,7 +667,7 @@ def nothing():
     return Node(
         func=nothing,
         hash=(),
-        min_size=lambda _: Rect(0, 0),
+        min_size=min_size_constant(Rect(0, 0)),
         render=lambda f, b: Result(),
     )
 
@@ -667,12 +686,13 @@ def text(string: str):
     return Node(
         func=text,
         hash=split_string,
-        min_size = lambda _: Rect(
+        min_size = lambda measure_text, _: Rect(
             width=max([measure_text(i) for i in split_string]),
             height=len(split_string)
         ),
         render = partial(_text_render, split_string)
     )
+
 @cache
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     res = Result()
@@ -689,14 +709,14 @@ class Expand(Enum):
     VERTICAL = auto()
     HORIZONTAL = auto()
 
-def _line_len(line: list[str]) -> int:
-    return sum(len(i) for i in line) + len(line) - 1
+def _line_len(measure_text: MeasureTextFunc, line: list[str]) -> int:
+    return sum(measure_text(i) for i in line) + len(line) - 1
 
-def _split_by_lines(max_width: int, words: tuple[str, ...]) -> list[str]:
+def _split_by_lines(measure_text: MeasureTextFunc, max_width: int, words: tuple[str, ...]) -> list[str]:
     lines: list[list[str]] = []
     curr_line: list[str] = []
     for word in words:
-        if _line_len(curr_line) + 1 + len(word)<= max_width: # +1 because space between existing line and new word
+        if _line_len(measure_text, curr_line) + 1 + measure_text(word)<= max_width: # +1 because space between existing line and new word
             curr_line.append(word)
         else:
             lines.append(curr_line)
@@ -708,10 +728,10 @@ def _split_by_lines(max_width: int, words: tuple[str, ...]) -> list[str]:
 
 def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
     words = tuple(string.split())
-    def min_size(available: Rect):
-        lines = _split_by_lines(available.width, words)
+    def min_size(measure_text, available: Rect):
+        lines = _split_by_lines(measure_text, available.width, words)
         return Rect(
-            max(len(i) for i in lines),
+            max(measure_text(i) for i in lines),
             len(lines)
         )
     return Node(
@@ -724,7 +744,7 @@ def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
 @cache
 def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box: Box):
     res = Result()
-    lines = _split_by_lines(box.width, words)
+    lines = _split_by_lines(frame.measure_text, box.width, words)
     match justify:
         case Justify.LEFT:
             for index, line in enumerate(lines):
@@ -740,7 +760,7 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
     return res
 
 def vbar(char: str = "|"):
-    return Node(vbar, (char,), lambda _: Rect(1, 1), partial(_vbar_render, char))
+    return Node(vbar, (char,), min_size_constant(Rect(1, 1)), partial(_vbar_render, char))
 @cache
 def _vbar_render(char: str, frame: Frame, box: Box):
     print(box)
@@ -749,7 +769,7 @@ def _vbar_render(char: str, frame: Frame, box: Box):
     return res
 
 def hbar(char: str = "-"):
-    return Node(hbar, (char,), lambda _: Rect(1, 1), partial(_hbar_render, char))
+    return Node(hbar, (char,), min_size_constant(Rect(1, 1)), partial(_hbar_render, char))
 @cache
 def _hbar_render(char: str, frame: Frame, box: Box):
     res = Result()
@@ -800,7 +820,6 @@ def _border_render(child: Node, frame: Frame, box: Box):
     res.draw_pixel(frame, fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
     res.add_children_after([child.render(frame, box.shrink(1, 1, 1, 1))])
     return res
-
 
 
 #
@@ -917,7 +936,7 @@ def vbox(children: Iterable[Node], at_y: int=0):
 def _vbox_render(children: Iterable[Node], at_y: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
-        child_min_size = node.min_size(box.rect)
+        child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(box.width, child_min_size.height).offset_by(box.offset + Coordinate(0, at_y))
         res.add_children_after([
                 node.render(frame.shrink_to(child_box.intersect(box)), child_box)
@@ -937,7 +956,7 @@ def hbox(children: Iterable[Node], at_x: int=0):
 def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
-        child_min_size = node.min_size(box.rect)
+        child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(child_min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
         res.add_children_after([
             node.render(frame.shrink_to(child_box.intersect(box)), child_box)
@@ -962,17 +981,25 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
 #
 #     return Node(node.min_size, render)
 #
-# def _fill_custom(char: str, node: Node):
-#     def render(frame: Frame, box: Box):
-#         frame.draw_box(char, box.width, box.height, box.offset)
-#         node.render(frame, box)
-#     return Node(node.min_size, render)
 #
-# def fill_custom(char: str):
-#     @applicable
-#     def out(node: Node):
-#         return _fill_custom(char, node)
-#     return out
+def fill_char(char: str):
+    @applicable
+    def out(child: Node):
+        return Node(
+            func=fill_char,
+            hash=(char,child),
+            min_size=child.min_size,
+            render=partial(_fill_char_render, char, child)
+        )
+
+    return out
+def _fill_char_render(char: str, child: Node, frame: Frame, box: Box):
+    res = Result()
+    res.draw_box(frame, char, box)
+    res.add_children_after([child.render(frame, box)])
+    return res
+
+fill = fill_char(" ")
 #
 #
 # def border_with_title(title: Node, border_node=border):
@@ -988,9 +1015,6 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
 #     ])
 #
 #
-# @applicable
-# def fill(node: Node):
-#     return _fill_custom(" ", node)
 #
 # def _padding(top: int, bottom: int, left: int, right: int, node: Node):
 #     def render(frame: Frame, box: Box):
@@ -1040,7 +1064,7 @@ def vbox_flex(children: Iterable[Flex]):
 
 @cache
 def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
-    reserved_space = sum(i.node.min_size(box.rect).height for i in children if i.basis)
+    reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).height for i in children if i.basis)
     total_grow = sum(i.grow for i in children)
     total_shrink = sum(i.shrink for i in children)
 
@@ -1049,7 +1073,7 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     at_y = 0
     res = Result()
     for flex in children:
-        child_min_height = flex.node.min_size(box.rect).height if flex.basis else 0
+        child_min_height = flex.node.min_size(frame.measure_text, box.rect).height if flex.basis else 0
         child_box = Box(
             width=box.width,
             height=child_min_height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
@@ -1069,7 +1093,7 @@ def hbox_flex(children: Iterable[Flex]):
     )
 @cache
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
-    reserved_space = sum(i.node.min_size(box.rect).width for i in children if i.basis)
+    reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).width for i in children if i.basis)
     total_grow = sum(i.grow for i in children)
     total_shrink = sum(i.shrink for i in children)
 
@@ -1078,7 +1102,7 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     at_x = 0
     res = Result()
     for flex in children:
-        child_min_width = flex.node.min_size(box.rect).width if flex.basis else 0
+        child_min_width = flex.node.min_size(frame.measure_text, box.rect).width if flex.basis else 0
         child_box = Box(
             width=child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
             height=box.height,
@@ -1101,7 +1125,7 @@ def shrink(child: Node):
         render=partial(_shrink_render, child),
     )
 def _shrink_render(child: Node, frame: Frame, box: Box):
-    min_size = child.min_size(box.rect)
+    min_size = child.min_size(frame.measure_text, box.rect)
     child_box = Box(
         min_size.width,
         min_size.height,
@@ -1130,38 +1154,36 @@ def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
 # # ╵╷│
 # def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 #
-# def v_scroll_bar(start: float, showing: float):
-#     def render(frame: Frame, box: Box):
-#         start_at_pixel = box.height * start
-#         start_at_pixel_int = floor(start_at_pixel)
-#         start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
-#
-#         end_at_pixel = box.height * start + box.height * showing # should be clampt
-#         end_at_pixel_int = floor(end_at_pixel)
-#         end_at_progress = end_at_pixel - end_at_pixel_int
-#
-#         match [start_at_progress > 0.33, start_at_progress > 0.66]:
-#             case [True, True]:
-#                 start_char = "│"
-#             case [True, False]:
-#                 start_char = "╷"
-#             case _:
-#                 start_char = " "
-#
-#         match [end_at_progress > 0.33, end_at_progress > 0.66]:
-#             case [True, True]:
-#                 end_char = "│"
-#             case [True, False]:
-#                 end_char = "╵"
-#             case _:
-#                 end_char = " "
-#
-#         for i in range(box.height):
-#             if i == start_at_pixel_int:
-#                 frame.draw_pixel(start_char, box.offset + Coordinate(0, i))
-#             elif i == end_at_pixel_int:
-#                 frame.draw_pixel(end_char, box.offset + Coordinate(0, i))
-#             elif start_at_pixel_int < i < end_at_pixel_int:
-#                 frame.draw_pixel("│", box.offset + Coordinate(0, i))
-#     return Node(lambda _: Rect(1, 1), render)
+def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
+    start_at_pixel = box.height * start
+    start_at_pixel_int = math.floor(start_at_pixel)
+    start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
 
+    end_at_pixel = box.height * start + box.height * showing # should be clampt
+    end_at_pixel_int = math.floor(end_at_pixel)
+    end_at_progress = end_at_pixel - end_at_pixel_int
+
+    match [start_at_progress > 0.33, start_at_progress > 0.66]:
+        case [True, True]:
+            start_char = "│"
+        case [True, False]:
+            start_char = "╷"
+        case _:
+            start_char = " "
+
+    match [end_at_progress > 0.33, end_at_progress > 0.66]:
+        case [True, True]:
+            end_char = "│"
+        case [True, False]:
+            end_char = "╵"
+        case _:
+            end_char = " "
+
+    res = Result()
+    for i in range(box.height):
+        if i == start_at_pixel_int:
+            res.draw_pixel(frame, start_char, box.offset + Coordinate(0, i))
+        elif i == end_at_pixel_int:
+            res.draw_pixel(frame, end_char, box.offset + Coordinate(0, i))
+        elif start_at_pixel_int < i < end_at_pixel_int:
+            res.draw_pixel(frame, "│", box.offset + Coordinate(0, i))

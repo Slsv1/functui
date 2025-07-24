@@ -5,25 +5,20 @@ from textui import _border_render
 from dataclasses import dataclass
 from typing import Callable
 
-# print(render(20, 20, border ** border ** adaptive_text(LOREM)))
-# print(render(20, 20, border ** border ** adaptive_text(LOREM)))
-# print(render(100, 20,\
-#     border ** vbox_flex([
-#         flex ** border ** adaptive_text(LOREM),
-#         no_flex ** hbar(),
-#         flex ** text("hej")
-#     ])
-# ))
-print(render(100, 20,\
-    border ** vbox_flex([
-        flex ** fg(Color.RED) ** border ** adaptive_text(LOREM),
-        no_flex ** hbar(),
-        flex ** border ** hbox_flex([
-             flex_custom(2, 0) ** text("hejsan"),
-             no_flex ** shrink ** vbar(),
-             flex ** text("hejs\nhej"),
+def get_layout():
+    return vbox_flex([
+        flex ** vbox([
+            border ** text("hej"),
+            border ** text("hej")
+        ]),
+        no_flex ** bg(Color.BLACK) ** fill ** hbox_flex([
+            no_flex ** bg(Color.CYAN) ** hbox([text("Bar")]),
+            flex ** nothing(),
+            no_flex ** text("hej hej")
         ])
     ])
-))
-print(_border_render.cache_info())
+
+string, result = render(20, 10, get_layout(), end=False)
+print(string)
+
 
