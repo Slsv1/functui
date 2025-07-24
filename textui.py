@@ -4,7 +4,6 @@ from typing import Any, Iterable, Self, Callable
 from enum import IntFlag, auto, Enum
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache
-from blessed import Terminal
 from wcwidth import wcswidth
 import math
 import os
@@ -23,11 +22,10 @@ import os
 # A function that returns an Element
 
 
+
 #
 # utilities
 #
-def blessed_handle_input(blessed_lib):
-    term = blessed_lib.Terminal()
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
@@ -472,6 +470,8 @@ def default_color_to_ansi_driver(pixel: Pixel) -> str:
     out.append("\033[39m\033[49m\033[0m") # reset fg, bg and styles
     return "".join(out)
 
+def ansi_go_up(y):
+    return f"\033[{y}A"
 
 def render(width: int, height: int, root_node: Node, end=True) -> tuple[str, Result]:
     canvas = Canvas(width, height)
@@ -487,7 +487,7 @@ def render(width: int, height: int, root_node: Node, end=True) -> tuple[str, Res
     )
     canvas.apply_draw_commands(measure_text, result.get_commands())
     string = "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in canvas.split_by_lines())
-    string += f"\033[{height}A" if end else ""
+    string += ansi_go_up(height) if end else ""
     return (string, result)
 
 def render_to_fit_terminal(root_node: Node, end=True) -> tuple[str, Result]:
@@ -509,11 +509,12 @@ class InteractibleIDPart:
     direction: Direction
     local_id: int
 
+
 @dataclass(frozen=True, eq=True)
 class InteractibleID:
     data: tuple[InteractibleIDPart, ...]
     """every intercatible id stores its own part at the end of the data tuple, and its ancestors part before it"""
-    def new_child(self, local_id: int, direction: None | Direction = None) -> Self:
+    def child(self, local_id: int, direction: None | Direction = None) -> Self:
         if len(self.data):
             return self.__class__((*self.data, InteractibleIDPart(
                 direction=self.data[-1].direction if direction is None else direction,
@@ -528,6 +529,15 @@ class InteractibleID:
         return self.data[-1].direction
     def __bool__(self):
         return bool(len(self.data))
+    def with_direction(self, direction: Direction):
+        return self.__class__(
+            (*self.data[:-1], InteractibleIDPart(
+                direction=direction,
+                local_id=self.data[-1].local_id)
+            )
+        )
+root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0),))
+root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0),))
 
 @dataclass(frozen=True, eq=True)
 class InteractibleData(ResultData):
@@ -561,9 +571,13 @@ def try_find_nearest(nav_data: list[InteractibleID], current_index: int, directi
         # if next index is out of bounds
         if next_index >= len(nav_data) or next_index < 0:
             return None
+
         # if next index parent is a different direction then inputed,
         # in this case just keep advancing index untill either end of nav_data or direction matches and nav_depth is same or less than original
-        if nav_data[next_index].data[-2].direction != direction:
+
+        if nav_data[next_index].data[
+            (original_depth-2) if len(nav_data[next_index].data) >= original_depth else -2 # look at the same parent as of the original depth
+        ].direction != direction:
             changed_directions = True 
             next_index = advance()
             continue
@@ -589,6 +603,7 @@ def _navigate_by_keyboard(current_index: int, nav_data: list[InteractibleID], na
 class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     _selected: InteractibleID = InteractibleID(())
+    _old_result: Result = field(default_factory=lambda : Result([], {}))
 
     #
     # state management
@@ -602,7 +617,7 @@ class AppState:
     def is_just_selected(self, key: InteractibleID) -> bool:
         ...
     # while True:
-    #    res = render
+    #    res = render() (print)
     #    input()
     #    step()
 
@@ -622,6 +637,7 @@ class AppState:
                 self._selected = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
             self._selected = next_inderactible.next_id # TODO: ahh interactible data is multiple objects what will i do?????
+
 
     def interaction(self, interactible_id: InteractibleID):
         # important to add entry to dictionary before appending to nav data, so that key is same as index
@@ -651,6 +667,43 @@ def _render_read_box(
         res.set_data(NextInteractible(interactible_id))
     res.add_children_after([child.render(frame, box)])
     return res
+
+def blessed_step(blessed_lib, app: AppState, layout: Node, size_override: Rect | None) -> bool:
+    if size_override is None:
+        terminal_size = os.get_terminal_size()
+        width = terminal_size.columns
+        height = terminal_size.lines - 1
+    else:
+        width = size_override.width
+        height = size_override.height
+
+    out_string, result = render(width, height, layout)
+    print(out_string)
+
+    term = blessed_lib.Terminal()
+    nav = Coordinate(0, 0)
+    with term.cbreak():
+        while True:
+            val = term.inkey()
+            if not val.is_sequence:
+                nav_val: str = val.code
+                nav_val = val.lower()
+                if nav_val == "h":
+                    nav = Coordinate(-1, 0)
+                elif nav_val == "j":
+                    nav = Coordinate(0, 1)
+                elif nav_val == "k":
+                    nav = Coordinate(0, -1)
+                elif nav_val == "l":
+                    nav = Coordinate(1, 0)
+                elif nav_val == "e":
+                    print(term.move_down(height))
+                    return False
+                break
+
+
+    app.step(Coordinate(-1, -1), nav, result)
+    return True
 
 #
 # Element utils
