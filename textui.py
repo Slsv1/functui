@@ -1,12 +1,17 @@
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any, Iterable, Self, Callable
-from enum import IntFlag, auto, Enum
+from enum import Flag, auto, Enum
 from abc import ABC, abstractmethod
-from functools import reduce, partial, cache
+from functools import reduce, partial, cache, lru_cache
 from wcwidth import wcswidth
 import math
 import os
+
+# TODO:
+# fix the frikin terminal being to slow.
+# if it is blessed that is slow with hoe i use it then fix that.
+# (maybe term.cbreak() needs to be quick idk
 
 # FIXME:
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
@@ -21,8 +26,7 @@ import os
 # Element constructor:
 # A function that returns an Element
 
-
-
+LRU_MAX_SIZE = 32
 #
 # utilities
 #
@@ -136,13 +140,23 @@ class Box:
         return self.offset.x <= point.x < (self.offset.x + self.width)\
             and self.offset.y <= point.y < (self.offset.y + self.height) 
 
-class CharStyle(IntFlag):
+class CharStyle(Flag):
     BOLD = auto()
     REVERSED = auto()
     ITALIC = auto()
     UNDERLINED = auto()
     STRIKE_THROUGH = auto()
 
+class Color(Enum):
+    BLACK = 30
+    RED = 31
+    GREEN = 32
+    YELLOW = 33
+    BLUE = 34
+    MAGENTA = 35
+    CYAN = 36
+    WHITE = 37
+    RESET = 39
 
 #
 # Ui specific datastructures
@@ -151,8 +165,8 @@ class CharStyle(IntFlag):
 @dataclass(frozen=True, eq=True)
 class Pixel:
     char: str = " "
-    fg_color: Any = None
-    bg_color: Any = None
+    fg_color: Any = Color.RESET
+    bg_color: Any = Color.RESET
     style: CharStyle = CharStyle(0)
     def with_char(self, char: str) -> Self:
         return self.__class__(
@@ -215,7 +229,7 @@ class Frame:
         )
 
 class Canvas:
-    def __init__(self, width: int, height: int, fill: Pixel=Pixel(" ", None, None)):
+    def __init__(self, width: int, height: int, fill: Pixel=Pixel()):
         self.width = width
         self.height = height
         self._data: list[Pixel] = [fill for _ in range(width * height)]
@@ -426,15 +440,6 @@ class Node:
         return (self.func, self.hash) == (value.func, value.hash)
 
 
-class Color(Enum):
-    BLACK = 30
-    RED = 31
-    GREEN = 32
-    YELLOW = 33
-    BLUE = 34
-    MAGENTA = 35
-    CYAN = 36
-    WHITE = 37
 
 
 def default_color_to_fg_ansi(color: Color):
@@ -457,44 +462,54 @@ def style_to_ansi(style: CharStyle):
         out.append("\033[9m")
     return "".join(out)
 
-def default_color_to_ansi_driver(pixel: Pixel) -> str:
+ANSI_RESET_STYLES = "\033[0m"
+
+def render_ansi(canvas: Canvas) -> str:
     out = []
-    if isinstance(pixel.fg_color, Color):
-        out.append(default_color_to_fg_ansi(pixel.fg_color)) 
+    lines = canvas.split_by_lines()
+    curr_style = CharStyle(0)
+    curr_fg = Color.RESET
+    curr_bg = Color.RESET
+    for line in lines:
+        for pixel in line:
+            pixel_str = []
+            style_changes = (curr_style ^ pixel.style)
+            if style_changes:
+                print("hej")
+                new_style =  style_changes & pixel.style
+                removed_style = bool(style_changes & curr_style)
+                curr_style = pixel.style
+                pixel_str.append(
+                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style)]\
+                    if removed_style\
+                    else [style_to_ansi(new_style)]
+                )
+            if curr_fg != pixel.fg_color:
+                curr_fg = pixel.fg_color
+                pixel_str.append(default_color_to_fg_ansi(curr_fg))
+            if curr_bg != pixel.bg_color:
+                curr_bg = pixel.bg_color
+                pixel_str.append(default_color_to_bg_ansi(curr_bg))
+            pixel_str.append(pixel.char)
+            out.append("".join(pixel_str))
+        out.append("\n")
+    return "".join(out[:-1]) # -1 to remove the \n on the end
 
-    if isinstance(pixel.bg_color, Color):
-        out.append(default_color_to_bg_ansi(pixel.bg_color)) 
-
-    out.append(style_to_ansi(pixel.style))
-    out.append(pixel.char)
-    out.append("\033[39m\033[49m\033[0m") # reset fg, bg and styles
-    return "".join(out)
 
 def ansi_go_up(y):
     return f"\033[{y}A"
 
-def render(width: int, height: int, root_node: Node, end=True) -> tuple[str, Result]:
-    canvas = Canvas(width, height)
-    measure_text = lambda s: wcswidth(s)
+def get_result(dimensions: Rect, measure_text: MeasureTextFunc, root_node: Node) -> Result:
     result = root_node.render(
         Frame(
-            screen_rect=Rect(width, height),
-            view_box=Box(width, height),
+            screen_rect=dimensions,
+            view_box=Box(dimensions.width, dimensions.height),
             default_pixel=Pixel(),
             measure_text=measure_text
         ),
-        Box(width=width, height=height),
+        Box(width=dimensions.width, height=dimensions.height),
     )
-    canvas.apply_draw_commands(measure_text, result.get_commands())
-    string = "\n".join("".join(default_color_to_ansi_driver(pixel) for pixel in line) for line in canvas.split_by_lines())
-    string += ansi_go_up(height) if end else ""
-    return (string, result)
-
-def render_to_fit_terminal(root_node: Node, end=True) -> tuple[str, Result]:
-    terminal_size = os.get_terminal_size()
-    width = terminal_size.columns
-    height = terminal_size.lines - 1
-    return render(width, height, root_node, end)
+    return result
 
 #
 # Reactivity
@@ -668,42 +683,48 @@ def _render_read_box(
     res.add_children_after([child.render(frame, box)])
     return res
 
-def blessed_step(blessed_lib, app: AppState, layout: Node, size_override: Rect | None) -> bool:
-    if size_override is None:
-        terminal_size = os.get_terminal_size()
-        width = terminal_size.columns
-        height = terminal_size.lines - 1
-    else:
-        width = size_override.width
-        height = size_override.height
+def _blessed_get_input(term) -> str:
+    while True:
+        val = term.inkey()
+        if not val.is_sequence:
+            return val
 
-    out_string, result = render(width, height, layout)
-    print(out_string)
-
+def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_override: Rect | None=None):
     term = blessed_lib.Terminal()
-    nav = Coordinate(0, 0)
+    measure_text = lambda s: wcswidth(s)
     with term.cbreak():
         while True:
-            val = term.inkey()
-            if not val.is_sequence:
-                nav_val: str = val.code
-                nav_val = val.lower()
-                if nav_val == "h":
-                    nav = Coordinate(-1, 0)
-                elif nav_val == "j":
-                    nav = Coordinate(0, 1)
-                elif nav_val == "k":
-                    nav = Coordinate(0, -1)
-                elif nav_val == "l":
-                    nav = Coordinate(1, 0)
-                elif nav_val == "e":
-                    print(term.move_down(height))
-                    return False
-                break
+            if size_override is None:
+                terminal_size = os.get_terminal_size()
+                width = terminal_size.columns
+                height = terminal_size.lines
+            else:
+                width = size_override.width
+                height = size_override.height
 
+            result = get_result(Rect(width, height), measure_text,  layout())
+            canvas = Canvas(width, height)
+            canvas.apply_draw_commands(measure_text, result.get_commands())
+            out_string = render_ansi(canvas)
 
-    app.step(Coordinate(-1, -1), nav, result)
-    return True
+            with term.location(0, 0):
+                print(out_string, end="", flush=True)
+
+            nav = Coordinate(0, 0)
+            val = _blessed_get_input(term)
+            nav_val = val.lower()
+            if nav_val == "h":
+                nav = Coordinate(-1, 0)
+            elif nav_val == "j":
+                nav = Coordinate(0, 1)
+            elif nav_val == "k":
+                nav = Coordinate(0, -1)
+            elif nav_val == "l":
+                nav = Coordinate(1, 0)
+            elif nav_val == "q":
+                print(term.move_down(height))
+                return
+            app.step(Coordinate(-1, -1), nav, result)
 
 #
 # Element utils
@@ -746,7 +767,7 @@ def text(string: str):
         render = partial(_text_render, split_string)
     )
 
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     res = Result()
     for y, line in enumerate(text):
@@ -794,7 +815,7 @@ def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
         render=partial(_adaptive_text_render, words, justify),
     )
 
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box: Box):
     res = Result()
     lines = _split_by_lines(frame.measure_text, box.width, words)
@@ -814,7 +835,7 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box
 
 def vbar(char: str = "|"):
     return Node(vbar, (char,), min_size_constant(Rect(1, 1)), partial(_vbar_render, char))
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _vbar_render(char: str, frame: Frame, box: Box):
     print(box)
     res = Result()
@@ -823,7 +844,7 @@ def _vbar_render(char: str, frame: Frame, box: Box):
 
 def hbar(char: str = "-"):
     return Node(hbar, (char,), min_size_constant(Rect(1, 1)), partial(_hbar_render, char))
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _hbar_render(char: str, frame: Frame, box: Box):
     res = Result()
     res.draw_box(frame, char, Box(box.width, 1, box.offset))
@@ -859,7 +880,7 @@ def border(child: Node):
         render=partial(_border_render, child),
     )
 
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _border_render(child: Node, frame: Frame, box: Box):
     style = BORDER_ROUNDED
     res = Result()
@@ -896,7 +917,12 @@ def _add_style_render(child: Node, style: CharStyle, frame: Frame, box: Box):
 
 @applicable
 def no_style(child: Node):
-    return Node(no_style, (child,), child.min_size, partial(_no_style_render, child))
+    return Node(
+        func=no_style,
+        hash=(child,), 
+        min_size=child.min_size, 
+        render=partial(_no_style_render, child)
+    )
 
 def _no_style_render(child: Node, frame: Frame, box: Box):
     return child.render(
@@ -985,7 +1011,7 @@ def vbox(children: Iterable[Node], at_y: int=0):
         render=partial(_vbox_render, children, at_y)
     )
 
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _vbox_render(children: Iterable[Node], at_y: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
@@ -1005,7 +1031,7 @@ def hbox(children: Iterable[Node], at_x: int=0):
         min_size=min_size_horizontal([i.min_size for i in children]),
         render=partial(_hbox_render, children, at_x)
     )
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
@@ -1115,7 +1141,7 @@ def vbox_flex(children: Iterable[Flex]):
     )
 
 
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).height for i in children if i.basis)
     total_grow = sum(i.grow for i in children)
@@ -1144,7 +1170,7 @@ def hbox_flex(children: Iterable[Flex]):
         min_size=min_size_horizontal([i.node.min_size for i in children]),
         render=partial(_hbox_flex_render, children)
     )
-@cache
+@lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).width for i in children if i.basis)
     total_grow = sum(i.grow for i in children)
