@@ -8,13 +8,19 @@ from wcwidth import wcswidth
 import math
 import os
 
-# TODO:
-# fix the frikin terminal being to slow.
-# if it is blessed that is slow with hoe i use it then fix that.
-# (maybe term.cbreak() needs to be quick idk
 
 # FIXME:
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
+
+# FIXME:
+# overwriting wide chars does not work right now
+#( i think we need tail back and store the string in it)
+
+# FIXME:
+# right now if a widechar is at the end of a line, it will get rendered even if it does not fit
+# probably can get fixed by fixing the above first
+
+# i can probably add another step, after all of the commands have been applied, that cleans up all wide chars
 
 # Terminology:
 # Node:
@@ -161,26 +167,54 @@ class Color(Enum):
 #
 # Ui specific datastructures
 #
+@dataclass(frozen=True, eq=True)
+class Char:
+    string: str
+    @staticmethod
+    def width():
+        return 1
+
+@dataclass(frozen=True, eq=True)
+class WideCharHead:
+    string: str
+    overwriting: str = " "
+    @staticmethod
+    def width():
+        return 2
+
+# @dataclass(frozen=True, eq=True)
+# class WideCharTail:
+#     overwriting: str
+#
 
 @dataclass(frozen=True, eq=True)
 class Pixel:
-    char: str = " "
+    char: Char|WideCharHead = Char(" ")
     fg_color: Any = Color.RESET
     bg_color: Any = Color.RESET
     style: CharStyle = CharStyle(0)
+
     def with_char(self, char: str) -> Self:
+        return self.__class__(
+            Char(char),
+            self.fg_color,
+            self.bg_color,
+            self.style,
+        )
+    def with_char_type(self, char: Char|WideCharHead):
         return self.__class__(
             char,
             self.fg_color,
             self.bg_color,
-            self.style
+            self.style,
         )
+
     def with_style(self, style: CharStyle) -> Self:
         return self.__class__(
             self.char,
             self.fg_color,
             self.bg_color,
-            style
+            style,
         )
 
 @dataclass(frozen=True, eq=True)
@@ -196,7 +230,7 @@ class DrawBox:
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
     style: Pixel
-    string: str
+    string: Iterable[Char|WideCharHead]
     at: Coordinate
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
@@ -265,8 +299,24 @@ class Canvas:
                 delta_x = 0
                 for char in command.string:
                     at = Coordinate(command.at.x + delta_x, command.at.y)
-                    self.set(at, command.style.with_char(char))
-                    delta_x += measure_text_func(char)
+                    self.set(at, command.style.with_char_type(char))
+                    delta_x += char.width()
+
+# if last char is wide_head, meake it normal
+
+# N N -> N N
+# T N -> T N
+# H T -> H T
+# N H -> N H
+# T H -> T H
+
+# convert all wrong orders to right
+# N T -> N N
+# T T -> T N
+# H H -> N H
+# H N -> N N
+
+
 
 type MinSize = Callable[[MeasureTextFunc, Rect], Rect]
 type ElementConstructor = Applicable[Node, Node]
@@ -387,7 +437,10 @@ class Result:
         if at.x +content_len < bounds.offset.x or at.x >= outer_x_bound:
             return
 
-
+        # find initial x offset
+        #         #---#
+        #         |   |
+        #^^^^^^^^^#---#
         required_offset = bounds.offset.x - at.x
         x_content_offset = 0
         char_offset = 0
@@ -397,14 +450,17 @@ class Result:
                 char_offset += 0
                 if x_content_offset >= required_offset:
                     break
+
+        # generate output string
         out = []
         for char in content[char_offset:]:
-            x_content_offset += frame.measure_text(char)
+            char_width = frame.measure_text(char)
+            x_content_offset += char_width
             if x_content_offset + at.x > outer_x_bound:
                 break
-            out.append(char)
+            out.append(Char(char) if char_width == 1 else WideCharHead(char))
         self._draw_commands.append(DrawStringLine(
-            frame.default_pixel, "".join(out), at
+            frame.default_pixel, out, at
         ))
     def get_commands(self): return tuple(self._draw_commands)
 
@@ -471,11 +527,16 @@ def render_ansi(canvas: Canvas) -> str:
     curr_fg = Color.RESET
     curr_bg = Color.RESET
     for line in lines:
+        prev_width = 1
         for pixel in line:
+            if prev_width == 2:
+                prev_width = 1
+                continue
+            prev_width = pixel.char.width()
+
             pixel_str = []
             style_changes = (curr_style ^ pixel.style)
             if style_changes:
-                print("hej")
                 new_style =  style_changes & pixel.style
                 removed_style = bool(style_changes & curr_style)
                 curr_style = pixel.style
@@ -490,7 +551,7 @@ def render_ansi(canvas: Canvas) -> str:
             if curr_bg != pixel.bg_color:
                 curr_bg = pixel.bg_color
                 pixel_str.append(default_color_to_bg_ansi(curr_bg))
-            pixel_str.append(pixel.char)
+            pixel_str.append(pixel.char.string)
             out.append("".join(pixel_str))
         out.append("\n")
     return "".join(out[:-1]) # -1 to remove the \n on the end
