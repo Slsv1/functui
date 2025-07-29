@@ -18,19 +18,24 @@ def status_bar(state: AppState, id: InteractibleID):
             ** (bg(Color.CYAN) ** text("お") if state.is_active(id.child(1)) else text("x")),
     ])
 
-
 def get_layout(state: AppState, root: InteractibleID):
     return vbox_flex([
         flex ** vbox([
             selectable(state, root.child(0), text("おはよう")),
             selectable(state, root.child(1), text("hej")),
-            selectable(state, root.child(2), text("hej")),
+            selectable(state, root.child(2), static_box([
+                fill_char(".") ** nothing(),
+                text("うう\nうう"),
+                offset(1, 0) ** text("お"),
+            ])),
         ]),
         no_flex ** status_bar(state, root.child(3))
     ])
+
 state = AppState()
 blessed_loop(
     blessed,
     state,
     lambda: get_layout(state, root_vertical),
+    # Rect(5, 1)
 )
