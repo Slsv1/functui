@@ -167,43 +167,36 @@ class Color(Enum):
 #
 # Ui specific datastructures
 #
-@dataclass(frozen=True, eq=True)
-class Char:
-    string: str
-    @staticmethod
-    def width():
-        return 1
-
-@dataclass(frozen=True, eq=True)
-class WideCharHead:
-    string: str
-    overwriting: str = " "
-    @staticmethod
-    def width():
-        return 2
 
 # @dataclass(frozen=True, eq=True)
 # class WideCharTail:
 #     overwriting: str
 #
+class CharType(Enum):
+    NORMAL = auto()
+    WIDE_HEAD = auto()
+    WIDE_TAIL = auto()
 
 @dataclass(frozen=True, eq=True)
 class Pixel:
-    char: Char|WideCharHead = Char(" ")
+    char: str = " "
+    char_type: CharType = CharType.NORMAL
     fg_color: Any = Color.RESET
     bg_color: Any = Color.RESET
     style: CharStyle = CharStyle(0)
 
     def with_char(self, char: str) -> Self:
         return self.__class__(
-            Char(char),
+            char,
+            self.char_type,
             self.fg_color,
             self.bg_color,
             self.style,
         )
-    def with_char_type(self, char: Char|WideCharHead):
+    def with_char_type(self, char_type):
         return self.__class__(
-            char,
+            self.char,
+            char_type,
             self.fg_color,
             self.bg_color,
             self.style,
@@ -212,6 +205,7 @@ class Pixel:
     def with_style(self, style: CharStyle) -> Self:
         return self.__class__(
             self.char,
+            self.char_type,
             self.fg_color,
             self.bg_color,
             style,
@@ -230,7 +224,7 @@ class DrawBox:
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
     style: Pixel
-    string: Iterable[Char|WideCharHead]
+    string: Iterable[tuple[str, CharType]]
     at: Coordinate
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
@@ -266,6 +260,7 @@ class Canvas:
     def __init__(self, width: int, height: int, fill: Pixel=Pixel()):
         self.width = width
         self.height = height
+        self.wide_char_cutoff = "#"
         self._data: list[Pixel] = [fill for _ in range(width * height)]
         """
         matrix indicies work in this pattern:
@@ -283,8 +278,10 @@ class Canvas:
         out: list[tuple[Pixel, ...]] = []
         for h in range(self.height):
             current_row = tuple([self.get(Coordinate(w, h)) for w in range(self.width)])
+            current_row = tuple(i for i in current_row if i.char_type != CharType.WIDE_TAIL)
             out.append(current_row)
         return tuple(out)
+
     def apply_draw_commands(self, measure_text_func: Callable[[str], int],  draw_commands: Iterable[DrawCommand]):
         for command in draw_commands:
             if isinstance(command, DrawPixel):
@@ -297,10 +294,34 @@ class Canvas:
                         self.set(Coordinate(x, y), command.fill)
             else: #DrawStringLine
                 delta_x = 0
-                for char in command.string:
+                for char, char_type in command.string:
+
                     at = Coordinate(command.at.x + delta_x, command.at.y)
-                    self.set(at, command.style.with_char_type(char))
-                    delta_x += char.width()
+                    self.set(at, command.style.with_char_type(char_type).with_char(char))
+                    delta_x += 1
+        self._clean_up_wide_chars()
+
+    def _clean_up_wide_chars(self):
+        for i, pixel in enumerate(self._data[:-1]):
+            if (i % self.width) == 0: # if on last char of line
+                continue
+            next_pixel = self._data[i+1]
+            match [pixel.char_type, next_pixel.char_type]:
+                case [CharType.NORMAL, CharType.NORMAL]\
+                    | [CharType.WIDE_TAIL, CharType.NORMAL]\
+                    | [CharType.WIDE_HEAD, CharType.WIDE_TAIL]\
+                    | [CharType.NORMAL, CharType.WIDE_HEAD]\
+                    | [CharType.WIDE_TAIL, CharType.WIDE_HEAD]:
+                    continue
+                case [CharType.WIDE_HEAD, CharType.WIDE_HEAD]\
+                    | [CharType.WIDE_HEAD, CharType.WIDE_TAIL]:
+                    self._data[i] = pixel.with_char_type(CharType.NORMAL)\
+                        .with_char(self.wide_char_cutoff)
+                case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
+                    self._data[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
+                        .with_char(self.wide_char_cutoff)
+
+
 
 # if last char is wide_head, meake it normal
 
@@ -310,9 +331,11 @@ class Canvas:
 # N H -> N H
 # T H -> T H
 
-# convert all wrong orders to right
+# convert next to normal
 # N T -> N N
 # T T -> T N
+
+# convert current to normal (notice it is only head that can be converted)
 # H H -> N H
 # H N -> N N
 
@@ -439,8 +462,8 @@ class Result:
 
         # find initial x offset
         #         #---#
-        #         |   |
-        #^^^^^^^^^#---#
+        #    content  |
+        #    ^^^^^#---#
         required_offset = bounds.offset.x - at.x
         x_content_offset = 0
         char_offset = 0
@@ -458,7 +481,11 @@ class Result:
             x_content_offset += char_width
             if x_content_offset + at.x > outer_x_bound:
                 break
-            out.append(Char(char) if char_width == 1 else WideCharHead(char))
+            if char_width == 1:
+                out.append((char, CharType.NORMAL))
+            else:
+                out.append((char, CharType.WIDE_HEAD))
+                out.append((char, CharType.WIDE_TAIL))
         self._draw_commands.append(DrawStringLine(
             frame.default_pixel, out, at
         ))
@@ -527,13 +554,7 @@ def render_ansi(canvas: Canvas) -> str:
     curr_fg = Color.RESET
     curr_bg = Color.RESET
     for line in lines:
-        prev_width = 1
         for pixel in line:
-            if prev_width == 2:
-                prev_width = 1
-                continue
-            prev_width = pixel.char.width()
-
             pixel_str = []
             style_changes = (curr_style ^ pixel.style)
             if style_changes:
@@ -551,7 +572,7 @@ def render_ansi(canvas: Canvas) -> str:
             if curr_bg != pixel.bg_color:
                 curr_bg = pixel.bg_color
                 pixel_str.append(default_color_to_bg_ansi(curr_bg))
-            pixel_str.append(pixel.char.string)
+            pixel_str.append(pixel.char)
             out.append("".join(pixel_str))
         out.append("\n")
     return "".join(out[:-1]) # -1 to remove the \n on the end
@@ -1291,10 +1312,38 @@ def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
 #
 # V_PROGRESS = " ▁▂▃▄▅▆▇█"
 #
+
 # # ╵╷│
 # def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 #
-def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
+def h_guage(progress: int):
+    return Node(
+        func=h_guage,
+        hash=(progress,),
+        min_size=min_size_constant(Rect(1, 1)),
+        render=partial(_h_guage_render, "#", progress),
+    )
+
+def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box) -> Result:
+    start_at_pixel = box.width * progress
+    start_at_pixel_int = math.floor(start_at_pixel)
+    start_at_progress = start_at_pixel - start_at_pixel_int
+    res = Result()
+    res.draw_box(frame, progress_str[0], Box(start_at_pixel_int, 1 ,box.offset))
+    res.draw_pixel(frame, progress_str[(len(progress_str)-1) * start_at_progress], box.offset + Coordinate(start_at_pixel_int, 0))
+    return res
+
+
+
+def v_scroll_bar(start: float, showing: float):
+    return Node(
+        func=v_scroll_bar,
+        hash=(start, showing),
+        min_size=min_size_constant(Rect(1, 1)),
+        render=partial(_v_scroll_bar_render, start, showing)
+
+    )
+def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -> Result:
     start_at_pixel = box.height * start
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
@@ -1327,3 +1376,4 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
             res.draw_pixel(frame, end_char, box.offset + Coordinate(0, i))
         elif start_at_pixel_int < i < end_at_pixel_int:
             res.draw_pixel(frame, "│", box.offset + Coordinate(0, i))
+    return res
