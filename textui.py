@@ -229,7 +229,6 @@ class DrawStringLine:
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
 
-
 type MeasureTextFunc = Callable[[str], int]
 
 @dataclass(frozen=True, eq=True)
@@ -302,10 +301,12 @@ class Canvas:
         self._clean_up_wide_chars()
 
     def _clean_up_wide_chars(self):
+        print("".join(str(i.char_type) for i in self._data))
         for i, pixel in enumerate(self._data[:-1]):
-            if (i % self.width) == 0: # if on last char of line
+            if ((i+1) % self.width) == 0: # if on last char of line
                 continue
             next_pixel = self._data[i+1]
+            print("comparing", pixel.char_type, next_pixel.char_type)
             match [pixel.char_type, next_pixel.char_type]:
                 case [CharType.NORMAL, CharType.NORMAL]\
                     | [CharType.WIDE_TAIL, CharType.NORMAL]\
@@ -314,12 +315,13 @@ class Canvas:
                     | [CharType.WIDE_TAIL, CharType.WIDE_HEAD]:
                     continue
                 case [CharType.WIDE_HEAD, CharType.WIDE_HEAD]\
-                    | [CharType.WIDE_HEAD, CharType.WIDE_TAIL]:
+                    | [CharType.WIDE_HEAD, CharType.NORMAL]:
                     self._data[i] = pixel.with_char_type(CharType.NORMAL)\
                         .with_char(self.wide_char_cutoff)
                 case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
                     self._data[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
                         .with_char(self.wide_char_cutoff)
+        print("".join(str(i.char_type) for i in self._data))
 
 
 
@@ -1143,24 +1145,24 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
 #     return Node(node.min_size, render)
 #
 #
-def fill_char(char: str):
+def bg_fill_char(char: str):
     @applicable
     def out(child: Node):
         return Node(
-            func=fill_char,
+            func=bg_fill_char,
             hash=(char,child),
             min_size=child.min_size,
-            render=partial(_fill_char_render, char, child)
+            render=partial(_bg_fill_char_render, char, child)
         )
 
     return out
-def _fill_char_render(char: str, child: Node, frame: Frame, box: Box):
+def _bg_fill_char_render(char: str, child: Node, frame: Frame, box: Box):
     res = Result()
     res.draw_box(frame, char, box)
     res.add_children_after([child.render(frame, box)])
     return res
 
-fill = fill_char(" ")
+bg_fill = bg_fill_char(" ")
 #
 #
 # def border_with_title(title: Node, border_node=border):
