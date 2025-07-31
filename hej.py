@@ -1,10 +1,11 @@
 import blessed
+from textui import _offset_render
 from textui import *
 
 
-def selectable(state: AppState, id: InteractibleID, data: Node):
+def selectable(data: Node, state: AppState, id: InteractibleID):
     return state.interaction(id) ** shrink\
-    ** ( combine(fg(Color.CYAN), border, no_style) if state.is_active(id) else empty )** data
+    ** ( combine(fg(Color.CYAN), border, no_style) if state.is_active(id) else border )** data
 
 def status_bar(state: AppState, id: InteractibleID):
     id = id.with_direction(Direction.HORIZONTAL)
@@ -18,31 +19,47 @@ def status_bar(state: AppState, id: InteractibleID):
             ** (bg(Color.CYAN) ** text("お") if state.is_active(id.child(1)) else text("x")),
     ])
 
-def get_layout(state: AppState, root: InteractibleID):
-    return border ** bg_fill_char(".") ** vbox_flex([
-        flex ** vbox([
-            selectable(state, root.child(0), text("おはよう")),
-            # selectable(state, root.child(0), text("hej🙂")),
-            selectable(state, root.child(1), text("hej🙂")),
-            selectable(state, root.child(2), text("hej\nhej")),
-            selectable(state, root.child(3), static_box([
-                text("うう\nうう"),
-                offset(1, 0) ** text("h")#text("お"),
-            ])),
-            selectable(state, root.child(4), text("hej\nhej")),
-        ]),
-        no_flex ** status_bar(state, root.child(5))
-    ])
 # def get_layout(state: AppState, root: InteractibleID):
-#     return static_box([
-#         text("うう"),
-#         # offset(3, 0) ** text("h")#text("お"),
+#     return border ** bg_fill_char(".") ** vbox_flex([
+#         flex ** vbox([
+#             selectable(state, root.child(0), text("おはよう")),
+#             # selectable(state, root.child(0), text("hej🙂")),
+#             selectable(state, root.child(1), text("hej🙂")),
+#             selectable(state, root.child(2), text("hej\nhej")),
+#             selectable(state, root.child(3), static_box([
+#                 text("うう\nうう"),
+#                 offset(1, 0) ** text("h")#text("お"),
+#             ])),
+#             selectable(state, root.child(4), text("hej\nhej")),
+#         ]),
+#         no_flex ** status_bar(state, root.child(5))
 #     ])
-
+def get_layout(state, root):
+    # print(_offset_render.cache_info())
+    return offset(0, 0) ** border ** vbox([
+        hbox_flex([
+            flex ** adaptive_text(LOREM),
+            no_flex ** vbar(),
+        ]),
+        border ** v_box_scroll(state, root.child(0), [
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+        ]),
+    ])
 state = AppState()
 blessed_loop(
     blessed,
     state,
     lambda: get_layout(state, root_vertical),
-    # Rect(3, 1)
+    # Rect(70, 40)
 )
