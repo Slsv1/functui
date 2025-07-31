@@ -12,13 +12,8 @@ import os
 # FIXME:
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
 
-# FIXME:
-# overwriting wide chars does not work right now
-#( i think we need tail back and store the string in it)
-
-# FIXME:
-# right now if a widechar is at the end of a line, it will get rendered even if it does not fit
-# probably can get fixed by fixing the above first
+# TODO:
+# make draw_text_line return full pixels and not some tuple thingy
 
 # i can probably add another step, after all of the commands have been applied, that cleans up all wide chars
 
@@ -32,7 +27,7 @@ import os
 # Element constructor:
 # A function that returns an Element
 
-LRU_MAX_SIZE = 32
+LRU_MAX_SIZE = 64
 #
 # utilities
 #
@@ -223,8 +218,7 @@ class DrawBox:
 
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
-    style: Pixel
-    string: Iterable[tuple[str, CharType]]
+    string: Iterable[Pixel]
     at: Coordinate
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
@@ -255,31 +249,29 @@ class Frame:
             measure_text=self.measure_text,
         )
 
+@cache
+def _get_default_data(width: int, height: int):
+    return [[Pixel() for _ in range(width)] for _ in range(height)]
 class Canvas:
-    def __init__(self, width: int, height: int, fill: Pixel=Pixel()):
+    def __init__(self, width: int, height: int):
         self.width = width
         self.height = height
         self.wide_char_cutoff = "#"
-        self._data: list[Pixel] = [fill for _ in range(width * height)]
-        """
-        matrix indicies work in this pattern:
-        0 1 2 3 4
-        5 6 7 8 9
-        """
+        self._data: list[list[Pixel]] = _get_default_data(width, height)
 
     def get(self, pos: Coordinate) -> Pixel:
-        return self._data[pos.x + pos.y * self.width]
+        return self._data[pos.y][pos.x]
 
     def set(self, pos: Coordinate, data: Pixel) -> None:
         """may error if out of range!!!"""
-        self._data[pos.x + pos.y * self.width] = data
-    def split_by_lines(self) -> tuple[tuple[Pixel, ...], ...]:
-        out: list[tuple[Pixel, ...]] = []
-        for h in range(self.height):
-            current_row = tuple([self.get(Coordinate(w, h)) for w in range(self.width)])
-            current_row = tuple(i for i in current_row if i.char_type != CharType.WIDE_TAIL)
-            out.append(current_row)
-        return tuple(out)
+        self._data[pos.y][pos.x] = data
+    def split_by_lines(self) -> list[list[Pixel]]:
+        # BUG
+        # right now wide chars wont be frickign yeah
+        return self._data
+        #     # current_row = tuple(i for i in current_row if i.char_type != CharType.WIDE_TAIL)
+        #     out.append(current_row)
+        # return out
 
     def apply_draw_commands(self, measure_text_func: Callable[[str], int],  draw_commands: Iterable[DrawCommand]):
         for command in draw_commands:
@@ -292,36 +284,35 @@ class Canvas:
                     for y in range(box.offset.y, box.offset.y + box.height):
                         self.set(Coordinate(x, y), command.fill)
             else: #DrawStringLine
-                delta_x = 0
-                for char, char_type in command.string:
+                for delta_x, pixel in enumerate(command.string):
 
                     at = Coordinate(command.at.x + delta_x, command.at.y)
-                    self.set(at, command.style.with_char_type(char_type).with_char(char))
-                    delta_x += 1
+                    self.set(at, pixel)
         self._clean_up_wide_chars()
 
     def _clean_up_wide_chars(self):
-        print("".join(str(i.char_type) for i in self._data))
-        for i, pixel in enumerate(self._data[:-1]):
-            if ((i+1) % self.width) == 0: # if on last char of line
-                continue
-            next_pixel = self._data[i+1]
-            print("comparing", pixel.char_type, next_pixel.char_type)
-            match [pixel.char_type, next_pixel.char_type]:
-                case [CharType.NORMAL, CharType.NORMAL]\
-                    | [CharType.WIDE_TAIL, CharType.NORMAL]\
-                    | [CharType.WIDE_HEAD, CharType.WIDE_TAIL]\
-                    | [CharType.NORMAL, CharType.WIDE_HEAD]\
-                    | [CharType.WIDE_TAIL, CharType.WIDE_HEAD]:
+        # print("".join(str(i.char_type) for i in self._data))
+        for line in self._data:
+            for i, pixel in enumerate(line):
+                if ((i+1) % self.width) == 0: # if on last char of line
                     continue
-                case [CharType.WIDE_HEAD, CharType.WIDE_HEAD]\
-                    | [CharType.WIDE_HEAD, CharType.NORMAL]:
-                    self._data[i] = pixel.with_char_type(CharType.NORMAL)\
-                        .with_char(self.wide_char_cutoff)
-                case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
-                    self._data[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
-                        .with_char(self.wide_char_cutoff)
-        print("".join(str(i.char_type) for i in self._data))
+                next_pixel = line[i+1]
+                # print("comparing", pixel.char_type, next_pixel.char_type)
+                match (pixel.char_type, next_pixel.char_type):
+                    case (CharType.NORMAL, CharType.NORMAL)\
+                        | (CharType.WIDE_TAIL, CharType.NORMAL)\
+                        | (CharType.WIDE_HEAD, CharType.WIDE_TAIL)\
+                        | (CharType.NORMAL, CharType.WIDE_HEAD)\
+                        | (CharType.WIDE_TAIL, CharType.WIDE_HEAD):
+                        continue
+                    case (CharType.WIDE_HEAD, CharType.WIDE_HEAD)\
+                        | (CharType.WIDE_HEAD, CharType.NORMAL):
+                        line[i] = pixel.with_char_type(CharType.NORMAL)\
+                            .with_char(self.wide_char_cutoff)
+                    case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
+                        line[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
+                            .with_char(self.wide_char_cutoff)
+        # print("".join(str(i.char_type) for i in self._data))
 
 
 
@@ -484,12 +475,12 @@ class Result:
             if x_content_offset + at.x > outer_x_bound:
                 break
             if char_width == 1:
-                out.append((char, CharType.NORMAL))
+                out.append(frame.default_pixel.with_char(char))
             else:
-                out.append((char, CharType.WIDE_HEAD))
-                out.append((char, CharType.WIDE_TAIL))
+                out.append(frame.default_pixel.with_char(char).with_char_type(CharType.WIDE_HEAD))
+                out.append(frame.default_pixel.with_char("").with_char_type(CharType.WIDE_TAIL))
         self._draw_commands.append(DrawStringLine(
-            frame.default_pixel, out, at
+            out, at
         ))
     def get_commands(self): return tuple(self._draw_commands)
 
@@ -533,6 +524,7 @@ def default_color_to_fg_ansi(color: Color):
 def default_color_to_bg_ansi(color: Color):
     return f"\033[{color.value + 10}m"
 
+@cache
 def style_to_ansi(style: CharStyle):
     out = []
     if CharStyle.BOLD in style:
@@ -558,8 +550,8 @@ def render_ansi(canvas: Canvas) -> str:
     for line in lines:
         for pixel in line:
             pixel_str = []
-            style_changes = (curr_style ^ pixel.style)
-            if style_changes:
+            if curr_style != pixel.style:
+                style_changes = (curr_style ^ pixel.style)
                 new_style =  style_changes & pixel.style
                 removed_style = bool(style_changes & curr_style)
                 curr_style = pixel.style
@@ -788,8 +780,8 @@ def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_ov
 
             result = get_result(Rect(width, height), measure_text,  layout())
             canvas = Canvas(width, height)
-            canvas.apply_draw_commands(measure_text, result.get_commands())
-            out_string = render_ansi(canvas)
+            canvas.apply_draw_commands(measure_text, result.get_commands()) # 20 %
+            out_string = render_ansi(canvas) # 30 %
 
             with term.location(0, 0):
                 print(out_string, end="", flush=True)
@@ -870,11 +862,13 @@ class Expand(Enum):
 def _line_len(measure_text: MeasureTextFunc, line: list[str]) -> int:
     return sum(measure_text(i) for i in line) + len(line) - 1
 
+@cache
 def _split_by_lines(measure_text: MeasureTextFunc, max_width: int, words: tuple[str, ...]) -> list[str]:
     lines: list[list[str]] = []
     curr_line: list[str] = []
+    line_len = _line_len(measure_text, curr_line)
     for word in words:
-        if _line_len(measure_text, curr_line) + 1 + measure_text(word)<= max_width: # +1 because space between existing line and new word
+        if  line_len + 1 + measure_text(word)<= max_width: # +1 because space between existing line and new word
             curr_line.append(word)
         else:
             lines.append(curr_line)
@@ -921,7 +915,6 @@ def vbar(char: str = "|"):
     return Node(vbar, (char,), min_size_constant(Rect(1, 1)), partial(_vbar_render, char))
 @lru_cache(LRU_MAX_SIZE)
 def _vbar_render(char: str, frame: Frame, box: Box):
-    print(box)
     res = Result()
     res.draw_box(frame, char, Box(1, box.height, box.offset))
     return res
@@ -1307,6 +1300,7 @@ def offset(x: int=0, y: int=0):
             render=partial(_offset_render, coord, child),
         )
     return out
+@lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
     return node.render(frame, box.offset_by(by))
 
@@ -1379,3 +1373,51 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
         elif start_at_pixel_int < i < end_at_pixel_int:
             res.draw_pixel(frame, "│", box.offset + Coordinate(0, i))
     return res
+
+#
+# Components
+#
+
+type Component = Callable[[AppState, InteractibleID], Node]
+
+def v_box_scroll(state: AppState, key: InteractibleID, components: list[Component], at_y=0):
+    container_key = key.child(0, Direction.VERTICAL)
+    scroll_bar_key = key.child(1)
+    child_nodes = []
+    selected_index = 0
+
+    for i, comp in enumerate(components):
+        child_key = container_key.child(i)
+        child_nodes.append(comp(state, child_key))
+
+        if state.is_active(child_key):
+            selected_index = i
+
+    # we need a custom node here so that we can get the available_height
+    def render(frame: Frame, box: Box):
+        available_height = box.height
+        content_height = vbox(child_nodes)\
+            .min_size(frame.measure_text, Rect(box.width-1, 1)).height
+        # print(content_height)
+
+        selected_at_y = vbox(child_nodes[:selected_index+1])\
+            .min_size(frame.measure_text, Rect(box.width-1, 1)).height
+        # print(selected_at_y)
+
+        at_y = selected_at_y-available_height if (selected_at_y-available_height) > 0 else 0
+        percent_available = available_height / content_height
+        percent_progress = at_y/content_height
+
+        layout = hbox_flex([
+            flex ** vbox(child_nodes, -at_y),
+            no_flex ** state.interaction(scroll_bar_key)\
+                  ** (v_scroll_bar(percent_progress, percent_available))
+        ])
+        return layout.render(frame, box)
+
+    return Node(
+        func=v_box_scroll,
+        hash=(*tuple(child_nodes), selected_index),
+        min_size=min_size_vertical([i.min_size for i in child_nodes]),
+        render=render
+    )
