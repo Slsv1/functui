@@ -249,7 +249,6 @@ class Frame:
             measure_text=self.measure_text,
         )
 
-@cache
 def _get_default_data(width: int, height: int):
     return [[Pixel() for _ in range(width)] for _ in range(height)]
 class Canvas:
@@ -689,6 +688,9 @@ def _navigate_by_keyboard(current_index: int, nav_data: list[InteractibleID], na
     # if found next index
     if next_index is not None:
         return nav_data[next_index]
+
+def visualize_interactible_id(id: InteractibleID):
+    return ":".join(f"{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
 
 @dataclass
 class AppState:
@@ -1415,7 +1417,9 @@ type Component = Callable[[AppState, InteractibleID], Node]
 def nav(children: Iterable[Component], state: AppState, id: InteractibleID) -> list[Node]:
     return [child(state, id.child(i)) for i, child in enumerate(children)]
 
-def v_box_scroll(state: AppState, key: InteractibleID, components: list[Component], at_y=0):
+UNLIMITED_SPACE = 2 ** 16
+def vbox_scroll(components: list[Component], state: AppState, key: InteractibleID):
+    key = key.with_direction(Direction.HORIZONTAL)
     container_key = key.child(0, Direction.VERTICAL)
     scroll_bar_key = key.child(1)
     child_nodes = []
@@ -1432,27 +1436,30 @@ def v_box_scroll(state: AppState, key: InteractibleID, components: list[Componen
     def render(frame: Frame, box: Box):
         available_height = box.height
         content_height = vbox(child_nodes)\
-            .min_size(frame.measure_text, Rect(box.width-1, 1)).height
+            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
         # print(content_height)
 
         selected_at_y = vbox(child_nodes[:selected_index+1])\
-            .min_size(frame.measure_text, Rect(box.width-1, 1)).height
+            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
         # print(selected_at_y)
 
+
         at_y = selected_at_y-available_height if (selected_at_y-available_height) > 0 else 0
+        # at_y = selected_at_y
         percent_available = available_height / content_height
         percent_progress = at_y/content_height
 
         layout = hbox_flex([
             flex ** vbox(child_nodes, -at_y),
             no_flex ** state.interaction(scroll_bar_key)\
-                  ** (v_scroll_bar(percent_progress, percent_available))
+                  ** (fg(Color.CYAN) if state.is_active(scroll_bar_key) else fg(Color.RED))\
+                (v_scroll_bar(percent_progress, percent_available))
         ])
         return layout.render(frame, box)
 
     return Node(
-        func=v_box_scroll,
-        hash=(*tuple(child_nodes), selected_index),
+        func=vbox_scroll,
+        hash=(*tuple(child_nodes), state._selected),
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )
