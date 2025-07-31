@@ -41,7 +41,7 @@ def get_layout(state, root):
             flex ** adaptive_text(LOREM),
             no_flex ** vbar(),
         ]),
-        border ** v_box_scroll(state, root.child(0), [
+        border ** vbox(nav([
             partial(selectable, adaptive_text(LOREM)),
             partial(selectable, adaptive_text(LOREM)),
             partial(selectable, adaptive_text(LOREM)),
@@ -54,7 +54,7 @@ def get_layout(state, root):
             partial(selectable, text("hej")),
             partial(selectable, text("hej")),
             partial(selectable, text("hej")),
-        ]),
+        ], state, root.child(0))),
     ])
 state = AppState()
 blessed_loop(

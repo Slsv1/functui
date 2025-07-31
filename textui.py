@@ -218,7 +218,7 @@ class DrawBox:
 
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
-    string: Iterable[Pixel]
+    string: list[Pixel]
     at: Coordinate
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
@@ -764,6 +764,38 @@ def _blessed_get_input(term) -> str:
         val = term.inkey()
         if not val.is_sequence:
             return val
+@cache
+def pixel_styles_to_ansi(pixel: Pixel) -> str:
+    return "".join([
+        style_to_ansi(pixel.style),
+        default_color_to_bg_ansi(pixel.bg_color),
+        default_color_to_fg_ansi(pixel.fg_color),
+    ])
+def blessed_render(term, result: Result):
+    for command in result.get_commands():
+        if isinstance(command, DrawPixel):
+            with term.location(command.at.x, command.at.y):
+                print(pixel_styles_to_ansi(command.pixel) + command.pixel.char , end="")
+
+
+        elif isinstance(command, DrawBox):
+            box = command.box
+            for x in range(box.offset.x, box.offset.x + box.width):
+                for y in range(box.offset.y, box.offset.y + box.height):
+                    with term.location(x, y):
+                        print(pixel_styles_to_ansi(command.fill) + command.fill.char , end="")
+                    # self.set(Coordinate(x, y), command.fill)
+        else: #DrawStringLine
+            for delta_x, pixel in enumerate(command.string):
+                at = Coordinate(command.at.x + delta_x, command.at.y)
+                with term.location(at.x, at.y):
+                    print(pixel_styles_to_ansi(command.string[0]) + pixel.char , end="")
+                ...
+        print("", end="", flush=True)
+
+
+                # self.set(at, pixel)
+
 
 def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_override: Rect | None=None):
     term = blessed_lib.Terminal()
@@ -783,7 +815,7 @@ def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_ov
             canvas.apply_draw_commands(measure_text, result.get_commands()) # 20 %
             out_string = render_ansi(canvas) # 30 %
 
-            with term.location(0, 0):
+            with term.location(0, 0), term.hidden_cursor():
                 print(out_string, end="", flush=True)
 
             nav = Coordinate(0, 0)
@@ -859,16 +891,16 @@ class Expand(Enum):
     VERTICAL = auto()
     HORIZONTAL = auto()
 
-def _line_len(measure_text: MeasureTextFunc, line: list[str]) -> int:
+@cache
+def _line_len(measure_text: MeasureTextFunc, line: tuple[str]) -> int:
     return sum(measure_text(i) for i in line) + len(line) - 1
 
 @cache
 def _split_by_lines(measure_text: MeasureTextFunc, max_width: int, words: tuple[str, ...]) -> list[str]:
     lines: list[list[str]] = []
     curr_line: list[str] = []
-    line_len = _line_len(measure_text, curr_line)
     for word in words:
-        if  line_len + 1 + measure_text(word)<= max_width: # +1 because space between existing line and new word
+        if  _line_len(measure_text, tuple(curr_line)) + 1 + measure_text(word)<= max_width: # +1 because space between existing line and new word
             curr_line.append(word)
         else:
             lines.append(curr_line)
@@ -1379,6 +1411,9 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
 #
 
 type Component = Callable[[AppState, InteractibleID], Node]
+
+def nav(children: Iterable[Component], state: AppState, id: InteractibleID) -> list[Node]:
+    return [child(state, id.child(i)) for i, child in enumerate(children)]
 
 def v_box_scroll(state: AppState, key: InteractibleID, components: list[Component], at_y=0):
     container_key = key.child(0, Direction.VERTICAL)
