@@ -1417,6 +1417,16 @@ type Component = Callable[[AppState, InteractibleID], Node]
 def nav(children: Iterable[Component], state: AppState, id: InteractibleID) -> list[Node]:
     return [child(state, id.child(i)) for i, child in enumerate(children)]
 
+# vbox_scroll be needin:
+#   nav direction
+#   STORED - last at_y (important if some other thingy goes active)
+#
+# if nav is down then:
+#    make sure that selected_object's end is visible (current behaviour)
+# if nav is up then:
+#    make sure that selected object's beggining is visible
+#
+
 UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(components: list[Component], state: AppState, key: InteractibleID):
     key = key.with_direction(Direction.HORIZONTAL)
