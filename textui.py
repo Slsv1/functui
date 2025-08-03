@@ -5,6 +5,7 @@ from enum import Flag, auto, Enum
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache, lru_cache
 from wcwidth import wcswidth
+from random import random
 import math
 import os
 
@@ -385,7 +386,7 @@ class ResultData(ABC):
         ...
 
     @abstractmethod
-    def merge(self, child_data: Self) -> Self:
+    def merge_children(self, child_data: Self) -> Self:
         ...
 
 
@@ -400,9 +401,9 @@ class Result:
             # if some node does not provide data of a type but child does, then create a dummy
             for k, child_data in child._data.items():
                 if k in self._data:
-                    self._data[k] = self._data[k].merge(child_data)
+                    self._data[k] = self._data[k].merge_children(child_data)
                 else:
-                    self._data[k] = k.create_dummy().merge(child_data)
+                    self._data[k] = k.create_dummy().merge_children(child_data)
 
     def try_data[T: (ResultData)](self, key: type[T]) -> T | None:
         if key in self._data:
@@ -631,8 +632,8 @@ root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZON
 
 @dataclass(frozen=True, eq=True)
 class InteractibleData(ResultData):
-    data: tuple[InteractibleID]
-    def merge(self, child_data):
+    data: tuple[InteractibleID, ...]
+    def merge_children(self, child_data):
         return InteractibleData((*self.data, *child_data.data))
     @classmethod
     def create_dummy(cls):
@@ -641,13 +642,23 @@ class InteractibleData(ResultData):
 @dataclass(frozen=True, eq=True)
 class NextInteractible(ResultData):
     next_id: InteractibleID
-    def merge(self, child_data):
+    def merge_children(self, child_data):
         return child_data
     @classmethod
     def create_dummy(cls):
         return cls(InteractibleID(()))
 
+@dataclass(frozen=True, eq=True)
+class SetState(ResultData):
+    new_state: tuple[tuple[InteractibleID, Any], ...]
+    def merge_children(self, child_data):
+        return SetState((*self.new_state, *child_data.new_state))
+    @classmethod
+    def create_dummy(cls):
+        return cls(tuple())
 
+def set_state(*new_state: tuple[InteractibleID, Any]):
+    return SetState(new_state)
 
 def try_find_nearest(nav_data: list[InteractibleID], current_index: int, direction: Direction, backwards: bool) -> int | None:
     next_index = current_index
@@ -712,9 +723,9 @@ class AppState:
     # persistent state
     #
     def try_state[T](self, interactible_id: InteractibleID, data: type[T]) -> T | None:
-        return self._persistent_state.get((interactible_id, data), None)
-    def set_state(self, interactible_id: InteractibleID, data: Any) -> None:
-        self._persistent_state[(interactible_id, data)] = data
+        return self._persistent_state.get((interactible_id, data))
+    def _set_state(self, interactible_id: InteractibleID, data: Any) -> None:
+        self._persistent_state[(interactible_id, data.__class__)] = data
     #
     # state management
     #
@@ -734,12 +745,22 @@ class AppState:
     def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
         self.mouse_position = mouse_position
         self._last_nav = nav
+
+        # persistent state
+        
+        if set_state := res.try_data(SetState):
+            for key, state in set_state.new_state:
+                self._set_state(key, state)
+
+        # reactivity
         interactible_data=res.try_data(InteractibleData)
         if interactible_data is None:
             return
+
         nav_data = list(interactible_data.data)
 
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
+            # handle keyboard nav and its edge cases
             if self._selected in nav_data and self._selected != InteractibleID(()):
                 selected_index = nav_data.index(self._selected)
                 if new_index := _navigate_by_keyboard(selected_index, nav_data, nav):
@@ -747,11 +768,11 @@ class AppState:
             else:
                 self._selected = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
+            # use mouse navigation instead
             self._selected = next_inderactible.next_id # TODO: ahh interactible data is multiple objects what will i do?????
 
 
     def interaction(self, interactible_id: InteractibleID):
-        # important to add entry to dictionary before appending to nav data, so that key is same as index
         @applicable
         def _out(child: Node):
             return Node(
@@ -1450,6 +1471,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
     key = key.with_direction(Direction.HORIZONTAL)
     container_key = key.child(0, Direction.VERTICAL)
     scroll_bar_key = key.child(1)
+
     child_nodes = []
     selected_index = 0
     direction_down = state.last_nav.y > 0
@@ -1466,17 +1488,30 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
         available_height = box.height
         content_height = vbox(child_nodes)\
             .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-        # print(content_height)
 
-        if direction_down:
-            # pick end
-            selected_at_y_end = vbox(child_nodes[:selected_index+1])\
-                .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-            at_y = selected_at_y_end-available_height if (selected_at_y_end-available_height) > 0 else 0
+        # pick end
+
+        # selected at y is at what y coordinate the selected child starts
+        # desired at y is where the at_y var needs to be so that the childs end is included at the bottom of the box
+        selected_at_y_end = vbox(child_nodes[:selected_index+1])\
+            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
+        desired_at_y_end = selected_at_y_end-available_height if (selected_at_y_end-available_height) > 0 else 0
+        # pick beggining
+        desired_at_y_beggining = vbox(child_nodes[:selected_index])\
+            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
+
+        desired_at_y = desired_at_y_end if direction_down else desired_at_y_beggining
+
+        last_at_y = state.try_state(key, int)
+
+        # if last_at_y is not None:
+        #     print("last", last_at_y, "beggining", desired_at_y_beggining, "last_end", last_at_y + box.height, "end", selected_at_y_end)
+        if last_at_y is not None and last_at_y < desired_at_y_beggining and selected_at_y_end < (last_at_y + box.height):
+            at_y = last_at_y
         else:
-            # pick beggining
-            at_y = vbox(child_nodes[:selected_index])\
-                .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
+            at_y = desired_at_y
+
+
 
         percent_available = available_height / content_height
         percent_progress = at_y/content_height
@@ -1487,11 +1522,14 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
                   ** (fg(Color.CYAN) if state.is_active(scroll_bar_key) else fg(Color.RED))\
                 (v_scroll_bar(percent_progress, percent_available))
         ])
-        return layout.render(frame, box)
+        res = Result()
+        res.set_data(set_state((key, at_y)))
+        res.add_children_after([layout.render(frame, box)])
+        return res
 
     return Node(
         func=vbox_scroll,
-        hash=(*tuple(child_nodes), state.selected, direction_down),
+        hash=(*tuple(child_nodes), state.selected, direction_down, state.try_state(key, int)), # BUG for some reason if this aint cached then it works, idk
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )
