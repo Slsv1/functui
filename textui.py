@@ -695,9 +695,14 @@ def visualize_interactible_id(id: InteractibleID):
 @dataclass
 class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
+    _last_nav: Coordinate = Coordinate(0, 0)
     _selected: InteractibleID = InteractibleID(())
     _old_result: Result = field(default_factory=lambda : Result([], {}))
 
+
+    @property
+    def last_nav(self):
+        return self._last_nav
     #
     # state management
     #
@@ -716,6 +721,7 @@ class AppState:
 
     def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
         self.mouse_position = mouse_position
+        self._last_nav = nav
         interactible_data=res.try_data(InteractibleData)
         if interactible_data is None:
             return
@@ -1434,6 +1440,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
     scroll_bar_key = key.child(1)
     child_nodes = []
     selected_index = 0
+    direction_down = state.last_nav.y > 0
 
     for i, comp in enumerate(components):
         child_key = container_key.child(i)
@@ -1449,13 +1456,16 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
             .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
         # print(content_height)
 
-        selected_at_y = vbox(child_nodes[:selected_index+1])\
-            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-        # print(selected_at_y)
+        if direction_down:
+            # pick end
+            selected_at_y_end = vbox(child_nodes[:selected_index+1])\
+                .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
+            at_y = selected_at_y_end-available_height if (selected_at_y_end-available_height) > 0 else 0
+        else:
+            # pick beggining
+            at_y = vbox(child_nodes[:selected_index])\
+                .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
 
-
-        at_y = selected_at_y-available_height if (selected_at_y-available_height) > 0 else 0
-        # at_y = selected_at_y
         percent_available = available_height / content_height
         percent_progress = at_y/content_height
 
@@ -1469,7 +1479,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
 
     return Node(
         func=vbox_scroll,
-        hash=(*tuple(child_nodes), state._selected),
+        hash=(*tuple(child_nodes), state._selected, direction_down),
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )
