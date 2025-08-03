@@ -698,11 +698,23 @@ class AppState:
     _last_nav: Coordinate = Coordinate(0, 0)
     _selected: InteractibleID = InteractibleID(())
     _old_result: Result = field(default_factory=lambda : Result([], {}))
+    _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
 
 
     @property
     def last_nav(self):
         return self._last_nav
+    @property
+    def selected(self):
+        return self._selected
+
+    #
+    # persistent state
+    #
+    def try_state[T](self, interactible_id: InteractibleID, data: type[T]) -> T | None:
+        return self._persistent_state.get((interactible_id, data), None)
+    def set_state(self, interactible_id: InteractibleID, data: Any) -> None:
+        self._persistent_state[(interactible_id, data)] = data
     #
     # state management
     #
@@ -1479,7 +1491,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
 
     return Node(
         func=vbox_scroll,
-        hash=(*tuple(child_nodes), state._selected, direction_down),
+        hash=(*tuple(child_nodes), state.selected, direction_down),
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )
