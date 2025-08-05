@@ -35,27 +35,34 @@ def status_bar(state: AppState, id: InteractibleID):
 #         no_flex ** status_bar(state, root.child(5))
 #     ])
 def get_layout(state, root):
-    # print(_offset_render.cache_info())
-    return offset(0, 0) ** border ** vbox_flex([
-        no_flex ** hbox_flex([
-            flex ** adaptive_text(LOREM),
-            no_flex ** vbar(),
-        ]),
-        flex ** border ** vbox_scroll([
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-        ], state, root.child(0)),
+    print("hej")
+    return border ** vbox([
+        text("hej hej"),
+        hbar(),
+        text("hej da")
     ])
+# def get_layout(state, root):
+#     # print(_offset_render.cache_info())
+#     return offset(0, 0) ** border ** vbox_flex([
+#         no_flex ** hbox_flex([
+#             flex ** adaptive_text(LOREM),
+#             no_flex ** vbar(),
+#         ]),
+#         flex ** border ** vbox_scroll([
+#             partial(selectable, adaptive_text(LOREM)),
+#             partial(selectable, adaptive_text(LOREM)),
+#             partial(selectable, adaptive_text(LOREM)),
+#             partial(selectable, adaptive_text(LOREM)),
+#             partial(selectable, adaptive_text(LOREM)),
+#             partial(selectable, adaptive_text(LOREM + "おお おおおおおおおお おおおお")),
+#             partial(selectable, text("hej")),
+#             partial(selectable, text("hej")),
+#             partial(selectable, text("hej")),
+#             partial(selectable, text("hej")),
+#             partial(selectable, text("hej")),
+#             partial(selectable, text("hej, おお\nお")),
+#         ], state, root.child(0)),
+#     ])
 state = AppState()
 blessed_loop(
     blessed,

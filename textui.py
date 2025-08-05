@@ -13,10 +13,7 @@ import os
 # FIXME:
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
 
-# TODO:
-# make draw_text_line return full pixels and not some tuple thingy
-
-# i can probably add another step, after all of the commands have been applied, that cleans up all wide chars
+# TODO: move _navigate_by_keyboard to AppState class and make persistent dataids work!!!!
 
 # Terminology:
 # Node:
@@ -32,6 +29,8 @@ LRU_MAX_SIZE = 64
 #
 # utilities
 #
+
+def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
@@ -599,21 +598,24 @@ class Direction(Enum):
 class InteractibleIDPart:
     direction: Direction
     local_id: int
+    persistent: bool
 
 
 @dataclass(frozen=True, eq=True)
 class InteractibleID:
     data: tuple[InteractibleIDPart, ...]
     """every intercatible id stores its own part at the end of the data tuple, and its ancestors part before it"""
-    def child(self, local_id: int, direction: None | Direction = None) -> Self:
+    def child(self, local_id: int, direction: None | Direction = None, persistent: bool = False) -> Self:
         if len(self.data):
             return self.__class__((*self.data, InteractibleIDPart(
                 direction=self.data[-1].direction if direction is None else direction,
-                local_id=local_id
+                local_id=local_id,
+                persistent=persistent
             )))
         return self.__class__((*self.data, InteractibleIDPart(
             direction=direction if direction is not None else Direction.VERTICAL,
-            local_id=local_id
+            local_id=local_id,
+            persistent=persistent
         )))
     @property
     def local_direction(self):
@@ -624,11 +626,12 @@ class InteractibleID:
         return self.__class__(
             (*self.data[:-1], InteractibleIDPart(
                 direction=direction,
-                local_id=self.data[-1].local_id)
+                local_id=self.data[-1].local_id,
+                persistent=self.data[-1].persistent)
             )
         )
-root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0),))
-root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0),))
+root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False),))
+root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False),))
 
 @dataclass(frozen=True, eq=True)
 class InteractibleData(ResultData):
@@ -682,23 +685,18 @@ def try_find_nearest(nav_data: list[InteractibleID], current_index: int, directi
             changed_directions = True 
             next_index = advance()
             continue
-        if changed_directions and (len(nav_data[next_index].data) > original_depth):
+        if changed_directions and (len(nav_data[next_index].data) > original_depth): # if depth exceeds original depth then continue
             next_index = advance()
             continue
         return next_index
 
-def _navigate_by_keyboard(current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
-    direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
-    backwards = False
-    if direction == Direction.HORIZONTAL:
-        backwards = True if nav.x < 0 else False
-    elif direction == Direction.VERTICAL:
-        backwards = True if nav.y < 0 else False
 
-    next_index = try_find_nearest(nav_data, current_index, direction, backwards)
-    # if found next index
-    if next_index is not None:
-        return nav_data[next_index]
+
+
+
+
+
+        return 
 
 def visualize_interactible_id(id: InteractibleID):
     return ":".join(f"{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
@@ -708,8 +706,8 @@ class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     _last_nav: Coordinate = Coordinate(0, 0)
     _selected: InteractibleID = InteractibleID(())
-    _old_result: Result = field(default_factory=lambda : Result([], {}))
     _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
+    # _persistent_nav: dict[InteractibleID, InteractibleID]
 
 
     @property
@@ -747,7 +745,6 @@ class AppState:
         self._last_nav = nav
 
         # persistent state
-        
         if set_state := res.try_data(SetState):
             for key, state in set_state.new_state:
                 self._set_state(key, state)
@@ -763,13 +760,13 @@ class AppState:
             # handle keyboard nav and its edge cases
             if self._selected in nav_data and self._selected != InteractibleID(()):
                 selected_index = nav_data.index(self._selected)
-                if new_index := _navigate_by_keyboard(selected_index, nav_data, nav):
+                if new_index := _navigate_by_keyboard(self, selected_index, nav_data, nav):
                     self._selected = new_index
             else:
                 self._selected = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
             # use mouse navigation instead
-            self._selected = next_inderactible.next_id # TODO: ahh interactible data is multiple objects what will i do?????
+            self._selected = next_inderactible.next_id
 
 
     def interaction(self, interactible_id: InteractibleID):
@@ -918,6 +915,7 @@ def text(string: str):
 
 @lru_cache(LRU_MAX_SIZE)
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
+    print("hej jag 'r i text funktionen lol")
     res = Result()
     for y, line in enumerate(text):
         res.draw_string_line(frame, line, box.offset + Coordinate(0, y))
@@ -1383,7 +1381,6 @@ def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
 #
 
 # # ╵╷│
-# def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 #
 def h_guage(progress: int):
     return Node(
@@ -1529,7 +1526,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
 
     return Node(
         func=vbox_scroll,
-        hash=(*tuple(child_nodes), state.selected, direction_down, state.try_state(key, int)), # BUG for some reason if this aint cached then it works, idk
+        hash=(*tuple(child_nodes), state.selected, direction_down, state.try_state(key, int)), 
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )
