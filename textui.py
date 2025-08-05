@@ -630,6 +630,8 @@ class InteractibleID:
                 persistent=self.data[-1].persistent)
             )
         )
+    def __repr__(self):
+        return visualize_interactible_id(self)
 root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False),))
 root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False),))
 
@@ -691,15 +693,8 @@ def try_find_nearest(nav_data: list[InteractibleID], current_index: int, directi
         return next_index
 
 
-
-
-
-
-
-        return 
-
 def visualize_interactible_id(id: InteractibleID):
-    return ":".join(f"{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
+    return "".join(f"{"=" if i.persistent else "-"}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
 
 @dataclass
 class AppState:
@@ -739,6 +734,45 @@ class AppState:
     #    res = render() (print)
     #    input()
     #    step()
+    def _navigate_by_keyboard(self, current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
+        direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
+        backwards = False
+        if direction == Direction.HORIZONTAL:
+            backwards = True if nav.x < 0 else False
+        elif direction == Direction.VERTICAL:
+            backwards = True if nav.y < 0 else False
+
+        next_index = try_find_nearest(nav_data, current_index, direction, backwards)
+        if next_index is not None:
+            next_id = nav_data[next_index]
+            current_id = nav_data[current_index]
+            next_parent = next_id.data[:-1]
+            current_parent = current_id.data[:-1]
+
+            if next_parent == current_parent: # parent is the same, no need to look up persistent data
+                self._set_state(InteractibleID(next_parent), next_id)
+                return next_id
+
+            if next_id.data[-2].persistent: # if parent is persistent
+                remembered_id = self.try_state(InteractibleID(next_parent), InteractibleID)
+                if remembered_id is not None:
+                    next_id = remembered_id
+                self._set_state(InteractibleID(next_parent), next_id)
+                return next_id
+
+            # next parent is not persistent, therefore just return
+            return next_id
+
+    # def _navigate_by_keyboard(self, current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
+    #     direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
+    #     backwards = False
+    #     if direction == Direction.HORIZONTAL:
+    #         backwards = True if nav.x < 0 else False
+    #     elif direction == Direction.VERTICAL:
+    #         backwards = True if nav.y < 0 else False
+    #
+    #     # if found next index
+    #     if next_index := try_find_nearest(nav_data, current_index, direction, backwards):
 
     def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
         self.mouse_position = mouse_position
@@ -760,7 +794,7 @@ class AppState:
             # handle keyboard nav and its edge cases
             if self._selected in nav_data and self._selected != InteractibleID(()):
                 selected_index = nav_data.index(self._selected)
-                if new_index := _navigate_by_keyboard(self, selected_index, nav_data, nav):
+                if new_index := self._navigate_by_keyboard(selected_index, nav_data, nav):
                     self._selected = new_index
             else:
                 self._selected = nav_data[0]
@@ -915,7 +949,6 @@ def text(string: str):
 
 @lru_cache(LRU_MAX_SIZE)
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
-    print("hej jag 'r i text funktionen lol")
     res = Result()
     for y, line in enumerate(text):
         res.draw_string_line(frame, line, box.offset + Coordinate(0, y))
@@ -1466,26 +1499,37 @@ def nav(children: Iterable[Component], state: AppState, id: InteractibleID) -> l
 UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(components: list[Component], state: AppState, key: InteractibleID):
     key = key.with_direction(Direction.HORIZONTAL)
-    container_key = key.child(0, Direction.VERTICAL)
+    container_key = key.child(0, direction=Direction.VERTICAL, persistent=True)
     scroll_bar_key = key.child(1)
 
     child_nodes = []
-    selected_index = 0
+    selected_index = None
     direction_down = state.last_nav.y > 0
+    child_id_to_index: dict[InteractibleID, int] = {}
 
     for i, comp in enumerate(components):
         child_key = container_key.child(i)
+        child_id_to_index[child_key] = i
         child_nodes.append(comp(state, child_key))
 
         if state.is_active(child_key):
             selected_index = i
 
+
+
+
     # we need a custom node here so that we can get the available_height
     def render(frame: Frame, box: Box):
+        nonlocal selected_index
         available_height = box.height
         content_height = vbox(child_nodes)\
             .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
 
+        if (selected_index is None):
+            if (remembered_id := state.try_state(container_key, InteractibleID)):
+                selected_index = child_id_to_index[remembered_id]
+            else:
+                selected_index = 0
         # pick end
 
         # selected at y is at what y coordinate the selected child starts
@@ -1503,12 +1547,10 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
 
         # if last_at_y is not None:
         #     print("last", last_at_y, "beggining", desired_at_y_beggining, "last_end", last_at_y + box.height, "end", selected_at_y_end)
-        if last_at_y is not None and last_at_y < desired_at_y_beggining and selected_at_y_end < (last_at_y + box.height):
+        if (last_at_y is not None) and (last_at_y < desired_at_y_beggining) and (selected_at_y_end <= (last_at_y + box.height)):
             at_y = last_at_y
         else:
             at_y = desired_at_y
-
-
 
         percent_available = available_height / content_height
         percent_progress = at_y/content_height
@@ -1526,7 +1568,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
 
     return Node(
         func=vbox_scroll,
-        hash=(*tuple(child_nodes), state.selected, direction_down, state.try_state(key, int)), 
+        hash=(*tuple(child_nodes), selected_index, direction_down, state.try_state(key, int), random()), 
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )

@@ -1,0 +1,21 @@
+
+hbox 
+ - item
+   hbox
+   - item 1
+   - item
+     vbox
+      - hej
+	  - hej
+	    hbox
+		 - bad
+		 - bad
+
+   - item 2
+   - item
+
+for example i go from item 1 to item 2
+then i want to aboud the bad items
+
+therefore the rule should be that that if the finder encounters an oposite direction
+then it should find the next item in the same direction, at the indent level of self or lower
