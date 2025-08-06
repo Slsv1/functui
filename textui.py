@@ -664,14 +664,26 @@ class SetState(ResultData):
 
 def set_state(*new_state: tuple[InteractibleID, Any]):
     return SetState(new_state)
+def _intersect_interactible_id(a: InteractibleID, b: InteractibleID) -> InteractibleID:
+    # enumerate to retain order and not earase duplicates
+    # BUG this will error if a is longer than b AND the last part of the shorter one matches the longer one
+    # technicaly this should not happend but it can i guess
+    out = []
+    for i, part in enumerate(a.data):
+        if part == b.data[i]:
+            out.append(part)
+        else:
+            break
+    return InteractibleID(tuple(out))
 
-def try_find_nearest(nav_data: list[InteractibleID], current_index: int, direction: Direction, backwards: bool) -> int | None:
+def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direction: Direction, backwards: bool) -> int | None:
     next_index = current_index
     advance = lambda: next_index + (-1 if backwards else 1)
     next_index = advance()
 
     original_depth = len(nav_data[current_index].data)
-    changed_directions = False
+    original_id = nav_data[current_index]
+    skipped_ids = False
 
     while True:
         # if next index is out of bounds
@@ -681,13 +693,11 @@ def try_find_nearest(nav_data: list[InteractibleID], current_index: int, directi
         # if next index parent is a different direction then inputed,
         # in this case just keep advancing index untill either end of nav_data or direction matches and nav_depth is same or less than original
 
-        if nav_data[next_index].data[
-            (original_depth-2) if len(nav_data[next_index].data) >= original_depth else -2 # look at the same parent as of the original depth
-        ].direction != direction:
-            changed_directions = True 
+        if _intersect_interactible_id(nav_data[next_index], original_id).data[-1].direction != direction:
+            skipped_ids = True 
             next_index = advance()
             continue
-        if changed_directions and (len(nav_data[next_index].data) > original_depth): # if depth exceeds original depth then continue
+        if skipped_ids and (len(nav_data[next_index].data) > original_depth): # if depth exceeds original depth then continue
             next_index = advance()
             continue
         return next_index
@@ -745,9 +755,11 @@ class AppState:
         elif direction == Direction.VERTICAL:
             backwards = True if nav.y < 0 else False
 
-        next_index = try_find_nearest(nav_data, current_index, direction, backwards)
+        next_index = _try_find_nearest(nav_data, current_index, direction, backwards)
         if next_index is not None:
             next_id = nav_data[next_index]
+
+            # account for persistent containers
             current_id = nav_data[current_index]
             next_parent = next_id.data[:-1]
             current_parent = current_id.data[:-1]
@@ -1104,20 +1116,15 @@ def _no_style_render(child: Node, frame: Frame, box: Box):
         box
     )
 @applicable
-def bold(node: Node):
-    return add_style(CharStyle.BOLD, node)
+def bold(node: Node): return add_style(CharStyle.BOLD, node)
 @applicable
-def reverse(node: Node):
-    return add_style(CharStyle.REVERSED, node)
+def reverse(node: Node): return add_style(CharStyle.REVERSED, node)
 @applicable
-def underlined(node: Node):
-    return add_style(CharStyle.UNDERLINED, node)
+def underlined(node: Node): return add_style(CharStyle.UNDERLINED, node)
 @applicable
-def italic(node: Node):
-    return add_style(CharStyle.ITALIC, node)
+def italic(node: Node): return add_style(CharStyle.ITALIC, node)
 @applicable
-def strike_through(node: Node):
-    return add_style(CharStyle.STRIKE_THROUGH, node)
+def strike_through(node: Node): return add_style(CharStyle.STRIKE_THROUGH, node)
 
 def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
         return child.render(
