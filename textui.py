@@ -18,10 +18,10 @@ import os
 # Terminology:
 # Node:
 # A class that represents a node in the ui tree.
-# 
+
 # Element:
 # A function that returns a Node
-#
+
 # Element constructor:
 # A function that returns an Element
 
@@ -702,6 +702,9 @@ class AppState:
     _last_nav: Coordinate = Coordinate(0, 0)
     _selected: InteractibleID = InteractibleID(())
     _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
+    _persistent_selected_id: dict[InteractibleID, InteractibleID] = field(default_factory=dict)
+    """if any interactible id part declares it self as persistent,
+    then it's last selected child will be saved here"""
     # _persistent_nav: dict[InteractibleID, InteractibleID]
 
 
@@ -750,29 +753,18 @@ class AppState:
             current_parent = current_id.data[:-1]
 
             if next_parent == current_parent: # parent is the same, no need to look up persistent data
-                self._set_state(InteractibleID(next_parent), next_id)
+                self._persistent_selected_id[InteractibleID(next_parent)] = next_id
                 return next_id
 
             if next_id.data[-2].persistent: # if parent is persistent
-                remembered_id = self.try_state(InteractibleID(next_parent), InteractibleID)
+                remembered_id = self._persistent_selected_id.get(InteractibleID(next_parent), None)
                 if remembered_id is not None:
                     next_id = remembered_id
-                self._set_state(InteractibleID(next_parent), next_id)
+                self._persistent_selected_id[InteractibleID(next_parent)] = next_id
                 return next_id
 
             # next parent is not persistent, therefore just return
             return next_id
-
-    # def _navigate_by_keyboard(self, current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
-    #     direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
-    #     backwards = False
-    #     if direction == Direction.HORIZONTAL:
-    #         backwards = True if nav.x < 0 else False
-    #     elif direction == Direction.VERTICAL:
-    #         backwards = True if nav.y < 0 else False
-    #
-    #     # if found next index
-    #     if next_index := try_find_nearest(nav_data, current_index, direction, backwards):
 
     def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
         self.mouse_position = mouse_position
@@ -789,6 +781,7 @@ class AppState:
             return
 
         nav_data = list(interactible_data.data)
+        print("\n".join(visualize_interactible_id(i) for i in nav_data))
 
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
             # handle keyboard nav and its edge cases
@@ -1497,7 +1490,12 @@ def nav(children: Iterable[Component], state: AppState, id: InteractibleID) -> l
 #
 
 UNLIMITED_SPACE = 2 ** 16
-def vbox_scroll(components: list[Component], state: AppState, key: InteractibleID):
+def vbox_scroll(
+        state: AppState,
+        key: InteractibleID,
+        components: list[Component],
+        scroll_bar=lambda start, showing, state, key: (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),
+    ):
     key = key.with_direction(Direction.HORIZONTAL)
     container_key = key.child(0, direction=Direction.VERTICAL, persistent=True)
     scroll_bar_key = key.child(1)
@@ -1505,52 +1503,47 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
     child_nodes = []
     selected_index = None
     direction_down = state.last_nav.y > 0
-    child_id_to_index: dict[InteractibleID, int] = {}
 
     for i, comp in enumerate(components):
         child_key = container_key.child(i)
-        child_id_to_index[child_key] = i
         child_nodes.append(comp(state, child_key))
 
         if state.is_active(child_key):
             selected_index = i
 
-
-
-
+    last_at_y = state.try_state(key, int)
     # we need a custom node here so that we can get the available_height
     def render(frame: Frame, box: Box):
-        nonlocal selected_index
         available_height = box.height
         content_height = vbox(child_nodes)\
             .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
 
-        if (selected_index is None):
-            if (remembered_id := state.try_state(container_key, InteractibleID)):
-                selected_index = child_id_to_index[remembered_id]
+
+        # decide at_y
+
+        if selected_index is not None:
+            # selected at y is at what y coordinate the selected child starts
+            # desired at y is where the at_y var needs to be so that the childs end is included at the bottom of the box
+            selected_at_y_end = vbox(child_nodes[:selected_index+1])\
+                .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
+            desired_at_y_end = selected_at_y_end-available_height if (selected_at_y_end-available_height) > 0 else 0
+            # pick beggining
+            desired_at_y_beggining = vbox(child_nodes[:selected_index])\
+                .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
+            desired_at_y = desired_at_y_end if direction_down else desired_at_y_beggining
+
+
+            if (last_at_y is not None) and (last_at_y < desired_at_y_beggining) and (selected_at_y_end <= (last_at_y + box.height)):
+                at_y = last_at_y
             else:
-                selected_index = 0
-        # pick end
+                at_y = desired_at_y
 
-        # selected at y is at what y coordinate the selected child starts
-        # desired at y is where the at_y var needs to be so that the childs end is included at the bottom of the box
-        selected_at_y_end = vbox(child_nodes[:selected_index+1])\
-            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-        desired_at_y_end = selected_at_y_end-available_height if (selected_at_y_end-available_height) > 0 else 0
-        # pick beggining
-        desired_at_y_beggining = vbox(child_nodes[:selected_index])\
-            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-
-        desired_at_y = desired_at_y_end if direction_down else desired_at_y_beggining
-
-        last_at_y = state.try_state(key, int)
-
-        # if last_at_y is not None:
-        #     print("last", last_at_y, "beggining", desired_at_y_beggining, "last_end", last_at_y + box.height, "end", selected_at_y_end)
-        if (last_at_y is not None) and (last_at_y < desired_at_y_beggining) and (selected_at_y_end <= (last_at_y + box.height)):
+        elif last_at_y is not None:
             at_y = last_at_y
         else:
-            at_y = desired_at_y
+            at_y = 0
+
+        # render
 
         percent_available = available_height / content_height
         percent_progress = at_y/content_height
@@ -1558,8 +1551,9 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
         layout = hbox_flex([
             flex ** vbox(child_nodes, -at_y),
             no_flex ** state.interaction(scroll_bar_key)\
-                  ** (fg(Color.CYAN) if state.is_active(scroll_bar_key) else fg(Color.RED))\
-                (v_scroll_bar(percent_progress, percent_available))
+                ** scroll_bar(percent_progress, percent_available, state, scroll_bar_key)
+                #   ** (fg(Color.CYAN) if state.is_active(scroll_bar_key) else fg(Color.RED))\
+                # (v_scroll_bar(percent_progress, percent_available))
         ])
         res = Result()
         res.set_data(set_state((key, at_y)))
@@ -1568,7 +1562,7 @@ def vbox_scroll(components: list[Component], state: AppState, key: InteractibleI
 
     return Node(
         func=vbox_scroll,
-        hash=(*tuple(child_nodes), selected_index, direction_down, state.try_state(key, int), random()), 
+        hash=(*tuple(child_nodes), selected_index, direction_down, state.try_state(key, int), state.is_active(scroll_bar_key)),
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=render
     )

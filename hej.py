@@ -13,9 +13,9 @@ def status_bar(state: AppState, id: InteractibleID):
     return bg(Color.BLACK) ** bg_fill ** hbox_flex([
         no_flex ** bg(Color.RED) ** hbox([text("Bar")]),
         flex ** nothing(),
-        no_flex **state.interaction(id.child(0))\
+        no_flex ** state.interaction(id.child(0))\
             ** (bg(Color.CYAN) ** text("j") if state.is_active(id.child(0)) else text("x")),
-        no_flex **state.interaction(id.child(1))\
+        no_flex ** state.interaction(id.child(1))\
             ** (bg(Color.CYAN) ** text("お") if state.is_active(id.child(1)) else text("x")),
     ])
 
@@ -41,20 +41,21 @@ def get_layout(state, root):
             flex ** adaptive_text(LOREM),
             no_flex ** vbar(),
         ]),
-        flex ** border ** vbox_scroll([
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM)),
-            partial(selectable, adaptive_text(LOREM + "おお おおおおおおおお おおおお")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
-            partial(selectable, text("hej")),
+        flex ** border ** vbox_scroll(state, root.child(0), [
+            # partial(selectable, adaptive_text(LOREM)),
+            # partial(selectable, adaptive_text(LOREM)),
+            # partial(selectable, adaptive_text(LOREM)),
+            # partial(selectable, adaptive_text(LOREM)),
+            # partial(selectable, adaptive_text(LOREM)),
+            # partial(selectable, adaptive_text(LOREM + "おお おおおおおおおお おおおお")),
+            # partial(selectable, text("hej")),
+            # partial(selectable, text("hej")),
+            # partial(selectable, text("hej")),
+            # partial(selectable, text("hej")),
             partial(selectable, text("hej")),
             partial(selectable, text("hej, おお\nお")),
-        ], state, root.child(0)),
+        ]),
+        no_flex ** status_bar(state, root.child(1))
     ])
 state = AppState()
 blessed_loop(
