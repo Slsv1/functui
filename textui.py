@@ -30,9 +30,9 @@ LRU_MAX_SIZE = 64
 # utilities
 #
 
-def clamp(n, smallest, largest): return max(smallest, min(n, largest))
+def _clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
-def even_divide(num, denomenator) -> list[int]:
+def _even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
 
 @dataclass(frozen=True)
@@ -599,41 +599,65 @@ class InteractibleIDPart:
     direction: Direction
     local_id: int
     persistent: bool
+    first_child_default: bool
+
+
 
 
 @dataclass(frozen=True, eq=True)
 class InteractibleID:
     data: tuple[InteractibleIDPart, ...]
     """every intercatible id stores its own part at the end of the data tuple, and its ancestors part before it"""
-    def child(self, local_id: int, direction: None | Direction = None, persistent: bool = False) -> Self:
+    def child(self, local_id: int, direction: None | Direction = None, persistent: bool = False, first_child_default: bool=False) -> Self:
         if len(self.data):
             return self.__class__((*self.data, InteractibleIDPart(
                 direction=self.data[-1].direction if direction is None else direction,
                 local_id=local_id,
-                persistent=persistent
+                persistent=persistent,
+                first_child_default=first_child_default
             )))
         return self.__class__((*self.data, InteractibleIDPart(
             direction=direction if direction is not None else Direction.VERTICAL,
             local_id=local_id,
-            persistent=persistent
+            persistent=persistent,
+            first_child_default=first_child_default
         )))
+
     @property
-    def local_direction(self):
+    def direction(self):
         return self.data[-1].direction
+    @property
+    def local_id(self):
+        return self.data[-1].local_id
+    @property
+    def persistent(self):
+        return self.data[-1].persistent
+    @property
+    def first_child_default(self):
+        return self.data[-1].first_child_default
+    @property
+    def depth(self):
+        return len(self.data)
+    @property
+    def parent(self):
+        """may error"""
+        return InteractibleID(self.data[:-1])
+
     def __bool__(self):
         return bool(len(self.data))
-    def with_direction(self, direction: Direction):
+    def with_attributes(self, direction: Direction | None = None, persistent: bool | None = None, first_child_default: bool | None = None):
         return self.__class__(
             (*self.data[:-1], InteractibleIDPart(
-                direction=direction,
+                direction=direction if direction is not None else self.data[-1].direction,
                 local_id=self.data[-1].local_id,
-                persistent=self.data[-1].persistent)
+                persistent=persistent if persistent is not None else self.data[-1].persistent,
+                first_child_default=first_child_default if first_child_default is not None else self.data[-1].first_child_default)
             )
         )
     def __repr__(self):
         return visualize_interactible_id(self)
-root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False),))
-root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False),))
+root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
+root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
 
 @dataclass(frozen=True, eq=True)
 class InteractibleData(ResultData):
@@ -676,10 +700,12 @@ def _intersect_interactible_id(a: InteractibleID, b: InteractibleID) -> Interact
             break
     return InteractibleID(tuple(out))
 
+
+
 def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direction: Direction, backwards: bool) -> int | None:
     next_index = current_index
-    advance = lambda: next_index + (-1 if backwards else 1)
-    next_index = advance()
+    advance = lambda n: n + (-1 if backwards else 1)
+    next_index = advance(next_index)
 
     original_depth = len(nav_data[current_index].data)
     original_id = nav_data[current_index]
@@ -695,16 +721,34 @@ def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direct
 
         if _intersect_interactible_id(nav_data[next_index], original_id).data[-1].direction != direction:
             skipped_ids = True 
-            next_index = advance()
+            next_index = advance(next_index)
             continue
         if skipped_ids and (len(nav_data[next_index].data) > original_depth): # if depth exceeds original depth then continue
-            next_index = advance()
+            # in a strcuture similar to the following:
+            #
+            # vbox
+            #  - item 1
+            #  - item 2 [start point]
+            # hbox
+            #  - item 1 (with vbox submenu)
+            #    - item 1
+            #    - item 2
+            # vbox2
+            #  - item 1 [desired end point on navigating down]
+            #
+            # in order to get to desired point you have to skip the items in the vbox submenu
+            # it is this if statement that hinders you from selecting them.
+            next_index = advance(next_index)
             continue
+
+        # at this point we found an appropritae index
         return next_index
 
 
 def visualize_interactible_id(id: InteractibleID):
-    return "".join(f"{"=" if i.persistent else "-"}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
+    return "".join(f"{"-" if i.first_child_default else " "}{"=" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
+
+    
 
 @dataclass
 class AppState:
@@ -747,6 +791,48 @@ class AppState:
     #    res = render() (print)
     #    input()
     #    step()
+    def _apply_rules(self, nav_data: list[InteractibleID], current_index: int, depth: int, backwards: bool):
+        curr_id = nav_data[current_index]
+        # find the depth at which the part is either persistent or first_child_default
+        print(depth)
+        while True:
+            if depth >= curr_id.depth:
+                print("depth exceeding")
+                return current_index, depth, True
+
+            part = curr_id.data[depth-1]
+            if part.persistent or part.first_child_default:
+                break
+            depth += 1
+
+        parent = InteractibleID(curr_id.data[:depth])
+
+        print(visualize_interactible_id(parent))
+
+        if parent.persistent:
+            remembered_id = self._persistent_selected_id.get(parent, None)
+            if remembered_id is not None:
+                next_id = remembered_id
+                current_index = nav_data.index(next_id)
+                return current_index, depth, False
+            self._persistent_selected_id[parent] = curr_id
+
+        if backwards:
+            # go to first index
+            while True:
+                if current_index <= 0:
+                    return 0, depth, True
+
+                curr_id = nav_data[current_index]
+                if len(curr_id.data) > depth:
+                    if curr_id.data[depth].local_id == 0:
+                        return current_index, depth, False
+                else:
+                    return current_index, depth, False
+                current_index -= 1
+        return current_index, depth, False
+
+
     def _navigate_by_keyboard(self, current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
         direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
         backwards = False
@@ -758,24 +844,23 @@ class AppState:
         next_index = _try_find_nearest(nav_data, current_index, direction, backwards)
         if next_index is not None:
             next_id = nav_data[next_index]
-
-            # account for persistent containers
             current_id = nav_data[current_index]
-            next_parent = next_id.data[:-1]
-            current_parent = current_id.data[:-1]
+            shared_parent = _intersect_interactible_id(next_id, current_id)
+
+            next_parent = next_id.parent
+            current_parent = current_id.parent
 
             if next_parent == current_parent: # parent is the same, no need to look up persistent data
-                self._persistent_selected_id[InteractibleID(next_parent)] = next_id
+                self._persistent_selected_id[next_parent] = next_id
                 return next_id
 
-            if next_id.data[-2].persistent: # if parent is persistent
-                remembered_id = self._persistent_selected_id.get(InteractibleID(next_parent), None)
-                if remembered_id is not None:
-                    next_id = remembered_id
-                self._persistent_selected_id[InteractibleID(next_parent)] = next_id
-                return next_id
+            done = False
+            depth = shared_parent.depth
+            while not done:
+                next_index, depth, done = self._apply_rules(nav_data, next_index, depth, backwards)
+                depth += 1
 
-            # next parent is not persistent, therefore just return
+            next_id = nav_data[next_index]
             return next_id
 
     def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
@@ -793,7 +878,7 @@ class AppState:
             return
 
         nav_data = list(interactible_data.data)
-        print("\n".join(visualize_interactible_id(i) for i in nav_data))
+        # print("\n".join(visualize_interactible_id(i) for i in nav_data))
 
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
             # handle keyboard nav and its edge cases
@@ -1329,7 +1414,7 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     total_shrink = sum(i.shrink for i in children)
 
     available_space = box.height - reserved_space
-    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    space_rations = _even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
     at_y = 0
     res = Result()
     for flex in children:
@@ -1358,7 +1443,7 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     total_shrink = sum(i.shrink for i in children)
 
     available_space = box.width - reserved_space
-    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    space_rations = _even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
     at_x = 0
     res = Result()
     for flex in children:
@@ -1481,9 +1566,9 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
 # Components
 #
 
-type Component = Callable[[AppState, InteractibleID], Node]
+type Component[T] = Callable[[AppState, InteractibleID], T]
 
-def nav(children: Iterable[Component], state: AppState, id: InteractibleID) -> list[Node]:
+def nav[T](children: Iterable[Component[T]], state: AppState, id: InteractibleID) -> list[T]:
     return [child(state, id.child(i)) for i, child in enumerate(children)]
 
 # vbox_scroll be needin:
@@ -1500,10 +1585,10 @@ UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(
         state: AppState,
         key: InteractibleID,
-        components: list[Component],
+        components: list[Component[Node]],
         scroll_bar=lambda start, showing, state, key: (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),
     ):
-    key = key.with_direction(Direction.HORIZONTAL)
+    key = key.with_attributes(direction=Direction.HORIZONTAL, first_child_default=True)
     container_key = key.child(0, direction=Direction.VERTICAL, persistent=True)
     scroll_bar_key = key.child(1)
 
@@ -1524,8 +1609,6 @@ def vbox_scroll(
         available_height = box.height
         content_height = vbox(child_nodes)\
             .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-
-
         # decide at_y
 
         if selected_index is not None:
