@@ -555,7 +555,7 @@ def render_ansi(canvas: Canvas) -> str:
                 new_style =  style_changes & pixel.style
                 removed_style = bool(style_changes & curr_style)
                 curr_style = pixel.style
-                pixel_str.append(
+                pixel_str.extend(
                     [ANSI_RESET_STYLES, style_to_ansi(pixel.style)]\
                     if removed_style\
                     else [style_to_ansi(new_style)]
@@ -1652,6 +1652,34 @@ def nav[T](children: Iterable[Component[T]], state: AppState, id: InteractibleID
 # if nav is up then:
 #    make sure that selected object's beggining is visible
 #
+
+# compnents are an anti pattern due to them being provided the id
+# ideally the user should be the one creating the id's (eather manualy or with a for loop)
+# this way if some kind of application state depends on if an id is selected or not
+# it is apparent that there is a connection between the state and an id.
+# if that state manipulation is hidden inside a component function then the program
+# become harder to understand on a glance.
+
+# this is good
+#
+# def get_layout()
+#     nodes = []
+#     for item in items
+#       if state.is_selected(item.id):
+#           some_var = id
+#           nodes.append(...)
+#     return v_box_scroll(nodes)
+#    ...
+#
+
+# this is bad
+#
+# def component(state, id):
+#   if state.is_selected(id):
+#       some_var = id 
+#
+# def get_layout():
+#   return v_box_scroll(components) # unclear that this changes state
 
 UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(
