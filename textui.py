@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from functools import reduce, partial, cache, lru_cache
 from wcwidth import wcswidth
 from random import random
+import curses
 import math
 import os
 
@@ -748,26 +749,47 @@ def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direct
 def visualize_interactible_id(id: InteractibleID):
     return "".join(f"{"-" if i.first_child_default else " "}{"=" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
 
-    
+@dataclass
+class InputState:
+    char: str
+    select: bool
+    deselect: bool
+    nav: Coordinate
+
+class Action(Enum):
+    SELECT = auto()
+    DESELECT = auto()
+    NONE = auto()
+
 
 @dataclass
 class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     _last_nav: Coordinate = Coordinate(0, 0)
-    _selected: InteractibleID = InteractibleID(())
+    _selected_id: InteractibleID = InteractibleID(())
     _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
     _persistent_selected_id: dict[InteractibleID, InteractibleID] = field(default_factory=dict)
     """if any interactible id part declares it self as persistent,
     then it's last selected child will be saved here"""
-    # _persistent_nav: dict[InteractibleID, InteractibleID]
+
+    _is_text_input: bool = False
+    _should_do_text_input: bool = False
+    _accumulated_text_input: str = ""
+    _action: Action = Action.NONE
 
 
     @property
     def last_nav(self):
         return self._last_nav
     @property
-    def selected(self):
-        return self._selected
+    def selected_id(self):
+        return self._selected_id
+    @property
+    def is_text_input(self):
+        return self._is_text_input
+    @property
+    def text_input(self):
+        return self._accumulated_text_input
 
     #
     # persistent state
@@ -780,13 +802,17 @@ class AppState:
     # state management
     #
     def is_active(self, key: InteractibleID) -> bool:
-        return key.data == self._selected.data[: len(key.data)]
+        return key.data == self._selected_id.data[: len(key.data)]
     def is_just_activated(self, key: InteractibleID) -> bool:
         ...
     def is_selected(self, key: InteractibleID) -> bool:
         ...
     def is_just_selected(self, key: InteractibleID) -> bool:
         ...
+    def queue_text_input(self):
+        self._should_do_text_input = True
+    def get_action(self):
+        return self._action
     # while True:
     #    res = render() (print)
     #    input()
@@ -794,10 +820,8 @@ class AppState:
     def _apply_rules(self, nav_data: list[InteractibleID], current_index: int, depth: int, backwards: bool):
         curr_id = nav_data[current_index]
         # find the depth at which the part is either persistent or first_child_default
-        print(depth)
         while True:
             if depth >= curr_id.depth:
-                print("depth exceeding")
                 return current_index, depth, True
 
             part = curr_id.data[depth-1]
@@ -807,7 +831,6 @@ class AppState:
 
         parent = InteractibleID(curr_id.data[:depth])
 
-        print(visualize_interactible_id(parent))
 
         if parent.persistent:
             remembered_id = self._persistent_selected_id.get(parent, None)
@@ -863,9 +886,22 @@ class AppState:
             next_id = nav_data[next_index]
             return next_id
 
-    def step(self, mouse_position: Coordinate, nav: Coordinate, res: Result):
+    def step(self, mouse_position: Coordinate, nav: Coordinate, text_input_char: str | None, action: Action, res: Result):
         self.mouse_position = mouse_position
         self._last_nav = nav
+        self._action = action
+
+        # text input
+        self._is_text_input = self._should_do_text_input
+        self._should_do_text_input = False
+
+        if action == Action.DESELECT:
+            self._is_text_input = False
+            self._accumulated_text_input = ""
+
+        if text_input_char is not None and self._is_text_input:
+            self._accumulated_text_input += text_input_char
+
 
         # persistent state
         if set_state := res.try_data(SetState):
@@ -882,15 +918,15 @@ class AppState:
 
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
             # handle keyboard nav and its edge cases
-            if self._selected in nav_data and self._selected != InteractibleID(()):
-                selected_index = nav_data.index(self._selected)
+            if self._selected_id in nav_data and self._selected_id != InteractibleID(()):
+                selected_index = nav_data.index(self._selected_id)
                 if new_index := self._navigate_by_keyboard(selected_index, nav_data, nav):
-                    self._selected = new_index
+                    self._selected_id = new_index
             else:
-                self._selected = nav_data[0]
+                self._selected_id = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
             # use mouse navigation instead
-            self._selected = next_inderactible.next_id
+            self._selected_id = next_inderactible.next_id
 
 
     def interaction(self, interactible_id: InteractibleID):
@@ -921,11 +957,15 @@ def _render_read_box(
     res.add_children_after([child.render(frame, box)])
     return res
 
-def _blessed_get_input(term) -> str:
+def _blessed_get_input(term) -> tuple[str, Action]:
     while True:
         val = term.inkey()
         if not val.is_sequence:
-            return val
+            return val, Action.NONE
+        if val == curses.KEY_EXIT:
+            return "", Action.DESELECT
+        if val == curses.KEY_ENTER:
+            return "", Action.SELECT
 @cache
 def pixel_styles_to_ansi(pixel: Pixel) -> str:
     return "".join([
@@ -981,20 +1021,21 @@ def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_ov
                 print(out_string, end="", flush=True)
 
             nav = Coordinate(0, 0)
-            val = _blessed_get_input(term)
-            nav_val = val.lower()
-            if nav_val == "h":
-                nav = Coordinate(-1, 0)
-            elif nav_val == "j":
-                nav = Coordinate(0, 1)
-            elif nav_val == "k":
-                nav = Coordinate(0, -1)
-            elif nav_val == "l":
-                nav = Coordinate(1, 0)
-            elif nav_val == "q":
-                print(term.move_down(height))
-                return
-            app.step(Coordinate(-1, -1), nav, result)
+            val, action = _blessed_get_input(term)
+            if not app.is_text_input:
+                nav_val = val.lower()
+                if nav_val == "h":
+                    nav = Coordinate(-1, 0)
+                elif nav_val == "j":
+                    nav = Coordinate(0, 1)
+                elif nav_val == "k":
+                    nav = Coordinate(0, -1)
+                elif nav_val == "l":
+                    nav = Coordinate(1, 0)
+                elif nav_val == "q":
+                    print(term.move_down(height))
+                    return
+            app.step(Coordinate(-1, -1), nav, val,action, result)
 
 #
 # Element utils
@@ -1309,22 +1350,28 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
         at_x += child_box.width
     return res
 
-# @applicable
-# def center(node: Node):
-#     def render(frame: Frame, box: Box):
-#         empty_space_x = even_divide(box.width - node.min_size.width, 2)
-#         empty_space_y = even_divide(box.height - node.min_size.height, 2)
-#         node.render(
-#             frame,
-#             box.shrink(
-#                 top=empty_space_y[0],
-#                 bottom=empty_space_y[1],
-#                 left=empty_space_x[0],
-#                 right=empty_space_x[1]
-#             )
-#         )
-#
-#     return Node(node.min_size, render)
+@applicable
+def center(child: Node):
+    return Node(
+        func=center,
+        hash=(child,),
+        min_size=child.min_size,
+        render=partial(_center_render, child)
+    )
+
+def _center_render(child: Node, frame: Frame, box: Box):
+    min_size = child.min_size(frame.measure_text, box.rect)
+    empty_space_x = _even_divide(box.width - min_size.width, 2)
+    empty_space_y = _even_divide(box.height - min_size.height, 2)
+    return child.render(
+        frame,
+        box.shrink(
+            top=empty_space_y[0],
+            bottom=empty_space_y[1],
+            left=empty_space_x[0],
+            right=empty_space_x[1]
+        )
+    )
 #
 #
 def bg_fill_char(char: str):
@@ -1347,18 +1394,15 @@ def _bg_fill_char_render(char: str, child: Node, frame: Frame, box: Box):
 bg_fill = bg_fill_char(" ")
 #
 #
-# def border_with_title(title: Node, border_node=border):
-#     @applicable
-#     def out(node: Node):
-#         return _border_with_title(title, border_node, node)
-#     return out
-#
-# def _border_with_title(title: Node, border_style, node: Node):
-#     return static_box([
-#         border_style ** node,
-#         offset(1, 0) ** title,
-#     ])
-#
+def border_with_title(title: Node, border_node=border):
+    @applicable
+    def out(child: Node):
+        return static_box([
+            border_node ** child,
+            shrink_y ** shrink_by(0, 0, 1, 1) ** title,
+        ])
+    return out
+
 #
 #
 # def _padding(top: int, bottom: int, left: int, right: int, node: Node):
@@ -1461,22 +1505,50 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
 # sizing manipulations
 #
 
-@applicable
-def shrink(child: Node):
-    return Node(
-        func=shrink,
-        hash=(child,),
-        min_size=child.min_size,
-        render=partial(_shrink_render, child),
-    )
-def _shrink_render(child: Node, frame: Frame, box: Box):
+def _shrink_custom(x: bool, y: bool):
+    @applicable
+    def out(child: Node):
+        return Node(
+            func=_shrink_custom,
+            hash=(child,),
+            min_size=child.min_size,
+            render=partial(_shrink_render, x, y, child),
+        )
+    return out
+
+def _shrink_render(x: bool, y: bool, child: Node, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
     child_box = Box(
-        min_size.width,
-        min_size.height,
+        min_size.width if x else box.width,
+        min_size.height if y else box.height,
         box.offset
     )
     return child.render(frame, child_box)
+
+shrink = _shrink_custom(True, True)
+shrink_y = _shrink_custom(False, True)
+shrink_x = _shrink_custom(True, False)
+
+
+
+def shrink_by(
+    top: int = 0,
+    bottom: int = 0,
+    left: int = 0,
+    right: int = 0,
+):
+    @applicable
+    def out(child: Node):
+        return Node(
+            func=shrink_by,
+            hash=(top, bottom, left, right, child),
+            min_size=min_size_expand(child.min_size, left+right, top+bottom),
+            render=partial(_shrink_by_render, top, bottom, left, right ,child),
+        )
+    return out
+def _shrink_by_render(top, bottom, left, right, child, frame: Frame, box: Box):
+    return child.render(frame, box.shrink(top, bottom, left, right))
+
 
 def offset(x: int=0, y: int=0):
     coord = Coordinate(x, y)
