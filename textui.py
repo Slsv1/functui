@@ -87,6 +87,16 @@ class Rect:
             width = self.width if other.width > self.width else other.width,
             height = self.height if other.height > self.height else other.height,
         )
+    def limit_width(self, width: int) -> Self:
+        return self.__class__(
+            width = self.width if width > self.width else width,
+            height = self.height
+        )
+    def limit_height(self, height: int) -> Self:
+        return self.__class__(
+            width = self.width,
+            height = self.height if height > self.height else height,
+        )
 
 @dataclass(frozen=True, eq=True)
 class Box:
@@ -108,6 +118,13 @@ class Box:
     @property
     def rect(self) -> Rect:
         return Rect(self.width, self.height)
+
+    def using_rect(self, rect: Rect):
+        return self.__class__(
+            height=rect.height,
+            width=rect.width,
+            offset=self.offset
+        )
 
     def intersect(self, other: Self) -> Self:
         x1 = max(self.offset.x, other.offset.x)
@@ -1090,9 +1107,9 @@ class Justify(Enum):
     CENTER = auto()
     RIGHT = auto()
 
-class Expand(Enum):
-    VERTICAL = auto()
-    HORIZONTAL = auto()
+# class Expand(Enum):
+#     VERTICAL = auto()
+#     HORIZONTAL = auto()
 
 @cache
 def _line_len(measure_text: MeasureTextFunc, line: tuple[str]) -> int:
@@ -1112,8 +1129,14 @@ def _split_by_lines(measure_text: MeasureTextFunc, max_width: int, words: tuple[
         lines.append(curr_line)
     return [" ".join(i) for i in lines]
 
+def _add_terminator_to_line(line: str, terminator: str, max_line_width: int, measure_text_func: MeasureTextFunc):
+    words = line.split()
+    while _line_len(measure_text_func, tuple(words)) + measure_text_func(terminator) > max_line_width and words:
+        del words[-1]
+    words.append(terminator)
+    return " ".join(words)
 
-def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
+def adaptive_text(string: str, justify=Justify.LEFT, terminator: str = "..."):
     words = tuple(string.split())
     def min_size(measure_text, available: Rect):
         lines = _split_by_lines(measure_text, available.width, words)
@@ -1123,25 +1146,35 @@ def adaptive_text(string: str, justify=Justify.LEFT, overflow=Expand.VERTICAL):
         )
     return Node(
         func=adaptive_text,
-        hash=(words, justify),
+        hash=(words, justify, terminator),
         min_size=min_size,
-        render=partial(_adaptive_text_render, words, justify),
+        render=partial(_adaptive_text_render, words, justify, terminator),
     )
 
+
+
 @lru_cache(LRU_MAX_SIZE)
-def _adaptive_text_render(words: tuple[str], justify: Justify, frame: Frame, box: Box):
+def _adaptive_text_render(words: tuple[str], justify: Justify, terminator: str ,frame: Frame, box: Box):
     res = Result()
     lines = _split_by_lines(frame.measure_text, box.width, words)
+    total_len = len(lines) - 1
+    lines = lines[:box.height]
     match justify:
         case Justify.LEFT:
             for index, line in enumerate(lines):
+                if index == box.height - 1 and index != total_len:
+                    line = _add_terminator_to_line(line, terminator, box.width, frame.measure_text)
                 res.draw_string_line(frame, line, box.offset + Coordinate(0, index))
         case Justify.CENTER:
             for index, line in enumerate(lines):
+                if index == box.height - 1 and index != total_len:
+                    line = _add_terminator_to_line(line, terminator, box.width, frame.measure_text)
                 available_space = box.width - len(line)
                 res.draw_string_line(frame, line, box.offset + Coordinate(available_space // 2, index))
         case Justify.RIGHT:
             for index, line in enumerate(lines):
+                if index == box.height - 1 and index != total_len:
+                    line = _add_terminator_to_line(line, terminator, box.width, frame.measure_text)
                 available_space = box.width - len(line)
                 res.draw_string_line(frame, line, box.offset + Coordinate(available_space, index))
     return res
@@ -1529,8 +1562,6 @@ shrink = _shrink_custom(True, True)
 shrink_y = _shrink_custom(False, True)
 shrink_x = _shrink_custom(True, False)
 
-
-
 def shrink_by(
     top: int = 0,
     bottom: int = 0,
@@ -1564,6 +1595,30 @@ def offset(x: int=0, y: int=0):
 @lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
     return node.render(frame, box.offset_by(by))
+
+def limit_width(width: int):
+    @applicable
+    def out(child: Node):
+        return Node(
+            func=limit_width,
+            hash = (child, width),
+            min_size=lambda mtf, r: child.min_size(mtf, r.limit_width(width)).limit_width(width),
+            render =lambda frame, box: child.render(frame, box.using_rect(box.rect.limit_width(width)))
+        )
+    return out
+
+def limit_height(height: int):
+    @applicable
+    def out(child: Node):
+        return Node(
+            func=limit_height,
+            hash = (child, height),
+            min_size=lambda mtf, r: child.min_size(mtf, r.limit_height(height)).limit_height(height),
+            render =lambda frame, box: child.render(frame, box.using_rect(box.rect.limit_height(height)))
+        )
+    return out
+
+
 
 
 #
