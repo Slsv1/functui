@@ -430,6 +430,7 @@ class Result:
     def set_data(self, data: ResultData):
         self._data[data.__class__] = data
 
+
     def draw_pixel(self, frame: Frame, fill: str, at: Coordinate):
         if not frame.view_box.is_point_inside(at):
             return 
@@ -676,19 +677,9 @@ class InteractibleID:
 root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
 root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
 
-class InteractibleKind(Enum):
-    TOGGLE = auto()
-    ONE_SHOT = auto()
-
-@dataclass(frozen=True, eq=True)
-class Interactible:
-    id: InteractibleID
-    kind: InteractibleKind
-
 @dataclass(frozen=True, eq=True)
 class InteractibleData(ResultData):
-    data: tuple[Interactible, ...]
-    """bool"""
+    data: tuple[InteractibleID, ...]
     def merge_children(self, child_data):
         return InteractibleData((*self.data, *child_data.data))
     @classmethod
@@ -788,12 +779,11 @@ class Action(Enum):
     NONE = auto()
 
 
-NO_INTERACTIBLE = Interactible(InteractibleID(()), InteractibleKind.ONE_SHOT)
 @dataclass
-class NavState:
+class AppState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     _last_nav: Coordinate = Coordinate(0, 0)
-    _selected_interactible: Interactible = NO_INTERACTIBLE
+    _selected_id: InteractibleID = InteractibleID(())
     _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
     _persistent_selected_id: dict[InteractibleID, InteractibleID] = field(default_factory=dict)
     """if any interactible id part declares it self as persistent,
@@ -810,7 +800,7 @@ class NavState:
         return self._last_nav
     @property
     def selected_id(self):
-        return self._selected_interactible.id
+        return self._selected_id
     @property
     def is_text_input(self):
         return self._is_text_input
@@ -829,7 +819,7 @@ class NavState:
     # state management
     #
     def is_active(self, key: InteractibleID) -> bool:
-        return key.data == self._selected_interactible.id.data[: len(key.data)]
+        return key.data == self._selected_id.data[: len(key.data)]
     def is_just_activated(self, key: InteractibleID) -> bool:
         ...
     def is_selected(self, key: InteractibleID) -> bool:
@@ -857,6 +847,7 @@ class NavState:
             depth += 1
 
         parent = InteractibleID(curr_id.data[:depth])
+
 
         if parent.persistent:
             remembered_id = self._persistent_selected_id.get(parent, None)
@@ -901,7 +892,7 @@ class NavState:
 
             if next_parent == current_parent: # parent is the same, no need to look up persistent data
                 self._persistent_selected_id[next_parent] = next_id
-                return next_index
+                return next_id
 
             done = False
             depth = shared_parent.depth
@@ -910,7 +901,7 @@ class NavState:
                 depth += 1
 
             next_id = nav_data[next_index]
-            return next_index
+            return next_id
 
     def step(self, mouse_position: Coordinate, nav: Coordinate, text_input_char: str | None, action: Action, res: Result):
         self.mouse_position = mouse_position
@@ -944,31 +935,30 @@ class NavState:
 
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
             # handle keyboard nav and its edge cases
-            if self._selected_interactible in nav_data and self._selected_interactible != NO_INTERACTIBLE:
-                selected_index = nav_data.index(self._selected_interactible)
-                next_index = self._navigate_by_keyboard(selected_index, [i.id for i in nav_data], nav)
-                if next_index is not None:
-                    self._selected_interactible = nav_data[next_index]
+            if self._selected_id in nav_data and self._selected_id != InteractibleID(()):
+                selected_index = nav_data.index(self._selected_id)
+                if new_index := self._navigate_by_keyboard(selected_index, nav_data, nav):
+                    self._selected_id = new_index
             else:
-                self._selected_interactible = nav_data[0]
-        # elif next_inderactible := res.try_data(NextInteractible):
-        #     # use mouse navigation instead
-        #     self._selected_interactible = next_inderactible.next_id
+                self._selected_id = nav_data[0]
+        elif next_inderactible := res.try_data(NextInteractible):
+            # use mouse navigation instead
+            self._selected_id = next_inderactible.next_id
 
 
-    def interaction(self, interactible_id: InteractibleID, kind=InteractibleKind.TOGGLE):
+    def interaction(self, interactible_id: InteractibleID):
         @applicable
         def _out(child: Node):
             return Node(
                 func=self.interaction,
                 hash=(child,),
                 min_size=child.min_size,
-                render=partial(_render_read_box, Interactible(interactible_id, kind), self.mouse_position, child)
+                render=partial(_render_read_box, interactible_id, self.mouse_position, child)
             )
         return _out
 
 def _render_read_box(
-    interactible: Interactible,
+    interactible_id: InteractibleID,
     mouse_position: Coordinate,
     child: Node,
     frame: Frame,
@@ -977,10 +967,10 @@ def _render_read_box(
     res = Result()
     availabe_box = frame.view_box.intersect(box)
     res.set_data(InteractibleData(
-        data=(interactible,),
+        data=(interactible_id,),
     ))
     if availabe_box.is_point_inside(mouse_position):
-        res.set_data(NextInteractible(interactible.id))
+        res.set_data(NextInteractible(interactible_id))
     res.add_children_after([child.render(frame, box)])
     return res
 
@@ -1026,7 +1016,7 @@ def blessed_render(term, result: Result):
                 # self.set(at, pixel)
 
 
-def blessed_loop(blessed_lib, app: NavState, layout: Callable[[], Node], size_override: Rect | None=None):
+def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_override: Rect | None=None):
     term = blessed_lib.Terminal()
     measure_text = lambda s: wcswidth(s)
     with term.cbreak():
@@ -1703,9 +1693,9 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
 # Components
 #
 
-type Component[T] = Callable[[NavState, InteractibleID], T]
+type Component[T] = Callable[[AppState, InteractibleID], T]
 
-def nav[T](children: Iterable[Component[T]], state: NavState, id: InteractibleID) -> list[T]:
+def nav[T](children: Iterable[Component[T]], state: AppState, id: InteractibleID) -> list[T]:
     return [child(state, id.child(i)) for i, child in enumerate(children)]
 
 # vbox_scroll be needin:
@@ -1748,7 +1738,7 @@ def nav[T](children: Iterable[Component[T]], state: NavState, id: InteractibleID
 
 UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(
-        state: NavState,
+        state: AppState,
         key: InteractibleID,
         components: list[Component[Node]],
         scroll_bar=lambda start, showing, state, key: (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),

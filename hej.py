@@ -3,11 +3,11 @@ from textui import _offset_render
 from textui import *
 
 
-def selectable(data: Node, state: NavState, id: InteractibleID):
+def selectable(data: Node, state: AppState, id: InteractibleID):
     return state.interaction(id) ** shrink\
     ** ( combine(fg(Color.CYAN), border, no_style) if state.is_active(id) else border )** data
 
-def status_bar(state: NavState, id: InteractibleID):
+def status_bar(state: AppState, id: InteractibleID):
     id = id.with_attributes(direction=Direction.HORIZONTAL)
 
     return bg(Color.BLACK) ** bg_fill ** hbox_flex([
@@ -19,7 +19,7 @@ def status_bar(state: NavState, id: InteractibleID):
             ** (bg(Color.CYAN) ** text("お") if state.is_active(id.child(1)) else text("x")),
     ])
 
-# def get_layout(state: NavState, root: InteractibleID):
+# def get_layout(state: AppState, root: InteractibleID):
 #     return border ** bg_fill_char(".") ** vbox_flex([
 #         flex ** vbox([
 #             selectable(state, root.child(0), text("おはよう")),
@@ -44,20 +44,20 @@ def get_layout(state, root):
         flex ** border ** vbox_scroll(state, root.child(1), [
             partial(selectable, adaptive_text(LOREM)),
             partial(selectable, adaptive_text(LOREM)),
-            # partial(selectable, adaptive_text(LOREM)),
-            # partial(selectable, adaptive_text(LOREM)),
-            # partial(selectable, adaptive_text(LOREM)),
-            # partial(selectable, adaptive_text(LOREM + "おお おおおおおおおお おおおお")),
-            # partial(selectable, text("hej")),
-            # partial(selectable, text("hej")),
-            # partial(selectable, text("hej")),
-            # partial(selectable, text("hej")),
-            # partial(selectable, text("hej")),
-            # partial(selectable, text("hej, おお\nお")),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM)),
+            partial(selectable, adaptive_text(LOREM + "おお おおおおおおおお おおおお")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej")),
+            partial(selectable, text("hej, おお\nお")),
         ]),
         no_flex ** status_bar(state, root.child(2))
     ])
-state = NavState()
+state = AppState()
 blessed_loop(
     blessed,
     state,
