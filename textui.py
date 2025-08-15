@@ -10,6 +10,8 @@ import curses
 import math
 import os
 
+from component import visualise_nav_data
+
 
 # FIXME:
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
@@ -794,7 +796,6 @@ class NavState:
     then it's last selected child will be saved here"""
 
     _is_text_input: bool = False
-    _should_do_text_input: bool = False
     _accumulated_text_input: str = ""
     _action: Action = Action.NONE
 
@@ -824,14 +825,14 @@ class NavState:
     #
     def is_active(self, key: InteractibleID) -> bool:
         return key.data == self._selected_id.data[: len(key.data)]
-    def is_just_activated(self, key: InteractibleID) -> bool:
-        ...
-    def is_selected(self, key: InteractibleID) -> bool:
-        ...
-    def is_just_selected(self, key: InteractibleID) -> bool:
-        ...
-    def queue_text_input(self, start_text: str):
-        self._should_do_text_input = True
+    def was_active(self, key: InteractibleID) -> bool:
+        for id in self._persistent_selected_id.values():
+            if key.data == id.data[:len(key.data)]:
+                return True
+        return False
+
+    def do_text_input(self, start_text: str = ""):
+        self._is_text_input = True
         self._accumulated_text_input = start_text
     def get_action(self):
         return self._action
@@ -860,7 +861,6 @@ class NavState:
                 next_id = remembered_id
                 current_index = nav_data.index(next_id)
                 return current_index, depth, False
-            self._persistent_selected_id[parent] = curr_id
 
         if backwards:
             # go to first index
@@ -909,14 +909,12 @@ class NavState:
             return next_id
 
     def step(self, mouse_position: Coordinate, nav: Coordinate, text_input_char: str | None, action: Action, nav_data: list[InteractibleID],res: Result):
+        print(text_input_char)
         self.mouse_position = mouse_position
         self._last_nav = nav
         self._action = action
 
         # text input
-        self._is_text_input = self._should_do_text_input
-        self._should_do_text_input = False
-
         if action == Action.DESELECT:
             self._is_text_input = False
             self._accumulated_text_input = ""
@@ -931,8 +929,6 @@ class NavState:
                 self._set_state(key, state)
 
         # reactivity
-
-
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
             # handle keyboard nav and its edge cases
             if self._selected_id in nav_data and self._selected_id != EMPTY_INTERACTIBLE:
@@ -944,6 +940,13 @@ class NavState:
         elif next_inderactible := res.try_data(NextInteractible):
             # use mouse navigation instead
             self._selected_id = next_inderactible.next_id
+
+        print(debug_interactible_str(self._selected_id))
+        if self._selected_id not in nav_data:
+            print("hehe")
+            self._selected_id = nav_data[0]
+        print(debug_nav_data_str(self, nav_data))
+
 
 
     def interaction_area(self, interactible_id: InteractibleID):
@@ -973,11 +976,16 @@ def _render_read_box(
 def debug_interactible_str(id: InteractibleID):
     return "|".join(f"{"1" if i.first_child_default else " "}{"p" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
 
-def debug_nav_data_str(state: NavState, nav_data: list[InteractibleID]):
+def debug_nav_data_str(state: NavState, nav_data: list[InteractibleID], persistent: bool = True):
     out = ["==| first_child_default | persistent | local_id | direction |=="]
     for id in nav_data:
         interactible_str = debug_interactible_str(id)
         out.append((">" if state.is_active(id) else " ") + interactible_str)
+    if persistent and state._persistent_selected_id:
+        out.append("== Persistent ==")
+        for id in state._persistent_selected_id.values():
+            interactible_str = debug_interactible_str(id)
+            out.append((">" if state.is_active(id) else " ") + interactible_str)
     return "\n".join(out)
 
 #
