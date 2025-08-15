@@ -26,7 +26,7 @@ import os
 # Element constructor:
 # A function that returns an Element
 
-LRU_MAX_SIZE = 64
+LRU_MAX_SIZE = 256
 #
 # utilities
 #
@@ -672,19 +672,10 @@ class InteractibleID:
                 first_child_default=first_child_default if first_child_default is not None else self.data[-1].first_child_default)
             )
         )
-    def __repr__(self):
-        return visualize_interactible_id(self)
-root_vertical = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
-root_horizontal = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
 
-@dataclass(frozen=True, eq=True)
-class InteractibleData(ResultData):
-    data: tuple[InteractibleID, ...]
-    def merge_children(self, child_data):
-        return InteractibleData((*self.data, *child_data.data))
-    @classmethod
-    def create_dummy(cls):
-        return cls(tuple())
+ROOT_VERTICAL = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
+ROOT_HORIZONTAL = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
+EMPTY_INTERACTIBLE = InteractibleID(())
 
 @dataclass(frozen=True, eq=True)
 class NextInteractible(ResultData):
@@ -693,7 +684,7 @@ class NextInteractible(ResultData):
         return child_data
     @classmethod
     def create_dummy(cls):
-        return cls(InteractibleID(()))
+        return cls(EMPTY_INTERACTIBLE)
 
 @dataclass(frozen=True, eq=True)
 class SetState(ResultData):
@@ -737,34 +728,36 @@ def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direct
         # if next index parent is a different direction then inputed,
         # in this case just keep advancing index untill either end of nav_data or direction matches and nav_depth is same or less than original
 
-        if _intersect_interactible_id(nav_data[next_index], original_id).data[-1].direction != direction:
+        if _intersect_interactible_id(nav_data[next_index], original_id).direction != direction:
             skipped_ids = True 
             next_index = advance(next_index)
             continue
-        if skipped_ids and (len(nav_data[next_index].data) > original_depth): # if depth exceeds original depth then continue
-            # in a strcuture similar to the following:
-            #
-            # vbox
-            #  - item 1
-            #  - item 2 [start point]
-            # hbox
-            #  - item 1 (with vbox submenu)
-            #    - item 1
-            #    - item 2
-            # vbox2
-            #  - item 1 [desired end point on navigating down]
-            #
-            # in order to get to desired point you have to skip the items in the vbox submenu
-            # it is this if statement that hinders you from selecting them.
-            next_index = advance(next_index)
-            continue
+        # if skipped_ids and nav_data[next_index].depth > original_depth: # if depth exceeds original depth then continue
+        #     # in a strcuture similar to the following:
+        #     #
+        #     # vbox
+        #     #  - item 1
+        #     #  - item 2 [start point]
+        #     # hbox
+        #     #  - item 1 (with vbox submenu)
+        #     #    - item 1
+        #     #    - item 2
+        #     # vbox2
+        #     #  - item 1 [desired end point on navigating down]
+        #     #
+        #     # in order to get to desired point you have to skip the items in the vbox submenu
+        #     # it is this if statement that hinders you from selecting them.
+        #     next_index = advance(next_index)
+        #     continue
 
         # at this point we found an appropritae index
         return next_index
 
 
-def visualize_interactible_id(id: InteractibleID):
-    return "".join(f"{"-" if i.first_child_default else " "}{"=" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
+
+
+
+
 
 @dataclass
 class InputState:
@@ -778,12 +771,23 @@ class Action(Enum):
     DESELECT = auto()
     NONE = auto()
 
+# @dataclass(frozen=True)
+# class TextInputState:
+#     last_char: str = ""
+#     accumulated_text_input: str = ""
+#     is_text_input: bool = ""
+#
+#     def step(self, new_char: str, action: Action):
+#         return TextInputState(
+#             last_char=new_char,
+#             accumulated_text_input=nav_char,
+#         )
 
 @dataclass
-class AppState:
+class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     _last_nav: Coordinate = Coordinate(0, 0)
-    _selected_id: InteractibleID = InteractibleID(())
+    _selected_id: InteractibleID = EMPTY_INTERACTIBLE
     _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
     _persistent_selected_id: dict[InteractibleID, InteractibleID] = field(default_factory=dict)
     """if any interactible id part declares it self as persistent,
@@ -826,8 +830,9 @@ class AppState:
         ...
     def is_just_selected(self, key: InteractibleID) -> bool:
         ...
-    def queue_text_input(self):
+    def queue_text_input(self, start_text: str):
         self._should_do_text_input = True
+        self._accumulated_text_input = start_text
     def get_action(self):
         return self._action
     # while True:
@@ -851,7 +856,7 @@ class AppState:
 
         if parent.persistent:
             remembered_id = self._persistent_selected_id.get(parent, None)
-            if remembered_id is not None:
+            if remembered_id is not None and remembered_id in nav_data:
                 next_id = remembered_id
                 current_index = nav_data.index(next_id)
                 return current_index, depth, False
@@ -903,7 +908,7 @@ class AppState:
             next_id = nav_data[next_index]
             return next_id
 
-    def step(self, mouse_position: Coordinate, nav: Coordinate, text_input_char: str | None, action: Action, res: Result):
+    def step(self, mouse_position: Coordinate, nav: Coordinate, text_input_char: str | None, action: Action, nav_data: list[InteractibleID],res: Result):
         self.mouse_position = mouse_position
         self._last_nav = nav
         self._action = action
@@ -926,16 +931,11 @@ class AppState:
                 self._set_state(key, state)
 
         # reactivity
-        interactible_data=res.try_data(InteractibleData)
-        if interactible_data is None:
-            return
 
-        nav_data = list(interactible_data.data)
-        # print("\n".join(visualize_interactible_id(i) for i in nav_data))
 
         if (nav.x != 0 or nav.y != 0) and len(nav_data):
             # handle keyboard nav and its edge cases
-            if self._selected_id in nav_data and self._selected_id != InteractibleID(()):
+            if self._selected_id in nav_data and self._selected_id != EMPTY_INTERACTIBLE:
                 selected_index = nav_data.index(self._selected_id)
                 if new_index := self._navigate_by_keyboard(selected_index, nav_data, nav):
                     self._selected_id = new_index
@@ -946,11 +946,11 @@ class AppState:
             self._selected_id = next_inderactible.next_id
 
 
-    def interaction(self, interactible_id: InteractibleID):
+    def interaction_area(self, interactible_id: InteractibleID):
         @applicable
         def _out(child: Node):
             return Node(
-                func=self.interaction,
+                func=self.interaction_area,
                 hash=(child,),
                 min_size=child.min_size,
                 render=partial(_render_read_box, interactible_id, self.mouse_position, child)
@@ -966,22 +966,32 @@ def _render_read_box(
 ) -> Result:
     res = Result()
     availabe_box = frame.view_box.intersect(box)
-    res.set_data(InteractibleData(
-        data=(interactible_id,),
-    ))
     if availabe_box.is_point_inside(mouse_position):
         res.set_data(NextInteractible(interactible_id))
     res.add_children_after([child.render(frame, box)])
     return res
+def debug_interactible_str(id: InteractibleID):
+    return "|".join(f"{"1" if i.first_child_default else " "}{"p" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
+
+def debug_nav_data_str(state: NavState, nav_data: list[InteractibleID]):
+    out = ["==| first_child_default | persistent | local_id | direction |=="]
+    for id in nav_data:
+        interactible_str = debug_interactible_str(id)
+        out.append((">" if state.is_active(id) else " ") + interactible_str)
+    return "\n".join(out)
+
+#
+# IO handling
+#
 
 def _blessed_get_input(term) -> tuple[str, Action]:
     while True:
         val = term.inkey()
         if not val.is_sequence:
             return val, Action.NONE
-        if val == curses.KEY_EXIT:
+        if val.code== curses.KEY_EXIT:
             return "", Action.DESELECT
-        if val == curses.KEY_ENTER:
+        if val.code== curses.KEY_ENTER:
             return "", Action.SELECT
 @cache
 def pixel_styles_to_ansi(pixel: Pixel) -> str:
@@ -1011,16 +1021,22 @@ def blessed_render(term, result: Result):
                     print(pixel_styles_to_ansi(command.string[0]) + pixel.char , end="")
                 ...
         print("", end="", flush=True)
-
-
                 # self.set(at, pixel)
+# m = intial_model
+# n = initka_nav
 
+# m, nav_data = update(m)
+# res = render(m)
+# print(res)
+# input = get_input()
+# step(res, nav, nav_data, input)
 
-def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_override: Rect | None=None):
+def blessed_loop(blessed_lib, app: NavState, layout: Callable[[], tuple[Node, list[InteractibleID]]], size_override: Rect | None=None):
     term = blessed_lib.Terminal()
     measure_text = lambda s: wcswidth(s)
     with term.cbreak():
         while True:
+            # rendering
             if size_override is None:
                 terminal_size = os.get_terminal_size()
                 width = terminal_size.columns
@@ -1029,13 +1045,16 @@ def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_ov
                 width = size_override.width
                 height = size_override.height
 
-            result = get_result(Rect(width, height), measure_text,  layout())
+            root_node, ids = layout()
+            result = get_result(Rect(width, height), measure_text,  root_node)
             canvas = Canvas(width, height)
             canvas.apply_draw_commands(measure_text, result.get_commands()) # 20 %
             out_string = render_ansi(canvas) # 30 %
 
             with term.location(0, 0), term.hidden_cursor():
                 print(out_string, end="", flush=True)
+
+            # input handling
 
             nav = Coordinate(0, 0)
             val, action = _blessed_get_input(term)
@@ -1052,7 +1071,11 @@ def blessed_loop(blessed_lib, app: AppState, layout: Callable[[], Node], size_ov
                 elif nav_val == "q":
                     print(term.move_down(height))
                     return
-            app.step(Coordinate(-1, -1), nav, val,action, result)
+            app.step(Coordinate(-1, -1), nav, val, action, ids, result)
+
+def sort_interactibles(l: list[InteractibleID]):
+    ...
+
 
 #
 # Element utils
@@ -1693,10 +1716,10 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
 # Components
 #
 
-type Component[T] = Callable[[AppState, InteractibleID], T]
+# type Component[T] = Callable[[NavState, InteractibleID], T]
 
-def nav[T](children: Iterable[Component[T]], state: AppState, id: InteractibleID) -> list[T]:
-    return [child(state, id.child(i)) for i, child in enumerate(children)]
+# def nav[T](children: Iterable[Component[T]], state: NavState, id: InteractibleID) -> list[T]:
+#     return [child(state, id.child(i)) for i, child in enumerate(children)]
 
 # vbox_scroll be needin:
 #   nav direction
@@ -1738,24 +1761,20 @@ def nav[T](children: Iterable[Component[T]], state: AppState, id: InteractibleID
 
 UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(
-        state: AppState,
+        state: NavState,
         key: InteractibleID,
-        components: list[Component[Node]],
-        scroll_bar=lambda start, showing, state, key: (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),
+        children: Iterable[tuple[InteractibleID, Node]],
+        scroll_bar_key: InteractibleID = EMPTY_INTERACTIBLE,
+        scroll_bar=lambda start, showing, state, key: nothing()# (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),
     ):
-    key = key.with_attributes(direction=Direction.HORIZONTAL, first_child_default=True)
-    container_key = key.child(0, direction=Direction.VERTICAL, persistent=True)
-    scroll_bar_key = key.child(1)
 
     child_nodes = []
     selected_index = None
     direction_down = state.last_nav.y > 0
 
-    for i, comp in enumerate(components):
-        child_key = container_key.child(i)
-        child_nodes.append(comp(state, child_key))
-
-        if state.is_active(child_key):
+    for i, (id, node) in enumerate(children):
+        child_nodes.append(node)
+        if state.is_active(id):
             selected_index = i
 
     last_at_y = state.try_state(key, int)
@@ -1790,12 +1809,16 @@ def vbox_scroll(
 
         # render
 
-        percent_available = available_height / content_height
-        percent_progress = at_y/content_height
+        if content_height != 0:
+            percent_available = available_height / content_height
+            percent_progress = at_y/content_height
+        else:
+            percent_available = 1
+            percent_progress = 0
 
         layout = hbox_flex([
             flex ** vbox(child_nodes, -at_y),
-            no_flex ** state.interaction(scroll_bar_key)\
+            no_flex ** state.interaction_area(scroll_bar_key)\
                 ** scroll_bar(percent_progress, percent_available, state, scroll_bar_key)
                 #   ** (fg(Color.CYAN) if state.is_active(scroll_bar_key) else fg(Color.RED))\
                 # (v_scroll_bar(percent_progress, percent_available))
