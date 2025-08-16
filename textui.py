@@ -1,14 +1,15 @@
 from dataclasses import dataclass, field
-from types import SimpleNamespace
-from typing import Any, Iterable, Self, Callable
+from typing import Any, Iterable, Self, Callable, NamedTuple, Literal
 from enum import Flag, auto, Enum
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache, lru_cache
 from wcwidth import wcswidth
-from random import random
+from types import MappingProxyType
 import curses
 import math
 import os
+
+import wcwidth
 
 from component import visualise_nav_data
 
@@ -238,7 +239,7 @@ class DrawBox:
 
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
-    string: list[Pixel]
+    string: tuple[Pixel]
     at: Coordinate
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
@@ -499,7 +500,7 @@ class Result:
                 out.append(frame.default_pixel.with_char(char).with_char_type(CharType.WIDE_HEAD))
                 out.append(frame.default_pixel.with_char("").with_char_type(CharType.WIDE_TAIL))
         self._draw_commands.append(DrawStringLine(
-            out, at
+            tuple(out), at
         ))
     def get_commands(self): return tuple(self._draw_commands)
 
@@ -532,7 +533,7 @@ class Node:
     def __hash__(self) -> int:
         return hash((self.func, self.hash))
     def __eq__(self, value: object, /) -> bool:
-        return (self.func, self.hash) == (value.func, value.hash)
+        return (self.func, self.hash) == (value.func, value.hash) # type: ignore
 
 
 
@@ -594,7 +595,7 @@ def render_ansi(canvas: Canvas) -> str:
 def ansi_go_up(y):
     return f"\033[{y}A"
 
-def get_result(dimensions: Rect, measure_text: MeasureTextFunc, root_node: Node) -> Result:
+def get_result(dimensions: Rect, root_node: Node, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
     result = root_node.render(
         Frame(
             screen_rect=dimensions,
@@ -604,6 +605,7 @@ def get_result(dimensions: Rect, measure_text: MeasureTextFunc, root_node: Node)
         ),
         Box(width=dimensions.width, height=dimensions.height),
     )
+    result.set_data(ResultCreatedWith(measure_text, screen_size=dimensions))
     return result
 
 #
@@ -665,15 +667,15 @@ class InteractibleID:
 
     def __bool__(self):
         return bool(len(self.data))
-    def with_attributes(self, direction: Direction | None = None, persistent: bool | None = None, first_child_default: bool | None = None):
-        return self.__class__(
-            (*self.data[:-1], InteractibleIDPart(
-                direction=direction if direction is not None else self.data[-1].direction,
-                local_id=self.data[-1].local_id,
-                persistent=persistent if persistent is not None else self.data[-1].persistent,
-                first_child_default=first_child_default if first_child_default is not None else self.data[-1].first_child_default)
-            )
-        )
+    # def with_attributes(self, direction: Direction | None = None, persistent: bool | None = None, first_child_default: bool | None = None):
+    #     return self.__class__(
+    #         (*self.data[:-1], InteractibleIDPart(
+    #             direction=direction if direction is not None else self.data[-1].direction,
+    #             local_id=self.data[-1].local_id,
+    #             persistent=persistent if persistent is not None else self.data[-1].persistent,
+    #             first_child_default=first_child_default if first_child_default is not None else self.data[-1].first_child_default)
+    #         )
+    #     )
 
 ROOT_VERTICAL = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
 ROOT_HORIZONTAL = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
@@ -697,6 +699,17 @@ class SetState(ResultData):
     def create_dummy(cls):
         return cls(tuple())
 
+@dataclass(frozen=True, eq=True)
+class ResultCreatedWith(ResultData):
+    """this is added to a result by the get_result function so that this data can later be used by any rendering function"""
+    measure_text_func: MeasureTextFunc
+    screen_size: Rect
+    def merge_children(self, child_data):
+        raise RuntimeError("Result should not be merged with with this data")
+    @classmethod
+    def create_dummy(cls):
+        raise RuntimeError("Result should not be merged with with this data")
+
 def set_state(*new_state: tuple[InteractibleID, Any]):
     return SetState(new_state)
 def _intersect_interactible_id(a: InteractibleID, b: InteractibleID) -> InteractibleID:
@@ -712,8 +725,26 @@ def _intersect_interactible_id(a: InteractibleID, b: InteractibleID) -> Interact
     return InteractibleID(tuple(out))
 
 
+class Action(Enum):
+    QUIT = auto()
+    SELECT = auto()
+    DESELECT = auto()
+    NONE = auto()
+    NAV_UP = auto()
+    NAV_RIGHT = auto()
+    NAV_DOWN = auto()
+    NAV_LEFT = auto()
 
-def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direction: Direction, backwards: bool) -> int | None:
+
+@dataclass(frozen=True, eq=True)
+class ActionTextEnter:
+    starting_string: str = ""
+
+type DefaultAction = Action | ActionTextEnter 
+"""Actions that may be usefull in a wide range of TUIs"""
+type NavAction = Literal[Action.NAV_DOWN, Action.NAV_UP, Action.NAV_LEFT, Action.NAV_RIGHT]
+
+def _try_find_nearest(nav_data: tuple[InteractibleID, ...], current_index: int, direction: Direction, backwards: bool) -> int | None:
     next_index = current_index
     advance = lambda n: n + (-1 if backwards else 1)
     next_index = advance(next_index)
@@ -755,54 +786,108 @@ def _try_find_nearest(nav_data: list[InteractibleID], current_index: int, direct
         # at this point we found an appropritae index
         return next_index
 
+class _ApplyRulesResult(NamedTuple):
+    next_index: int
+    depth: int
+    done: bool
+
+def _apply_rules(
+        persistent_selected_ids: MappingProxyType[InteractibleID, InteractibleID],
+        nav_data: tuple[InteractibleID, ...],
+        current_index: int,
+        depth: int,
+        backwards: bool
+) -> _ApplyRulesResult:
+    curr_id = nav_data[current_index]
+    # find the depth at which the part is either persistent or first_child_default
+    while True:
+        if depth >= curr_id.depth:
+            return _ApplyRulesResult(current_index, depth, True)
+
+        part = curr_id.data[depth-1]
+        if part.persistent or part.first_child_default:
+            break
+        depth += 1
+
+    parent = InteractibleID(curr_id.data[:depth])
+
+
+    if parent.persistent:
+        remembered_id = persistent_selected_ids.get(parent, None)
+        if remembered_id is not None and remembered_id in nav_data:
+            next_id = remembered_id
+            current_index = nav_data.index(next_id)
+            return _ApplyRulesResult(current_index, depth, False)
+
+    if backwards:
+        # go to first index
+        while True:
+            if current_index <= 0:
+                return _ApplyRulesResult(0, depth, True)
+
+            curr_id = nav_data[current_index]
+            if len(curr_id.data) > depth:
+                if curr_id.data[depth].local_id == 0:
+                    return _ApplyRulesResult(current_index, depth, False)
+            else:
+                return _ApplyRulesResult(current_index, depth, False)
+            current_index -= 1
+    return _ApplyRulesResult(current_index, depth, False)
+
+class _NavigationResult(NamedTuple):
+    next_id: InteractibleID
+    shared_parent: InteractibleID
+
+def _navigate_by_keyboard(
+        persistent_selected_ids: MappingProxyType[InteractibleID, InteractibleID],
+        current_index: int,
+        nav_data: tuple[InteractibleID, ...],
+        action: NavAction 
+) -> _NavigationResult | None:
+    direction = Direction.HORIZONTAL if action in (Action.NAV_RIGHT, Action.NAV_LEFT) else Direction.VERTICAL
+    backwards = False
+    if direction == Direction.HORIZONTAL:
+        backwards = True if action == Action.NAV_LEFT else False
+    elif direction == Direction.VERTICAL:
+        backwards = True if action == Action.NAV_UP else False
+
+    next_index = _try_find_nearest(nav_data, current_index, direction, backwards)
+    if next_index is not None:
+        next_id = nav_data[next_index]
+        current_id = nav_data[current_index]
+        shared_parent = _intersect_interactible_id(next_id, current_id)
+
+        next_parent = next_id.parent
+        current_parent = current_id.parent
+
+        if next_parent == current_parent: # parent is the same, no need to look up persistent data
+            return _NavigationResult(next_id, shared_parent)
+
+        done = False
+        depth = shared_parent.depth
+        while not done:
+            next_index, depth, done = _apply_rules(persistent_selected_ids, nav_data, next_index, depth, backwards)
+            depth += 1
+
+        next_id = nav_data[next_index]
+        return _NavigationResult(next_id, shared_parent)
 
 
 
-
-
-
-@dataclass
-class InputState:
-    char: str
-    select: bool
-    deselect: bool
-    nav: Coordinate
-
-class Action(Enum):
-    SELECT = auto()
-    DESELECT = auto()
-    NONE = auto()
-
-# @dataclass(frozen=True)
-# class TextInputState:
-#     last_char: str = ""
-#     accumulated_text_input: str = ""
-#     is_text_input: bool = ""
-#
-#     def step(self, new_char: str, action: Action):
-#         return TextInputState(
-#             last_char=new_char,
-#             accumulated_text_input=nav_char,
-#         )
-
-@dataclass
+@dataclass(frozen=True)
 class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
-    _last_nav: Coordinate = Coordinate(0, 0)
     _selected_id: InteractibleID = EMPTY_INTERACTIBLE
-    _persistent_state: dict[tuple[InteractibleID, Any], Any] = field(default_factory=dict)
-    _persistent_selected_id: dict[InteractibleID, InteractibleID] = field(default_factory=dict)
+    _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
+    _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
     """if any interactible id part declares it self as persistent,
     then it's last selected child will be saved here"""
 
     _is_text_input: bool = False
-    _accumulated_text_input: str = ""
-    _action: Action = Action.NONE
+    _text_input: str = ""
+    _action: DefaultAction = Action.NONE
 
 
-    @property
-    def last_nav(self):
-        return self._last_nav
     @property
     def selected_id(self):
         return self._selected_id
@@ -810,16 +895,17 @@ class NavState:
     def is_text_input(self):
         return self._is_text_input
     @property
-    def text_input(self):
-        return self._accumulated_text_input
+    def text_inpux(self):
+        return self._text_input
+    @property
+    def action(self):
+        return self._action
 
     #
     # persistent state
     #
     def try_state[T](self, interactible_id: InteractibleID, data: type[T]) -> T | None:
         return self._persistent_state.get((interactible_id, data))
-    def _set_state(self, interactible_id: InteractibleID, data: Any) -> None:
-        self._persistent_state[(interactible_id, data.__class__)] = data
     #
     # state management
     #
@@ -831,121 +917,58 @@ class NavState:
                 return True
         return False
 
-    def do_text_input(self, start_text: str = ""):
-        self._is_text_input = True
-        self._accumulated_text_input = start_text
-    def get_action(self):
-        return self._action
     # while True:
     #    res = render() (print)
     #    input()
     #    step()
-    def _apply_rules(self, nav_data: list[InteractibleID], current_index: int, depth: int, backwards: bool):
-        curr_id = nav_data[current_index]
-        # find the depth at which the part is either persistent or first_child_default
-        while True:
-            if depth >= curr_id.depth:
-                return current_index, depth, True
 
-            part = curr_id.data[depth-1]
-            if part.persistent or part.first_child_default:
-                break
-            depth += 1
-
-        parent = InteractibleID(curr_id.data[:depth])
-
-
-        if parent.persistent:
-            remembered_id = self._persistent_selected_id.get(parent, None)
-            if remembered_id is not None and remembered_id in nav_data:
-                next_id = remembered_id
-                current_index = nav_data.index(next_id)
-                return current_index, depth, False
-
-        if backwards:
-            # go to first index
-            while True:
-                if current_index <= 0:
-                    return 0, depth, True
-
-                curr_id = nav_data[current_index]
-                if len(curr_id.data) > depth:
-                    if curr_id.data[depth].local_id == 0:
-                        return current_index, depth, False
-                else:
-                    return current_index, depth, False
-                current_index -= 1
-        return current_index, depth, False
-
-
-    def _navigate_by_keyboard(self, current_index: int, nav_data: list[InteractibleID], nav: Coordinate):
-        direction = Direction.HORIZONTAL if nav.x else Direction.VERTICAL
-        backwards = False
-        if direction == Direction.HORIZONTAL:
-            backwards = True if nav.x < 0 else False
-        elif direction == Direction.VERTICAL:
-            backwards = True if nav.y < 0 else False
-
-        next_index = _try_find_nearest(nav_data, current_index, direction, backwards)
-        if next_index is not None:
-            next_id = nav_data[next_index]
-            current_id = nav_data[current_index]
-            shared_parent = _intersect_interactible_id(next_id, current_id)
-
-            next_parent = next_id.parent
-            current_parent = current_id.parent
-
-            if next_parent == current_parent: # parent is the same, no need to look up persistent data
-                self._persistent_selected_id[next_parent] = next_id
-                return next_id
-
-            done = False
-            depth = shared_parent.depth
-            while not done:
-                next_index, depth, done = self._apply_rules(nav_data, next_index, depth, backwards)
-                depth += 1
-
-            next_id = nav_data[next_index]
-            return next_id
-
-    def step(self, mouse_position: Coordinate, nav: Coordinate, text_input_char: str | None, action: Action, nav_data: list[InteractibleID],res: Result):
-        print(text_input_char)
-        self.mouse_position = mouse_position
-        self._last_nav = nav
-        self._action = action
-
-        # text input
-        if action == Action.DESELECT:
-            self._is_text_input = False
-            self._accumulated_text_input = ""
-
-        if text_input_char is not None and self._is_text_input:
-            self._accumulated_text_input += text_input_char
-
-
+    def step(
+            self,
+            res: Result,
+            action: DefaultAction = Action.NONE,
+            nav_data: list[InteractibleID] = field(default_factory=list),
+            text_str: str = "",
+            mouse_position: Coordinate = Coordinate(-1, -1),
+    ):
         # persistent state
+        next_state = dict(self._persistent_state)
         if set_state := res.try_data(SetState):
             for key, state in set_state.new_state:
-                self._set_state(key, state)
+                next_state[(key, state.__class__)] = state
 
         # reactivity
-        if (nav.x != 0 or nav.y != 0) and len(nav_data):
+        next_persistent_selected_id = dict(self._persistent_selected_id)
+
+        next_id = self._selected_id
+        if action in (Action.NAV_DOWN, Action.NAV_LEFT, Action.NAV_UP, Action.NAV_RIGHT) and len(nav_data):
             # handle keyboard nav and its edge cases
             if self._selected_id in nav_data and self._selected_id != EMPTY_INTERACTIBLE:
                 selected_index = nav_data.index(self._selected_id)
-                if new_index := self._navigate_by_keyboard(selected_index, nav_data, nav):
-                    self._selected_id = new_index
+                if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
+                    next_id = result.next_id
+
+                    if result.shared_parent.persistent:
+                        next_persistent_selected_id[result.shared_parent] = result.next_id
             else:
-                self._selected_id = nav_data[0]
+                next_id = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
             # use mouse navigation instead
-            self._selected_id = next_inderactible.next_id
+            next_id = next_inderactible.next_id
 
         print(debug_interactible_str(self._selected_id))
         if self._selected_id not in nav_data:
             print("hehe")
-            self._selected_id = nav_data[0]
+            next_id = nav_data[0]
         print(debug_nav_data_str(self, nav_data))
+        return NavState(
+            mouse_position=mouse_position,
+            _selected_id=next_id,
+            _persistent_state=MappingProxyType(next_state),
+            _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
+            _is_text_input=True if isinstance(action, ActionTextEnter) else (False if action == Action.DESELECT else self._is_text_input),
+            _text_str=text_str,
+            _action=action
+        )
 
 
 
@@ -976,7 +999,7 @@ def _render_read_box(
 def debug_interactible_str(id: InteractibleID):
     return "|".join(f"{"1" if i.first_child_default else " "}{"p" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
 
-def debug_nav_data_str(state: NavState, nav_data: list[InteractibleID], persistent: bool = True):
+def debug_nav_data_str(state: NavState, nav_data: iterab[InteractibleID], persistent: bool = True):
     out = ["==| first_child_default | persistent | local_id | direction |=="]
     for id in nav_data:
         interactible_str = debug_interactible_str(id)
@@ -992,15 +1015,28 @@ def debug_nav_data_str(state: NavState, nav_data: list[InteractibleID], persiste
 # IO handling
 #
 
-def _blessed_get_input(term) -> tuple[str, Action]:
+def blessed_get_input(app: NavState, term) -> tuple[str, Action]:
     while True:
         val = term.inkey()
-        if not val.is_sequence:
-            return val, Action.NONE
-        if val.code== curses.KEY_EXIT:
-            return "", Action.DESELECT
-        if val.code== curses.KEY_ENTER:
-            return "", Action.SELECT
+        if not val.is_sequence and not app.is_text_input:
+            match val:
+                case "h":
+                    return val, Action.NAV_LEFT
+                case "j":
+                    return val ,Action.NAV_DOWN
+                case "k":
+                    return val, Action.NAV_UP
+                case "l":
+                    return val, Action.NAV_RIGHT
+                case "q":
+                    return val, Action.QUIT
+                case _:
+                    return val, Action.NONE
+        match val.code:
+            case curses.KEY_EXIT:
+                return "", Action.DESELECT
+            case curses.KEY_ENTER:
+                return "", Action.SELECT
 @cache
 def pixel_styles_to_ansi(pixel: Pixel) -> str:
     return "".join([
@@ -1008,30 +1044,7 @@ def pixel_styles_to_ansi(pixel: Pixel) -> str:
         default_color_to_bg_ansi(pixel.bg_color),
         default_color_to_fg_ansi(pixel.fg_color),
     ])
-def blessed_render(term, result: Result):
-    for command in result.get_commands():
-        if isinstance(command, DrawPixel):
-            with term.location(command.at.x, command.at.y):
-                print(pixel_styles_to_ansi(command.pixel) + command.pixel.char , end="")
-
-
-        elif isinstance(command, DrawBox):
-            box = command.box
-            for x in range(box.offset.x, box.offset.x + box.width):
-                for y in range(box.offset.y, box.offset.y + box.height):
-                    with term.location(x, y):
-                        print(pixel_styles_to_ansi(command.fill) + command.fill.char , end="")
-                    # self.set(Coordinate(x, y), command.fill)
-        else: #DrawStringLine
-            for delta_x, pixel in enumerate(command.string):
-                at = Coordinate(command.at.x + delta_x, command.at.y)
-                with term.location(at.x, at.y):
-                    print(pixel_styles_to_ansi(command.string[0]) + pixel.char , end="")
-                ...
-        print("", end="", flush=True)
                 # self.set(at, pixel)
-# m = intial_model
-# n = initka_nav
 
 # m, nav_data = update(m)
 # res = render(m)
@@ -1039,50 +1052,13 @@ def blessed_render(term, result: Result):
 # input = get_input()
 # step(res, nav, nav_data, input)
 
-def blessed_loop(blessed_lib, app: NavState, layout: Callable[[], tuple[Node, list[InteractibleID]]], size_override: Rect | None=None):
-    term = blessed_lib.Terminal()
-    measure_text = lambda s: wcswidth(s)
-    with term.cbreak():
-        while True:
-            # rendering
-            if size_override is None:
-                terminal_size = os.get_terminal_size()
-                width = terminal_size.columns
-                height = terminal_size.lines
-            else:
-                width = size_override.width
-                height = size_override.height
-
-            root_node, ids = layout()
-            result = get_result(Rect(width, height), measure_text,  root_node)
-            canvas = Canvas(width, height)
-            canvas.apply_draw_commands(measure_text, result.get_commands()) # 20 %
-            out_string = render_ansi(canvas) # 30 %
-
-            with term.location(0, 0), term.hidden_cursor():
-                print(out_string, end="", flush=True)
-
-            # input handling
-
-            nav = Coordinate(0, 0)
-            val, action = _blessed_get_input(term)
-            if not app.is_text_input:
-                nav_val = val.lower()
-                if nav_val == "h":
-                    nav = Coordinate(-1, 0)
-                elif nav_val == "j":
-                    nav = Coordinate(0, 1)
-                elif nav_val == "k":
-                    nav = Coordinate(0, -1)
-                elif nav_val == "l":
-                    nav = Coordinate(1, 0)
-                elif nav_val == "q":
-                    print(term.move_down(height))
-                    return
-            app.step(Coordinate(-1, -1), nav, val, action, ids, result)
-
-def sort_interactibles(l: list[InteractibleID]):
-    ...
+def render_as_ansi_string(result: Result) -> str:
+    data = result.try_data(ResultCreatedWith)
+    if data is None:
+        raise AssertionError("Result has no ResultCreatedWith data. If possible please use get_result() function to get a result.")
+    canvas = Canvas(data.screen_size.width, data.screen_size.height)
+    canvas.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
+    return render_ansi(canvas) # 30 %
 
 
 #
@@ -1778,7 +1754,7 @@ def vbox_scroll(
 
     child_nodes = []
     selected_index = None
-    direction_down = state.last_nav.y > 0
+    direction_down = state.action
 
     for i, (id, node) in enumerate(children):
         child_nodes.append(node)
