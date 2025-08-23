@@ -763,10 +763,9 @@ class SimpleTextInput():
                 if new_cursor_pos != len(self.acc):
                     new_cursor_pos += 1
             case TextAction.DELETE:
-                if new_cursor_pos != 0:
+                if new_cursor_pos != 0 and len(self.acc):
                     new_cursor_pos -= 1
-                    print("delete")
-                    new_acc = "".join([self.acc[:new_cursor_pos], self.acc[new_cursor_pos:]])
+                    new_acc = "".join([self.acc[:self.cursor_pos-1], self.acc[self.cursor_pos:]])
         if isinstance(action, TextActionChar):
             new_acc = "".join([self.acc[:new_cursor_pos], action.char, self.acc[new_cursor_pos:]])
             new_cursor_pos += 1
@@ -975,11 +974,8 @@ class NavState:
             # use mouse navigation instead
             next_id = next_inderactible.next_id
 
-        print(debug_interactible_str(self._selected_id))
         if self._selected_id not in nav_data and nav_data:
-            print("hehe")
             next_id = nav_data[0]
-        print(debug_nav_data_str(self, nav_data))
         return NavState(
             mouse_position=mouse_position,
             action=action,
@@ -1012,7 +1008,7 @@ class StateMachine:
         return isinstance(self._active_state, type)
 
     def queue_next_state(self, state):
-        self._queued_states = state
+        self._queued_state = state
 
 def _render_read_box(
     interactible_id: InteractibleID,
@@ -1077,6 +1073,8 @@ def blessed_get_input_text(term) -> Action | TextAction | TextActionChar:
         match val.code:
             case curses.KEY_EXIT:
                 return Action.DESELECT
+            case curses.KEY_BACKSPACE:
+                return TextAction.DELETE
 
 
 # m, nav_data = update(m)
