@@ -3,8 +3,8 @@ from typing import Any, Iterable, Self, Callable, NamedTuple, Literal, Text
 from enum import Flag, auto, Enum
 from abc import ABC, abstractmethod
 from functools import reduce, partial, cache, lru_cache
-from wcwidth import wcswidth
 from types import MappingProxyType
+import wcwidth
 import curses
 import math
 import os
@@ -13,13 +13,31 @@ import wcwidth
 
 from component import visualise_nav_data
 
+# TODO: MUST HAVE
+#
+# Better way to do colors and styling
+# Adaptive text that respects whitespace
+# Adaptive text that has parts colored
+# keyboard navigation tests
+# Cursor and selected rendering
+# More sizing manipulating stuff
+# Intersperese
+
+
+# TODO: GOOD TO HAVE
+#
+# strinified input HARD!!!!
+# Joining borders
+# LRU_CACHE decided by caller
+
 
 # FIXME:
+#
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
+# when scrolling up vbox becomes strange
 
-# TODO: move _navigate_by_keyboard to AppState class and make persistent dataids work!!!!
 
-# Terminology:
+# NOTE: Terminology:
 # Node:
 # A class that represents a node in the ui tree.
 
@@ -725,55 +743,168 @@ def _intersect_interactible_id(a: InteractibleID, b: InteractibleID) -> Interact
     return InteractibleID(tuple(out))
 
 
-class Action(Enum):
-    QUIT = auto()
-    SELECT = auto()
-    DESELECT = auto()
-    NONE = auto()
-    NAV_UP = auto()
-    NAV_RIGHT = auto()
-    NAV_DOWN = auto()
-    NAV_LEFT = auto()
-
-
-type DefaultAction = Action | TextAction
-"""Actions that may be usefull in a wide range of TUIs"""
-type NavAction = Literal[Action.NAV_DOWN, Action.NAV_UP, Action.NAV_LEFT, Action.NAV_RIGHT]
 
 class TextActionChar(NamedTuple):
     char: str
-
 class TextAction(Enum):
+    NONE = auto()
+    SUBMIT = auto()
     DELETE = auto()
     CURSOR_LEFT = auto()
     CURSOR_RIGHT = auto()
 
+def start_text_input(starting_text: str = ""):
+    return TextInput(starting_text, len(starting_text))
+
 @dataclass(frozen=True, eq=True)
-class SimpleTextInput():
-    acc: str = ""
+class TextInput():
+    value: str = ""
     cursor_pos: int = 0
-    def step(self, action: TextAction | TextActionChar) -> Self:
+    submited: bool = False
+    def update(self, action: TextAction | TextActionChar) -> Self:
+        if self.submited:
+            return self
         new_cursor_pos = self.cursor_pos
-        new_acc = self.acc
+        new_acc = self.value
+        new_submited = False
         match action:
             case TextAction.CURSOR_LEFT:
                 if new_cursor_pos != 0:
                     new_cursor_pos -= 1
             case TextAction.CURSOR_RIGHT:
-                if new_cursor_pos != len(self.acc):
+                if new_cursor_pos != len(self.value):
                     new_cursor_pos += 1
             case TextAction.DELETE:
-                if new_cursor_pos != 0 and len(self.acc):
+                if new_cursor_pos != 0 and len(self.value):
                     new_cursor_pos -= 1
-                    new_acc = "".join([self.acc[:self.cursor_pos-1], self.acc[self.cursor_pos:]])
+                    new_acc = "".join([self.value[:self.cursor_pos-1], self.value[self.cursor_pos:]])
+            case TextAction.SUBMIT:
+                new_submited = True
         if isinstance(action, TextActionChar):
-            new_acc = "".join([self.acc[:new_cursor_pos], action.char, self.acc[new_cursor_pos:]])
+            new_acc = "".join([self.value[:new_cursor_pos], action.char, self.value[new_cursor_pos:]])
             new_cursor_pos += 1
 
         return self.__class__(
             new_acc,
             new_cursor_pos,
+            new_submited, 
         )
+
+class NavAction(Enum):
+    NONE = auto()
+    SELECT = auto()
+    NAV_UP = auto()
+    NAV_RIGHT = auto()
+    NAV_DOWN = auto()
+    NAV_LEFT = auto()
+type NavDirAction = Literal[NavAction.NAV_DOWN, NavAction.NAV_UP, NavAction.NAV_LEFT, NavAction.NAV_RIGHT]
+
+
+@dataclass(frozen=True)
+class NavState:
+    mouse_position: Coordinate = Coordinate(-1, -1)
+    action: NavAction = NavAction.NONE
+    _selected_id: InteractibleID = EMPTY_INTERACTIBLE
+    _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
+    _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
+    """if any interactible id part declares it self as persistent,
+    then it's last selected child will be saved here"""
+
+
+    @property
+    def selected_id(self):
+        return self._selected_id
+    #
+    # persistent state
+    #
+    def try_state[T](self, interactible_id: InteractibleID, data: type[T]) -> T | None:
+        return self._persistent_state.get((interactible_id, data))
+    #
+    # state management
+    #
+    def is_active(self, key: InteractibleID) -> bool:
+        if self._selected_id == EMPTY_INTERACTIBLE:
+            return False
+        return key.data == self._selected_id.data[: len(key.data)]
+    def is_selected(self, key: InteractibleID) -> bool:
+        return self.is_active(key) and self.action == NavAction.SELECT
+    def was_active(self, key: InteractibleID) -> bool:
+        for id in self._persistent_selected_id.values():
+            if key.data == id.data[:len(key.data)]:
+                return True
+        return False
+
+    # while True:
+    #    res = render() (print)
+    #    input()
+    #    step()
+
+    def update(
+            self,
+            res: Result,
+            action: NavAction = NavAction.NONE,
+            nav_data: list[InteractibleID] = field(default_factory=list),
+            mouse_position: Coordinate = Coordinate(-1, -1),
+    ):
+        # persistent state
+        next_state = dict(self._persistent_state)
+        if set_state := res.try_data(SetState):
+            for key, state in set_state.new_state:
+                next_state[(key, state.__class__)] = state
+
+        # reactivity
+        next_persistent_selected_id = dict(self._persistent_selected_id)
+
+        next_id = self._selected_id
+        if action in (NavAction.NAV_DOWN, NavAction.NAV_LEFT, NavAction.NAV_UP, NavAction.NAV_RIGHT) and len(nav_data):
+            # handle keyboard nav and its edge cases
+            if self._selected_id in nav_data and self._selected_id != EMPTY_INTERACTIBLE:
+                selected_index = nav_data.index(self._selected_id)
+                if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
+                    next_id = result.next_id
+
+                    if result.shared_parent.persistent:
+                        next_persistent_selected_id[result.shared_parent] = result.next_id
+            else:
+                next_id = nav_data[0]
+        elif next_inderactible := res.try_data(NextInteractible):
+            # use mouse navigation instead
+            next_id = next_inderactible.next_id
+
+        if self._selected_id not in nav_data and nav_data:
+            next_id = nav_data[0]
+        return NavState(
+            mouse_position=mouse_position,
+            action=action,
+            _selected_id=next_id,
+            _persistent_state=MappingProxyType(next_state),
+            _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
+        )
+    def interaction_area(self, interactible_id: InteractibleID):
+        @applicable
+        def _out(child: Node):
+            return Node(
+                func=self.interaction_area,
+                hash=(child,),
+                min_size=child.min_size,
+                render=partial(_render_read_box, interactible_id, self.mouse_position, child)
+            )
+        return _out
+
+
+def _render_read_box(
+    interactible_id: InteractibleID,
+    mouse_position: Coordinate,
+    child: Node,
+    frame: Frame,
+    box: Box
+) -> Result:
+    res = Result()
+    availabe_box = frame.view_box.intersect(box)
+    if availabe_box.is_point_inside(mouse_position):
+        res.set_data(NextInteractible(interactible_id))
+    res.add_children_after([child.render(frame, box)])
+    return res
 
 def _try_find_nearest(nav_data: tuple[InteractibleID, ...], current_index: int, direction: Direction, backwards: bool) -> int | None:
     next_index = current_index
@@ -873,14 +1004,14 @@ def _navigate_by_keyboard(
         persistent_selected_ids: MappingProxyType[InteractibleID, InteractibleID],
         current_index: int,
         nav_data: tuple[InteractibleID, ...],
-        action: NavAction 
+        action: NavDirAction 
 ) -> _NavigationResult | None:
-    direction = Direction.HORIZONTAL if action in (Action.NAV_RIGHT, Action.NAV_LEFT) else Direction.VERTICAL
+    direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
     backwards = False
     if direction == Direction.HORIZONTAL:
-        backwards = True if action == Action.NAV_LEFT else False
+        backwards = True if action == NavAction.NAV_LEFT else False
     elif direction == Direction.VERTICAL:
-        backwards = True if action == Action.NAV_UP else False
+        backwards = True if action == NavAction.NAV_UP else False
 
     next_index = _try_find_nearest(nav_data, current_index, direction, backwards)
     if next_index is not None:
@@ -903,126 +1034,6 @@ def _navigate_by_keyboard(
         next_id = nav_data[next_index]
         return _NavigationResult(next_id, shared_parent)
 
-
-
-@dataclass(frozen=True)
-class NavState:
-    mouse_position: Coordinate = Coordinate(-1, -1)
-    action: Action = Action.NONE
-    _selected_id: InteractibleID = EMPTY_INTERACTIBLE
-    _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
-    _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
-    """if any interactible id part declares it self as persistent,
-    then it's last selected child will be saved here"""
-
-
-    @property
-    def selected_id(self):
-        return self._selected_id
-    #
-    # persistent state
-    #
-    def try_state[T](self, interactible_id: InteractibleID, data: type[T]) -> T | None:
-        return self._persistent_state.get((interactible_id, data))
-    #
-    # state management
-    #
-    def is_active(self, key: InteractibleID) -> bool:
-        if self._selected_id == EMPTY_INTERACTIBLE:
-            return False
-        return key.data == self._selected_id.data[: len(key.data)]
-    def was_active(self, key: InteractibleID) -> bool:
-        for id in self._persistent_selected_id.values():
-            if key.data == id.data[:len(key.data)]:
-                return True
-        return False
-
-    # while True:
-    #    res = render() (print)
-    #    input()
-    #    step()
-
-    def step(
-            self,
-            res: Result,
-            action: Action = Action.NONE,
-            nav_data: list[InteractibleID] = field(default_factory=list),
-            mouse_position: Coordinate = Coordinate(-1, -1),
-    ):
-        # persistent state
-        next_state = dict(self._persistent_state)
-        if set_state := res.try_data(SetState):
-            for key, state in set_state.new_state:
-                next_state[(key, state.__class__)] = state
-
-        # reactivity
-        next_persistent_selected_id = dict(self._persistent_selected_id)
-
-        next_id = self._selected_id
-        if action in (Action.NAV_DOWN, Action.NAV_LEFT, Action.NAV_UP, Action.NAV_RIGHT) and len(nav_data):
-            # handle keyboard nav and its edge cases
-            if self._selected_id in nav_data and self._selected_id != EMPTY_INTERACTIBLE:
-                selected_index = nav_data.index(self._selected_id)
-                if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
-                    next_id = result.next_id
-
-                    if result.shared_parent.persistent:
-                        next_persistent_selected_id[result.shared_parent] = result.next_id
-            else:
-                next_id = nav_data[0]
-        elif next_inderactible := res.try_data(NextInteractible):
-            # use mouse navigation instead
-            next_id = next_inderactible.next_id
-
-        if self._selected_id not in nav_data and nav_data:
-            next_id = nav_data[0]
-        return NavState(
-            mouse_position=mouse_position,
-            action=action,
-            _selected_id=next_id,
-            _persistent_state=MappingProxyType(next_state),
-            _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
-        )
-    def interaction_area(self, interactible_id: InteractibleID):
-        @applicable
-        def _out(child: Node):
-            return Node(
-                func=self.interaction_area,
-                hash=(child,),
-                min_size=child.min_size,
-                render=partial(_render_read_box, interactible_id, self.mouse_position, child)
-            )
-        return _out
-
-@dataclass
-class StateMachine:
-    _active_state: Any = None
-    _queued_state: Any = None
-    def switch_state(self):
-        self._active_state = self._queued_state
-    def try_state[T](self, type: type[T]) -> T | None:
-        if isinstance(self._active_state, type):
-            return self._active_state
-        return None
-    def active_is(self, type) -> bool:
-        return isinstance(self._active_state, type)
-
-    def queue_next_state(self, state):
-        self._queued_state = state
-
-def _render_read_box(
-    interactible_id: InteractibleID,
-    mouse_position: Coordinate,
-    child: Node,
-    frame: Frame,
-    box: Box
-) -> Result:
-    res = Result()
-    availabe_box = frame.view_box.intersect(box)
-    if availabe_box.is_point_inside(mouse_position):
-        res.set_data(NextInteractible(interactible_id))
-    res.add_children_after([child.render(frame, box)])
-    return res
 def debug_interactible_str(id: InteractibleID):
     return "|".join(f"{"1" if i.first_child_default else " "}{"p" if i.persistent else " "}{i.local_id}{"V" if i.direction == Direction.VERTICAL else "H"}" for i in id.data)
 
@@ -1042,39 +1053,43 @@ def debug_nav_data_str(state: NavState, nav_data: Iterable[InteractibleID], pers
 # IO handling
 #
 
-def blessed_get_input_default(term) -> Action:
-    while True:
-        val = term.inkey()
-        if not val.is_sequence:
-            match val:
-                case "h":
-                    return Action.NAV_LEFT
-                case "j":
-                    return Action.NAV_DOWN
-                case "k":
-                    return Action.NAV_UP
-                case "l":
-                    return Action.NAV_RIGHT
-                case "q":
-                    return Action.QUIT
-                case _:
-                    return Action.NONE
-        match val.code:
-            case curses.KEY_EXIT:
-                return Action.DESELECT
-            case curses.KEY_ENTER:
-                return Action.SELECT
+# curses_key_to_str = {
+# }
 
-def blessed_get_input_text(term) -> Action | TextAction | TextActionChar:
+def blessed_get_input(term):
     while True:
         val = term.inkey()
-        if not val.is_sequence:
-            return TextActionChar(val)
-        match val.code:
-            case curses.KEY_EXIT:
-                return Action.DESELECT
-            case curses.KEY_BACKSPACE:
-                return TextAction.DELETE
+        return val
+
+def blessed_nav_action(val) -> NavAction:
+    if not val.is_sequence:
+        match val:
+            case "h":
+                return NavAction.NAV_LEFT
+            case "j":
+                return NavAction.NAV_DOWN
+            case "k":
+                return NavAction.NAV_UP
+            case "l":
+                return NavAction.NAV_RIGHT
+            case _:
+                return NavAction.NONE
+    match val.code:
+        case curses.KEY_ENTER:
+            return NavAction.SELECT
+    return NavAction.NONE
+
+def blessed_text_input_action(val) -> TextAction | TextActionChar:
+    if not val.is_sequence:
+        return TextActionChar(val)
+    match val.code:
+        case curses.KEY_EXIT:
+            return TextAction.SUBMIT
+        case curses.KEY_BACKSPACE:
+            return TextAction.DELETE
+        case _:
+            return TextAction.NONE
+
 
 
 # m, nav_data = update(m)
