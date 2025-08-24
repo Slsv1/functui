@@ -49,14 +49,12 @@ tasks = [
 def update(res: Result, m: Model):
     input_val = blessed_get_input(term)
 
-    # Input
     if m.current_text_input is not None:
         m.current_text_input = m.current_text_input.update(blessed_text_input_action(input_val))
     else:
         action = blessed_nav_action(input_val)
         m.nav = m.nav.update(res, action, m.nav_data)
 
-    # Logic
     for index, task_id in enumerate(m.tasks_ids):
         if m.nav.is_active(task_id):
             m.selected_task_index = index
@@ -122,8 +120,7 @@ def button(id, nav: NavState):
     )
 
 def item(item, id, nav: NavState):
-    return empty\
-        ** (fg(Style.was_active) if nav.was_active(id) else empty)\
+    return (fg(Style.was_active) if nav.was_active(id) else empty)\
         ** (fg(Style.active) if nav.is_active(id) else empty)\
         ** limit_height(5)\
         ** border\
@@ -175,7 +172,7 @@ m = Model(
 term = blessed.Terminal()
 with term.cbreak():
     while True:
-        res = get_result(Rect(70, 40), view(m))
+        res = layout_to_result(Rect(80, 40), view(m))
         with term.location(0, 0):
             print(render_as_ansi_string(res))
         update(res, m)

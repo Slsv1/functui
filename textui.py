@@ -20,19 +20,32 @@ from component import visualise_nav_data
 # Adaptive text that has parts colored
 # keyboard navigation tests
 # Cursor and selected rendering
+# More color format support and color coercion
 # More sizing manipulating stuff
+# What if minsize is not met?
+# Braille graph
+# Spreadsheets
 # Intersperese
+# Padding
+# better performance
+#  - persistent canvas (sad face)
+#  - wide char stuff being done directly when commands are applied
+#  - caching commands?
 
 
 # TODO: GOOD TO HAVE
 #
 # strinified input HARD!!!!
 # Joining borders
+# v flow and h flow container nodes
 # LRU_CACHE decided by caller
+# Braille canvas for arbitrary drawing
+# Half block canvas for arbitrary drawing
 
 
 # FIXME:
 #
+# make was selected work on default values
 # total_shrink in flexbox can sometimes be 0 causing a devision by zero!!!!!!!!!!!!
 # when scrolling up vbox becomes strange
 
@@ -613,8 +626,8 @@ def render_ansi(canvas: Canvas) -> str:
 def ansi_go_up(y):
     return f"\033[{y}A"
 
-def get_result(dimensions: Rect, root_node: Node, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
-    result = root_node.render(
+def layout_to_result(dimensions: Rect, layout: Node, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
+    result = layout.render(
         Frame(
             screen_rect=dimensions,
             view_box=Box(dimensions.width, dimensions.height),
@@ -1105,6 +1118,9 @@ def render_as_ansi_string(result: Result) -> str:
     canvas = Canvas(data.screen_size.width, data.screen_size.height)
     canvas.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
     return render_ansi(canvas) # 30 %
+
+def layout_to_str(layout: Node, dimensions: Rect) -> str:
+    return render_as_ansi_string(layout_to_result(dimensions=dimensions, layout=layout))
 
 
 #
