@@ -1,6 +1,9 @@
 import blessed
-from component import visualise_nav_data
-from textui import *
+from src import *
+from src.default_elements import *
+from src.textfield import blessed_text_input_action
+from src.nav import blessed_nav_action
+from src.nav_elements import vbox_scroll
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
@@ -37,7 +40,7 @@ class Model():
 
 tasks = [
     Task(LOREM, False),
-    Task("Sample Task", True),
+    Task("おはよう", False),
     Task("Sample Task 2", True)
 ]
 
@@ -47,7 +50,7 @@ tasks = [
 #
 
 def update(res: Result, m: Model):
-    input_val = blessed_get_input(term)
+    input_val = term.inkey()
 
     if m.current_text_input is not None:
         m.current_text_input = m.current_text_input.update(blessed_text_input_action(input_val))
@@ -139,7 +142,7 @@ def view(m: Model):
     return static_box([
     hbox_flex([
         flex\
-            ** border_with_title(center ** bold ** text("[Items]")) \
+            ** border_with_title(center ** bold ** text(" [Items] ")) \
             ** vbox_scroll(
                 state=nav,
                 key=m.tasks_container,
@@ -147,7 +150,7 @@ def view(m: Model):
             ),
         flex ** vbox_flex([
             flex\
-                ** border_with_title(center ** bold ** text("[Properties]"))\
+                ** border_with_title(center ** bold ** text(" [Properties] "))\
                 ** (vbox_flex([
                     no_flex ** adaptive_text(m.tasks[m.selected_task_index].description),
                     flex ** nothing(),
@@ -162,6 +165,10 @@ def view(m: Model):
     text_widget
     ])
 
+# adaptive_styled_text([
+#     "hejsan", styled("hehejsan", fg=Color.RED), "hej hej hej"
+# ], Justify.CENTER, cursor_at_position=49, cursor_pixel=Pixel())
+
 m = Model(
     nav=NavState(),
     tasks=tasks,
@@ -173,6 +180,6 @@ term = blessed.Terminal()
 with term.cbreak():
     while True:
         res = layout_to_result(Rect(80, 40), view(m))
-        with term.location(0, 0):
-            print(render_as_ansi_string(res))
+        with term.location():
+            print(result_to_str(res))
         update(res, m)
