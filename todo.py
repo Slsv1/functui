@@ -1,9 +1,9 @@
 import blessed
-from src import *
-from src.default_elements import *
-from src.textfield import blessed_text_input_action
-from src.nav import blessed_nav_action
-from src.nav_elements import vbox_scroll
+from functui import *
+from functui.default_elements import *
+from functui.textfield import blessed_text_input_action
+from functui.nav import blessed_nav_action
+from functui.nav_elements import vbox_scroll
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
