@@ -152,7 +152,7 @@ class Color(Enum):
 
 @dataclass(frozen=True)
 class Style:
-    char_style: CharStyle | None = None
+    char_style: CharStyle = CharStyle(0)
     fg: Color | None = None 
     bg: Color | None = None
 
@@ -334,6 +334,10 @@ class Result:
             return 
         self._draw_commands.append(
             DrawPixel(frame.default_pixel.with_char(fill), at)
+        )
+    def draw_pixel_with_specific_style(self, pixel: Pixel, at: Coordinate):
+        self._draw_commands.append(
+            DrawPixel(pixel, at)
         )
     def draw_box(
         self,
