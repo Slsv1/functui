@@ -179,12 +179,9 @@ def _plot_render(lines: tuple[PlotXY, ...], frame: Frame, box: Box):
 
     for y, line in enumerate(reversed(canvas.data)):
         for x, part in enumerate(line):
-            res.draw_pixel_with_specific_style(Pixel(
-                sector_to_braille(part.sector),
-                fg_color=part.style.fg if part.style.fg is not None else frame.default_pixel.fg_color,
-                bg_color=part.style.bg if part.style.bg is not None else frame.default_pixel.bg_color,
-                style=part.style.char_style | frame.default_pixel.style
-
+            res.draw_custom_pixel(Pixel(
+                char=sector_to_braille(part.sector),
+                style=frame.default_style.combine(part.style)
             ), box.offset + Coordinate(x, y))
         # res.draw_string_line(
         #     frame,

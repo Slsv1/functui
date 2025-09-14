@@ -155,6 +155,13 @@ class Style:
     char_style: CharStyle = CharStyle(0)
     fg: Color | None = None 
     bg: Color | None = None
+    def combine(self, other: Self):
+        return Style(
+            char_style=self.char_style | other.char_style,
+            fg=self.fg if other.fg is None else other.fg,
+            bg=self.bg if other.bg is None else other.bg,
+        )
+
 
 #
 # Ui specific datastructures
@@ -173,33 +180,25 @@ class CharType(Enum):
 class Pixel:
     char: str = " "
     char_type: CharType = CharType.NORMAL
-    fg_color: Any = Color.RESET
-    bg_color: Any = Color.RESET
-    style: CharStyle = CharStyle(0)
+    style: Style = Style()
 
     def with_char(self, char: str) -> Self:
         return self.__class__(
             char,
             self.char_type,
-            self.fg_color,
-            self.bg_color,
             self.style,
         )
     def with_char_type(self, char_type):
         return self.__class__(
             self.char,
             char_type,
-            self.fg_color,
-            self.bg_color,
             self.style,
         )
 
-    def with_style(self, style: CharStyle) -> Self:
+    def with_style(self, style: Style) -> Self:
         return self.__class__(
             self.char,
             self.char_type,
-            self.fg_color,
-            self.bg_color,
             style,
         )
 
@@ -219,7 +218,6 @@ class DrawStringLine:
     at: Coordinate
 
 type DrawCommand = DrawPixel | DrawBox | DrawStringLine
-
 type MeasureTextFunc = Callable[[str], int]
 
 @dataclass(frozen=True, eq=True)
@@ -227,14 +225,14 @@ class Frame:
     """a view on to the canvas"""
     view_box: Box
     screen_rect: Rect
-    default_pixel: Pixel
+    default_style: Style
     measure_text: MeasureTextFunc
 
-    def with_pixel(self, pixel: Pixel):
+    def with_style(self, style: Style):
         return self.__class__(
             view_box=self.view_box,
             screen_rect=self.screen_rect,
-            default_pixel=pixel,
+            default_style=style,
             measure_text=self.measure_text,
         )
 
@@ -242,12 +240,9 @@ class Frame:
         return Frame(
             view_box=self.view_box.intersect(other_box),
             screen_rect=self.screen_rect,
-            default_pixel=self.default_pixel,
+            default_style=self.default_style,
             measure_text=self.measure_text,
         )
-
-
-
 
 type MinSize = Callable[[MeasureTextFunc, Rect], Rect]
 type ElementConstructor = Applicable[Node, Node]
@@ -333,9 +328,9 @@ class Result:
         if not frame.view_box.is_point_inside(at):
             return 
         self._draw_commands.append(
-            DrawPixel(frame.default_pixel.with_char(fill), at)
+            DrawPixel(Pixel(char=fill, style=frame.default_style), at)
         )
-    def draw_pixel_with_specific_style(self, pixel: Pixel, at: Coordinate):
+    def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
         self._draw_commands.append(
             DrawPixel(pixel, at)
         )
@@ -346,7 +341,7 @@ class Result:
         box: Box,
     ):
         self._draw_commands.append(DrawBox(
-            frame.default_pixel.with_char(fill),
+            Pixel(char=fill, style=frame.default_style),
             frame.view_box.intersect(box)
         ))
     def draw_string_line(
@@ -394,10 +389,18 @@ class Result:
             if x_content_offset + at.x > outer_x_bound:
                 break
             if char_width == 1:
-                out.append(frame.default_pixel.with_char(char))
+                out.append(Pixel(char=char, style=frame.default_style))
             else:
-                out.append(frame.default_pixel.with_char(char).with_char_type(CharType.WIDE_HEAD))
-                out.append(frame.default_pixel.with_char("").with_char_type(CharType.WIDE_TAIL))
+                out.append(Pixel(
+                    char=char,
+                    char_type=CharType.WIDE_HEAD,
+                    style=frame.default_style
+                ))
+                out.append(Pixel(
+                    char="",
+                    char_type=CharType.WIDE_TAIL,
+                    style=frame.default_style
+                ))
         self._draw_commands.append(DrawStringLine(
             tuple(out), at
         ))
@@ -449,7 +452,7 @@ def layout_to_result(dimensions: Rect, layout: Node, measure_text: MeasureTextFu
         Frame(
             screen_rect=dimensions,
             view_box=Box(dimensions.width, dimensions.height),
-            default_pixel=Pixel(),
+            default_style=Style(fg=Color.RESET, bg=Color.RESET),
             measure_text=measure_text
         ),
         Box(width=dimensions.width, height=dimensions.height),

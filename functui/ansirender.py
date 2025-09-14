@@ -120,21 +120,21 @@ def render_ansi(screen: Screen) -> str:
     for line in lines:
         for pixel in line:
             pixel_str = []
-            if curr_style != pixel.style:
-                style_changes = (curr_style ^ pixel.style)
-                new_style =  style_changes & pixel.style
+            if curr_style != pixel.style.char_style:
+                style_changes = (curr_style ^ pixel.style.char_style)
+                new_style =  style_changes & pixel.style.char_style
                 removed_style = bool(style_changes & curr_style)
-                curr_style = pixel.style
+                curr_style = pixel.style.char_style
                 pixel_str.extend(
                     [ANSI_RESET_STYLES, style_to_ansi(pixel.style)]\
                     if removed_style\
                     else [style_to_ansi(new_style)]
                 )
-            if curr_fg != pixel.fg_color:
-                curr_fg = pixel.fg_color
+            if curr_fg != pixel.style.fg and pixel.style.fg is not None:
+                curr_fg = pixel.style.fg
                 pixel_str.append(default_color_to_fg_ansi(curr_fg))
-            if curr_bg != pixel.bg_color:
-                curr_bg = pixel.bg_color
+            if curr_bg != pixel.style.bg and pixel.style.bg is not None:
+                curr_bg = pixel.style.bg
                 pixel_str.append(default_color_to_bg_ansi(curr_bg))
             pixel_str.append(pixel.char)
             out.append("".join(pixel_str))
