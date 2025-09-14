@@ -170,13 +170,13 @@ def _adaptive_text_render(words: tuple[str], justify: Justify, terminator: str ,
                 res.draw_string_line(frame, line, box.offset + Coordinate(available_space, index))
     return res
 
-@dataclass(frozen=True)
-class Styled:
-    text: Iterable[str | Self]
-    fg: Color
-    bg: Color
-    style: CharStyle
-
+# @dataclass(frozen=True)
+# class Styled:
+#     text: Iterable[str | Self]
+#     fg: Color
+#     bg: Color
+#     style: CharStyle
+#
 # def styled_adaptive_text(text: Iterable[str | Styled], justify=Justify.LEFT, terminator: str = "..."):
 #     words = re.split(r'(\s+)', string)
 #     words = tuple(string.split())
@@ -282,81 +282,70 @@ def _border_render(child: Node, frame: Frame, box: Box):
 # def _set_pixel_style_render()
 
 
-def add_style(style: CharStyle, child: Node):
+def add_style(style: Style, child: Node):
     return Node(
         func=add_style,
         min_size=child.min_size,
         render=partial(_add_style_render, child, style)
     )
-def _add_style_render(child: Node, style: CharStyle, frame: Frame, box: Box):
+def _add_style_render(child: Node, style: Style, frame: Frame, box: Box):
     return child.render(
-        frame.with_pixel(frame.default_pixel.with_style(
-            frame.default_pixel.style | style
-        )),
+        frame.with_style(frame.default_style.combine(style)),
         box
     )
-
-@applicable
-def no_style(child: Node):
+def force_style(style: Style, child: Node):
     return Node(
-        func=no_style,
-        min_size=child.min_size, 
-        render=partial(_no_style_render, child)
+        func=force_style,
+        min_size=child.min_size,
+        render=partial(_force_style_render, child, style)
     )
-
-def _no_style_render(child: Node, frame: Frame, box: Box):
+def _force_style_render(child: Node, style: Style, frame: Frame, box: Box):
     return child.render(
-        frame.with_pixel(Pixel(style=CharStyle(0))),
+        frame.with_style(style),
         box
     )
-@applicable
-def bold(node: Node): return add_style(CharStyle.BOLD, node)
-@applicable
-def reverse(node: Node): return add_style(CharStyle.REVERSED, node)
-@applicable
-def underlined(node: Node): return add_style(CharStyle.UNDERLINED, node)
-@applicable
-def italic(node: Node): return add_style(CharStyle.ITALIC, node)
-@applicable
-def strike_through(node: Node): return add_style(CharStyle.STRIKE_THROUGH, node)
 
-def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
-        return child.render(
-            frame.with_pixel(Pixel(
-                fg_color=color,
-                bg_color=frame.default_pixel.bg_color,
-                style=frame.default_pixel.style
-            )),
-            box
-        )
+@applicable
+def bold(node: Node): return add_style(Style(char_style=CharStyle.BOLD), node)
+@applicable
+def reverse(node: Node): return add_style(Style(char_style=CharStyle.REVERSED), node)
+@applicable
+def underlined(node: Node): return add_style(Style(char_style=CharStyle.UNDERLINED), node)
+@applicable
+def italic(node: Node): return add_style(Style(char_style=CharStyle.ITALIC), node)
+@applicable
+def strike_through(node: Node): return add_style(Style(char_style=CharStyle.STRIKE_THROUGH), node)
+
+# def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
+#         return child.render(
+#             frame.with_style(Style(
+#                 fg_color=color,
+#                 bg_color=frame.default_pixel.bg_color,
+#                 style=frame.default_pixel.style
+#             )),
+#             box
+#         )
 def fg(color: Any):
-    @applicable
-    def _create_fg(child: Node):
-        return Node(
-            func=fg,
-            min_size=child.min_size,
-            render=partial(_fg_render, color, child)
-        )
-    return _create_fg
-def _bg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
-        return child.render(
-            frame.with_pixel(Pixel(
-                fg_color=frame.default_pixel.fg_color,
-                bg_color=color,
-                style=frame.default_pixel.style
-            )),
-            box
-        )
+    return applicable(partial(add_style, Style(fg=color)))
 def bg(color: Any):
-    @applicable
-    def _create_fg(child: Node):
-        return Node(
-            func=bg,
-            min_size=child.min_size,
-            render=partial(_bg_render, color, child)
-        )
-    return _create_fg
+    return applicable(partial(add_style, Style(bg=color)))
 
+def styled(element: ElementConstructor, style: Style):
+    @applicable
+    def out(child: Node):
+        composed_child = element(child)
+        return Node(
+            func=styled,
+            min_size=composed_child.min_size,
+            render=partial(_styled_render, child, element, style)
+        )
+    return out
+
+def _styled_render(child: Node, element: ElementConstructor, style: Style, frame, box):
+    return add_style(style, element(
+            force_style(frame.default_style, child)
+        )
+    ).render(frame, box)
 #
 # Containers
 #
