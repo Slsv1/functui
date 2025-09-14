@@ -150,6 +150,12 @@ class Color(Enum):
     WHITE = 37
     RESET = 39
 
+@dataclass(frozen=True)
+class Style:
+    char_style: CharStyle | None = None
+    fg: Color | None = None 
+    bg: Color | None = None
+
 #
 # Ui specific datastructures
 #

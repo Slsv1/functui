@@ -8,7 +8,7 @@ from dataclasses import dataclass
 def _get_default_data(width: int, height: int):
     return [[Pixel() for _ in range(width)] for _ in range(height)]
 
-class Canvas:
+class Screen:
     def __init__(self, width: int, height: int):
         self.width = width
         self.height = height
@@ -111,9 +111,9 @@ def style_to_ansi(style: CharStyle):
 
 ANSI_RESET_STYLES = "\033[0m"
 
-def render_ansi(canvas: Canvas) -> str:
+def render_ansi(screen: Screen) -> str:
     out = []
-    lines = canvas.split_by_lines()
+    lines = screen.split_by_lines()
     curr_style = CharStyle(0)
     curr_fg = Color.RESET
     curr_bg = Color.RESET
@@ -149,9 +149,9 @@ def result_to_str(result: Result) -> str:
     data = result.try_data(ResultCreatedWith)
     if data is None:
         raise AssertionError("Result has no ResultCreatedWith data. If possible please use get_result() function to get a result.")
-    canvas = Canvas(data.screen_size.width, data.screen_size.height)
-    canvas.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
-    return render_ansi(canvas) # 30 %
+    screen = Screen(data.screen_size.width, data.screen_size.height)
+    screen.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
+    return render_ansi(screen) # 30 %
 
 def layout_to_str(layout: Node, dimensions: Rect) -> str:
     return result_to_str(layout_to_result(dimensions=dimensions, layout=layout))
