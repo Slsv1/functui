@@ -3,7 +3,7 @@ from enum import IntFlag, auto
 from typing import NamedTuple, Iterable
 from dataclasses import dataclass
 from functools import partial
-from .classes import Style, Coordinate, Node, min_size_constant, Result, Rect, Frame, Box
+from .classes import Pixel, Style, Coordinate, Node, min_size_constant, Result, Rect, Frame, Box
 from math import floor
 
 # https://en.wikipedia.org/wiki/Braille_Patterns#Identifying.2C_naming_and_ordering
@@ -81,7 +81,7 @@ def get_line_coords(start: Coordinate, end: Coordinate) -> list[Coordinate]:
 
     # if dy < 0 or dx < 0:
     #     start, end = end, start
-
+    out = []
     if dx != 0 and abs(dy/dx) <= 1: # go along x axis
         if dx < 0:
             start, end = end, start
@@ -93,7 +93,7 @@ def get_line_coords(start: Coordinate, end: Coordinate) -> list[Coordinate]:
         for x in range(abs(dx) + 1):
             out.append(Coordinate(start.x + x, round(last_y)))
             last_y = last_y + m
-    else:
+    elif dy != 0:
         if dy < 0:
             start, end = end, start
         out = [start]
@@ -120,20 +120,20 @@ class BrailleCanvas:
         self.width = char_width * 2
         self.height = char_height * 4
 
-    def set(self, pos: Coordinate) -> None:
+    def set(self, pos: Coordinate, style: Style) -> None:
         x_char = pos.x // 2
         y_char = pos.y // 4
         x_remainder = pos.x % 2
         y_remainder = pos.y % 4
         # print("y", y_char, pos.y)
         last = self.data[y_char][x_char]
-        self.data[y_char][x_char] = CanvasItem(last.sector | coord_to_sector_y_up(x_remainder, y_remainder), last.style)
+        self.data[y_char][x_char] = CanvasItem(last.sector | coord_to_sector_y_up(x_remainder, y_remainder), style)
 
-    def draw_line(self, start: Coordinate, end: Coordinate, style: Style | None = None):
+    def draw_line(self, start: Coordinate, end: Coordinate, style: Style):
         for coord in get_line_coords(start, end):
-            self.set(coord)
+            self.set(coord, style)
 
-    def draw_graph(self, plot: PlotXY, x_scale: float, y_scale: float, max_y: float):
+    def draw_graph(self, plot: PlotXY, x_scale: float, y_scale: float):
         if len(plot) < 2:
             return
         x_iterator = iter(plot.x)
@@ -151,7 +151,8 @@ class BrailleCanvas:
             to_coordinate = Coordinate(new_x, new_y)
             self.draw_line(
                 from_coordinate,
-                to_coordinate
+                to_coordinate,
+                plot.style
             )
             last_x = x
             last_y = y
@@ -174,14 +175,22 @@ def _plot_render(lines: tuple[PlotXY, ...], frame: Frame, box: Box):
     y_scale = (box.height * 4 -1) / (max_y)
 
     for line in lines:
-        canvas.draw_graph(line, x_scale, y_scale, max_y)
+        canvas.draw_graph(line, x_scale, y_scale)
 
     for y, line in enumerate(reversed(canvas.data)):
-        res.draw_string_line(
-            frame,
-            "".join(sector_to_braille(i.sector) for i in line),
-            box.offset + Coordinate(0, y)
-        )
+        for x, part in enumerate(line):
+            res.draw_pixel_with_specific_style(Pixel(
+                sector_to_braille(part.sector),
+                fg_color=part.style.fg if part.style.fg is not None else frame.default_pixel.fg_color,
+                bg_color=part.style.bg if part.style.bg is not None else frame.default_pixel.bg_color,
+                style=part.style.char_style | frame.default_pixel.style
+
+            ), box.offset + Coordinate(x, y))
+        # res.draw_string_line(
+        #     frame,
+        #     "".join(sector_to_braille(i.sector) for i in line),
+        #     box.offset + Coordinate(0, y)
+        # )
     # res.draw_string_line(frame, )
     return res
 
