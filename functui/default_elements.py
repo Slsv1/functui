@@ -106,6 +106,48 @@ def _split_by_lines_and_add_spaces(measure_text: MeasureTextFunc, max_width: int
         lines.append(curr_line)
     return [" ".join(i) for i in lines]
 
+def _split_by_lines_remove_surrounding_space(
+        measure_text: MeasureTextFunc,
+        max_width: int,
+        text: str,
+) -> list[str]:
+    # make sure that \n is respected
+    raw_lines = text.splitlines()
+    out_lines = []
+    for line in raw_lines:
+        segments = re.split(r"(\s+)", line)
+        line_length = 0
+        line_acc = []
+
+        for segment in segments:
+            # strip spaces at the beggining of line
+            segment_is_space = segment.isspace()
+            if line_length == 0 and segment_is_space:
+                continue
+
+            segment_len = measure_text(segment)
+
+            if line_length == 0 and segment_len > max_width:
+                line_acc.append(segment)
+
+            if line_length + segment_len > max_width:
+                out_lines.append("".join(line_acc))
+                line_acc.clear()
+                line_length = 0
+
+                # add the current segment to next line if it aint space
+                if segment_is_space:
+                    continue
+                line_acc.append(segment)
+                line_length = segment_len
+
+            line_acc.append(segment)
+            line_length += segment_len
+
+        if line_acc:
+            out_lines.append("".join(line_acc))
+    return out_lines
+
 
 # @cache
 # def _split_by_lines(measure_text: MeasureTextFunc, max_width: int, words: tuple[str, ...]) -> list[str]:
@@ -128,7 +170,7 @@ def _add_terminator_to_line(line: str, terminator: str, max_line_width: int, mea
     words.append(terminator)
     return " ".join(words)
 
-def adaptive_text(string: str, justify=Justify.LEFT, terminator: str = "..."):
+def adaptive_text(string: str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
     words = tuple(string.split())
     def min_size(measure_text, available: Rect):
         lines = _split_by_lines_and_add_spaces(measure_text, available.width, words)
