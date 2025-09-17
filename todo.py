@@ -18,7 +18,7 @@ class Task():
     done: bool
 
 
-class Style(SimpleNamespace):
+class Colors(SimpleNamespace):
     was_active = Color.CYAN
     active = Color.BLUE
     done = Color.GREEN
@@ -116,19 +116,13 @@ def update(res: Result, m: Model):
 #
 
 def button(id, nav: NavState):
-    return combine(
-        fg(Style.active) if nav.is_active(id) else empty,
-        border,
-        no_style,
-    )
+    return styled(border, Style(fg=Colors.active if nav.is_active(id) else None))
 
 def item(item, id, nav: NavState):
-    return (fg(Style.was_active) if nav.was_active(id) else empty)\
-        ** (fg(Style.active) if nav.is_active(id) else empty)\
+    return (fg(Colors.was_active) if nav.was_active(id) else empty)\
         ** limit_height(5)\
-        ** border\
-        ** no_style\
-        ** (combine(strike_through, fg(Style.done)) if item.done else empty)\
+        ** styled(border, Style(fg=Colors.active if nav.is_active(id) else None))\
+        ** (combine(strike_through, fg(Colors.done)) if item.done else empty)\
         ** adaptive_text(item.description)
 
 def view(m: Model):
