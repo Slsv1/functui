@@ -84,9 +84,41 @@ class Justify(Enum):
     CENTER = auto()
     RIGHT = auto()
 
+@dataclass
+class _StyledStr:
+    text: tuple[str | Self, ...]
+    style: Style
+
+def styled_str(*text, style: Style):
+    return _StyledStr(text, style)
+
 # class Expand(Enum):
 #     VERTICAL = auto()
 #     HORIZONTAL = auto()
+
+def styled_adaptive_text(string: _StyledStr, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
+    def min_size(measure_text, available: Rect):
+        lines = _split_by_lines_and_add_spaces(measure_text, available.width, words)
+        return Rect(
+            max(measure_text(i) for i in lines),
+            len(lines)
+        )
+    return Node(
+        func=styled_adaptive_text,
+        min_size=min_size,
+        render=partial(_styled_adaptive_text_render, words, justify, terminator),
+    )
+
+
+
+@lru_cache(LRU_MAX_SIZE)
+def _styled_adaptive_text_render(words: _StyledStr, justify: Justify, terminator: str ,frame: Frame, box: Box):
+    words
+    segments = _split_by_lines_remove_surrounding_space(
+        frame.measure_text,
+        box.width,
+        string
+    )
 
 @cache
 def _line_len(measure_text: MeasureTextFunc, line: tuple[str]) -> int:
@@ -127,19 +159,17 @@ def _split_by_lines_remove_surrounding_space(
 
             segment_len = measure_text(segment)
 
-            if line_length == 0 and segment_len > max_width:
-                line_acc.append(segment)
+            # if line_length == 0 and segment_len > max_width:
+            #     line_acc.append(segment)
 
             if line_length + segment_len > max_width:
-                out_lines.append("".join(line_acc))
+                if line_acc:
+                    out_lines.append("".join(line_acc))
                 line_acc.clear()
                 line_length = 0
-
                 # add the current segment to next line if it aint space
                 if segment_is_space:
                     continue
-                line_acc.append(segment)
-                line_length = segment_len
 
             line_acc.append(segment)
             line_length += segment_len
