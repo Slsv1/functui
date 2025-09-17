@@ -126,7 +126,7 @@ def render_ansi(screen: Screen) -> str:
                 removed_style = bool(style_changes & curr_style)
                 curr_style = pixel.style.char_style
                 pixel_str.extend(
-                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style)]\
+                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style.char_style)]\
                     if removed_style\
                     else [style_to_ansi(new_style)]
                 )
