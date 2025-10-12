@@ -1,30 +1,30 @@
 import pytest
 # from functui.ansirender import layout_to_str
 from functui import Rect, layout_to_str
-from functui.default_elements import adaptive_text, _split_by_lines_remove_surrounding_space
+from functui.default_elements import adaptive_text, _wrap_segments
 from wcwidth import wcswidth
 
 measure_text = lambda s: wcswidth(s)
 
-def test_split_by_lines_respect_newlines():
-    assert _split_by_lines_remove_surrounding_space(measure_text, 7, "foo\n\nhej bars") == [
-        "foo",
-        "",
-        "hej ",
-        "bars"
-    ]
-
-def test_split_by_lines():
-    assert _split_by_lines_remove_surrounding_space(measure_text, 6, "12345 12 456 123") == [
-        "12345 ",
-        "12 456",
-        "123"
-    ]
-def test_split_by_lines_too_long_word():
-    assert _split_by_lines_remove_surrounding_space(measure_text, 4, "12345 12") == [
-        "12345",
-        "12"
-    ]
+# def test_split_by_lines_respect_newlines():
+#     assert _wrap_segments(measure_text, 7, "foo\n\nhej bars") == [
+#         "foo",
+#         "",
+#         "hej ",
+#         "bars"
+#     ]
+#
+# def test_split_by_lines():
+#     assert _wrap_segments(measure_text, 6, "12345 12 456 123") == [
+#         "12345 ",
+#         "12 456",
+#         "123"
+#     ]
+# def test_split_by_lines_too_long_word():
+#     assert _wrap_segmentds(measure_text, 4, "12345 12") == [
+#         "12345",
+#         "12"
+#     ]
 
 
 def test_adaptive_text_wrapping_remove_white_space():

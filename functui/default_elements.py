@@ -1,5 +1,6 @@
-from functools import reduce, partial, lru_cache, cache
+from functools import reduce, partial, lru_cache
 from enum import Enum, auto
+from typing import NamedTuple
 import re
 import math
 
@@ -79,24 +80,31 @@ def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
         res.draw_string_line(frame, line, box.offset + Coordinate(0, y))
     return res
 
+#
+# Adaptive Text
+#
+
 class Justify(Enum):
     LEFT = auto()
     CENTER = auto()
     RIGHT = auto()
 
 @dataclass
-class _StyledStr:
+class _Span:
     text: tuple[str | Self, ...]
     style: Style
 
-def styled_str(*text, style: Style):
-    return _StyledStr(text, style)
+class _StyledStr(NamedTuple):
+    text: str
+    style: Style
+
 
 # class Expand(Enum):
 #     VERTICAL = auto()
 #     HORIZONTAL = auto()
 
-def styled_adaptive_text(string: _StyledStr, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
+def styled_adaptive_text(*string: _StyledStr | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
+    segments = _span_to_segments(_Span(string, style=Style()))
     def min_size(measure_text, available: Rect):
         lines = _split_by_lines_and_add_spaces(measure_text, available.width, words)
         return Rect(
@@ -112,70 +120,74 @@ def styled_adaptive_text(string: _StyledStr, justify=Justify.LEFT, terminator: s
 
 
 @lru_cache(LRU_MAX_SIZE)
-def _styled_adaptive_text_render(words: _StyledStr, justify: Justify, terminator: str ,frame: Frame, box: Box):
-    words
-    segments = _split_by_lines_remove_surrounding_space(
-        frame.measure_text,
-        box.width,
-        string
-    )
+def _styled_adaptive_text_render(span: _Span, justify: Justify, terminator: str ,frame: Frame, box: Box):
+    ...
 
-@cache
-def _line_len(measure_text: MeasureTextFunc, line: tuple[str]) -> int:
-    return sum(measure_text(i) for i in line) + len(line) - 1
+# adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")
 
-@cache
-def _split_by_lines_and_add_spaces(measure_text: MeasureTextFunc, max_width: int, words: tuple[str, ...]) -> list[str]:
-    lines: list[list[str]] = []
-    curr_line: list[str] = []
-    for word in words:
-        if _line_len(measure_text, tuple(curr_line)) + 1 + measure_text(word) <= max_width: # +1 because space between existing line and new word
-            curr_line.append(word)
-        else:
-            lines.append(curr_line)
-            curr_line = [word]
-    if curr_line != "":
-        lines.append(curr_line)
-    return [" ".join(i) for i in lines]
+def _span_to_segments(span: _Span) -> list[list[_StyledStr]]:
+    out = []
+    curr_line = []
+    for t in span.text:
+        if isinstance(t, str):
+            lines = t.splitlines()
+            if len(lines) == 1:
+                curr_line.append(_StyledStr(t, span.style))
+                continue
+            lines = iter(lines)
+            last_elem = next(lines)
+            curr_line.append(_StyledStr(last_elem, span.style))
+            for line in lines:
+                out.append(curr_line)
+                curr_line.clear()
+                curr_line.append(_StyledStr(line, span.style))
+            continue
 
-def _split_by_lines_remove_surrounding_space(
+        out.extend(
+            _span_to_segments(
+                _Span(
+                    text=t.text,
+                    style=span.style.combine(t.style)
+                )
+            )
+        )
+    return out
+
+def _wrap_segments(
         measure_text: MeasureTextFunc,
         max_width: int,
-        text: str,
-) -> list[str]:
+        segments: list[str],
+) -> list[list[str]]:
     # make sure that \n is respected
-    raw_lines = text.splitlines()
     out_lines = []
-    for line in raw_lines:
-        segments = re.split(r"(\s+)", line)
-        line_length = 0
-        line_acc = []
 
-        for segment in segments:
-            # strip spaces at the beggining of line
-            segment_is_space = segment.isspace()
-            if line_length == 0 and segment_is_space:
+    line_length = 0
+    line_acc = []
+
+    for segment in segments:
+        # strip spaces at the beggining of line
+        segment_is_space = segment.isspace()
+        if line_length == 0 and segment_is_space:
+            continue
+
+        segment_len = measure_text(segment)
+
+        # if line_length == 0 and segment_len > max_width:
+        #     line_acc.append(segment)
+
+        if line_length + segment_len > max_width:
+            if line_acc:
+                out_lines.append(line_acc)
+            line_acc.clear()
+            line_length = 0
+            # add the current segment to next line if it aint space
+            if segment_is_space:
                 continue
 
-            segment_len = measure_text(segment)
-
-            # if line_length == 0 and segment_len > max_width:
-            #     line_acc.append(segment)
-
-            if line_length + segment_len > max_width:
-                if line_acc:
-                    out_lines.append("".join(line_acc))
-                line_acc.clear()
-                line_length = 0
-                # add the current segment to next line if it aint space
-                if segment_is_space:
-                    continue
-
-            line_acc.append(segment)
-            line_length += segment_len
-
-        if line_acc:
-            out_lines.append("".join(line_acc))
+        line_acc.append(segment)
+        line_length += segment_len
+    if line_acc:
+        out_lines.append(line_acc)
     return out_lines
 
 
