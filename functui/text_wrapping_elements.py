@@ -46,36 +46,41 @@ type text_wrap_func = Callable[[Iterable[_Segment], int, MeasureTextFunc], Itera
 # def _styled_adaptive_text_render(span: _Span, justify: Justify, terminator: str ,frame: Frame, box: Box):
 #     ...
 # adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")
+def _split_by_spaces(s: str, style: Style):
+    r = filter(lambda x: x!='',re.split(r'(\s+)', s))
+    return [_Segment(t, style) for t in r]
 
 def _span_to_segments(span: _Span) -> list[list[_Segment]]:
-    out = []
-    curr_line = []
+    out = [[]]
+    curr_line = 0
     for t in span.text:
         if isinstance(t, str):
             lines = t.splitlines()
             if len(lines) == 1:
-                curr_line.append(_Segment(t, span.style))
+                out[curr_line].extend(_split_by_spaces(t, span.style))
                 continue
             lines = iter(lines)
             last_elem = next(lines)
-            curr_line.append(_Segment(last_elem, span.style))
+            out[curr_line].extend(_split_by_spaces(last_elem, span.style))
             for line in lines:
-                out.append(curr_line)
-                curr_line.clear()
-                curr_line.append(_Segment(line, span.style))
+                curr_line += 1
+                out.append(_split_by_spaces(line, span.style))
             continue
 
-        out.extend(
-            _span_to_segments(
-                _Span(
-                    text=t.text,
-                    style=span.style.combine(t.style)
-                )
+        child_res = _span_to_segments(
+            _Span(
+                text=t.text,
+                style=span.style.combine(t.style)
             )
         )
+        lines = iter(child_res)
+        out[curr_line].extend(next(lines))
+        for line in lines:
+            curr_lines += 1
+            out.append(line)
     return out
 
-def _wrap_line(segments: Iterable[_Segment], max_width: int, measure_text: MeasureTextFunc):
+def wrap_line_default(segments: Iterable[_Segment], max_width: int, measure_text: MeasureTextFunc):
     out = [[]]
     curr_len = 0
     curr_line = 0
@@ -99,3 +104,4 @@ def _wrap_line(segments: Iterable[_Segment], max_width: int, measure_text: Measu
             curr_line += 1
             continue
         out[curr_line].append(segment)
+
