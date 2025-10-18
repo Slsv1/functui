@@ -152,9 +152,11 @@ class Color(Enum):
 
 @dataclass(frozen=True)
 class Style:
-    char_style: CharStyle = CharStyle(0)
     fg: Color | None = None 
     bg: Color | None = None
+    char_style: CharStyle = CharStyle(0)
+    def __iter__(self):
+        return iter((self.fg, self.bg, self.char_style))
     def combine(self, other: Self):
         return Style(
             char_style=self.char_style | other.char_style,
