@@ -27,7 +27,7 @@ type text_wrap_func = Callable[[Iterable[_Segment], int, MeasureTextFunc], Itera
 
 
 
-def styled_adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
+def adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
     segments = tuple(tuple(i) for i in _span_to_segments(_Span(string, style=Style())))
     def min_size(measure_text, available: Rect):
         lines = list(
@@ -40,15 +40,15 @@ def styled_adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator:
             len(lines)
         )
     return Node(
-        func=styled_adaptive_text,
+        func=adaptive_text,
         min_size=min_size,
-        render=partial(_styled_adaptive_text_render, segments, justify, terminator),
+        render=partial(_adaptive_text_render, segments, justify, terminator),
     )
 
 
 
 @lru_cache(32)
-def _styled_adaptive_text_render(segments: Iterable[Iterable[_Segment]], justify: Justify, terminator: str, frame: Frame, box: Box):
+def _adaptive_text_render(segments: Iterable[Iterable[_Segment]], justify: Justify, terminator: str, frame: Frame, box: Box):
     res = Result()
     lines = list(
         chain.from_iterable(
@@ -121,15 +121,17 @@ def wrap_line_default(segments: Iterable[_Segment], max_width: int, measure_text
                 out[curr_line].append(_Segment(prefix, segment.style))
                 segment = _Segment(postfix, segment.style)
 
-            # start new line
-            out.append([] if text.isspace() else [segment])
+            if text.isspace():
+                continue
+            # start new line, if it does not start with space
+            out.append([segment])
             curr_len = 0 if text.isspace() else seg_len
             curr_line += 1
             continue
 
         out[curr_line].append(segment)
         curr_len += seg_len
-    if out[-1] == []:
-        del out[-1]
+    # if out[-1] == [] and len(out) > 1:
+    #     del out[-1]
     return out
 

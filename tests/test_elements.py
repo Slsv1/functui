@@ -48,12 +48,13 @@ def test_span_to_segments_with_multilple_newlines():
     assert _span_to_segments(
         _Span(
             (
-                "hej \n\nhej2 ",
+                "hej \n\n\nhej2",
             ),
             s1
         )
     ) == [
         [_Segment("hej", s1), _Segment(" ", s1)],
+        [],
         [],
         [_Segment("hej2", s1)]
     ]
