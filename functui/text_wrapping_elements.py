@@ -14,13 +14,36 @@ class Justify(Enum):
     RIGHT = auto()
 
 @dataclass
-class _Span:
+class Span:
     text: tuple[str | Self, ...]
     style: Style
 
-class _Segment(NamedTuple):
+class Segment(NamedTuple):
     text: str
     style: Style
+
+@dataclass(frozen=True)
+class Group:
+    segments: tuple[Segment, ...]
+    is_space: bool
+    length: int
+    def split(self, max_width: int, measure_text: MeasureTextFunc) -> list[Self]:
+        allowed_segments = []
+        total_length = 0
+        for segment in self.segments:
+            if total_length + segment.length <= max_width:
+                allowed_segments.append(segment)
+                total_length += segment.length
+                continue
+            for letter in segment.text:
+                if total_length << 
+            
+                
+
+            segment.text
+
+        return 
+
 
 type text_wrap_func = Callable[[Iterable[_Segment], int, MeasureTextFunc], Iterable[Iterable[_Segment]]]
 """takes in a line. If line is too long it will be wrapped. New line characters have no effect on the outcome"""
@@ -100,38 +123,25 @@ def _span_to_segments(span: _Span) -> list[list[_Segment]]:
     return out
 
 def span(*text: str | _Span, style: Style):
-    return _Span(text, style)
+    return Span(text, style)
 
-def wrap_line_default(segments: Iterable[_Segment], max_width: int, measure_text: MeasureTextFunc) -> list[list[_Segment]]:
+def wrap_line_default(groups: Iterable[Group], max_width: int, measure_text: MeasureTextFunc) -> list[list[Group]]:
     out = [[]]
     curr_len = 0
-    curr_line = 0
-    for segment in segments:
-        text = segment.text
+    for group in groups:
+        if group.length + curr_len > max_width:
+            if curr_len == 0 and not group.is_space: # if word is longer than line, then split it
 
-        # ignore prefix spaces
-        if curr_len == 0 and text.isspace():
-            continue
-        seg_len = measure_text(text)
-
-        if seg_len + curr_len > max_width:
-            if curr_len == 0: # if word is longer than line, then split it
-                prefix = segment.text[:max_width]
-                postfix = segment.text[max_width:]
-                out[curr_line].append(_Segment(prefix, segment.style))
-                segment = _Segment(postfix, segment.style)
-
-            if text.isspace():
-                continue
+                # prefix = segment.text[:max_width]
+                # postfix = segment.text[max_width:]
+                # out[curr_line].append(_Segment(prefix, segment.style))
+                # segment = _Segment(postfix, segment.style)
+                pass
             # start new line, if it does not start with space
-            out.append([segment])
-            curr_len = 0 if text.isspace() else seg_len
-            curr_line += 1
-            continue
-
-        out[curr_line].append(segment)
-        curr_len += seg_len
-    # if out[-1] == [] and len(out) > 1:
-    #     del out[-1]
+            out.append([] if group.is_space else [group])
+            curr_len = 0 if group.isspace else group.length
+        else:
+            out[-1].append(segment)
+            curr_len += group.length
     return out
 
