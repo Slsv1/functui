@@ -1,4 +1,4 @@
-from functools import reduce, partial, lru_cache
+from functools import reduce, partial, lru_cache, cache
 from enum import Enum, auto
 from typing import NamedTuple
 from itertools import chain
@@ -13,39 +13,79 @@ class Justify(Enum):
     CENTER = auto()
     RIGHT = auto()
 
+
 @dataclass
 class Span:
     text: tuple[str | Self, ...]
     style: Style
 
+
 class Segment(NamedTuple):
     text: str
     style: Style
+    length: int
+
 
 @dataclass(frozen=True)
 class Group:
     segments: tuple[Segment, ...]
     is_space: bool
-    length: int
+    @cache
+    def length(self):
+        return sum(i.length for i in segments)
+
     def split(self, max_width: int, measure_text: MeasureTextFunc) -> list[Self]:
-        allowed_segments = []
         total_length = 0
+        allowed_segments = []
+        overflowing_segments = self.segments
         for segment in self.segments:
             if total_length + segment.length <= max_width:
-                allowed_segments.append(segment)
                 total_length += segment.length
+                allowed_segments.append(segment)
+                del overflowing_segments[0]
                 continue
-            for letter in segment.text:
-                if total_length << 
-            
+
+
+            allowed_letters = []
+            overflowing_letters = list(segment.text)
+            total_letter_length = 0
+
+            for i, letter in enumerate(segment.text):
+                letter_len = measure_text(letter)
+                if total_length + total_letter_length + letter_len <= max_with:
+                    allowed_letters.append(letter)
+                    del overflowing_letters[0]
+                    total_letter_length += letter_len
+                    continue
+
+            allowed_segments.append(
+                Segment("".join(allowed_letters), segment.style, total_letter_length)
+            )
+            if overflowing_letters:
+                overflowing_segments.append(
+                    Segment(
+                        "".join(overflowing_letters),
+                        segment.style,
+                        segment.length - total_letter_length
+                    )
+                )
+        if not overflowing_segments:
+            return [self]
+        return [
+            Group(tuple(allowed_segments), self.is_space),
+            Group(tuple(overflowing_segments), self.is_space)
+        ]
+
                 
 
-            segment.text
 
-        return 
+                    
 
 
-type text_wrap_func = Callable[[Iterable[_Segment], int, MeasureTextFunc], Iterable[Iterable[_Segment]]]
+
+
+
+text_wrap_func = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[Iterable[_Segment]]]
 """takes in a line. If line is too long it will be wrapped. New line characters have no effect on the outcome"""
 
 

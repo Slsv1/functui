@@ -3,19 +3,32 @@ import pytest
 from functui import Rect, layout_to_str, Style
 # from functui.default_elements import adaptive_text, _wrap_segments
 from functui.classes import Color
-from functui.text_wrapping_elements import _span_to_segments, _Segment, _Span, wrap_line_default
+from functui.text_wrapping_elements import _span_to_segments, Segment, Span, wrap_line_default, Group
 from wcwidth import wcswidth
 
-measure_text = lambda s: wcswidth(s)
+
+def measure_text(s):
+    return wcswidth(s)
+
+
+def test_group_split():
+    s1 = Style()
+    s2 = Style(fg=Color.BLUE)
+    assert Group([Span("a", s1, 1), Span("ab", s2, 2)], False)\
+        .split(2, measure_text)\
+        == [
+        Group([Span("a", s1, 1), Span("a", s2, 1)], False),
+        Group([Span("b", s2, 1)], False)
+    ]
 
 def test_span_to_segments():
     s1 = Style()
     s2 = Style(fg=Color.BLUE)
     assert _span_to_segments(
-        _Span(
+        Span(
             (
                 "hej ",
-                _Span(
+                Span(
                     ("blue",),
                     s2
                 ),
@@ -23,16 +36,21 @@ def test_span_to_segments():
             ),
             s1
         )
-    ) == [[_Segment("hej", s1), _Segment(" ", s1), _Segment("blue", s2), _Segment("hi", s1)]]
+    ) == [
+        Group([Segment("hej", s1, 3)], False),
+        Group([Segment(" ", s1, 1)], True),
+        Group([Segment("blue", s2, 4), Segment("hi", s1, 2)], False)
+    ]
+
 
 def test_span_to_segments_with_newline():
     s1 = Style()
     s2 = Style(fg=Color.BLUE)
     assert _span_to_segments(
-        _Span(
+        Span(
             (
                 "hej \nhej2 ",
-                _Span(
+                Span(
                     ("blue",),
                     s2
                 )
@@ -40,42 +58,42 @@ def test_span_to_segments_with_newline():
             s1
         )
     ) == [
-        [_Segment("hej", s1), _Segment(" ", s1)],
-        [_Segment("hej2", s1), _Segment(" ", s1), _Segment("blue", s2)]
+        [Segment("hej", s1), Segment(" ", s1)],
+        [Segment("hej2", s1), Segment(" ", s1), Segment("blue", s2)]
     ]
 def test_span_to_segments_with_multilple_newlines():
     s1 = Style()
     assert _span_to_segments(
-        _Span(
+        Span(
             (
                 "hej \n\n\nhej2",
             ),
             s1
         )
     ) == [
-        [_Segment("hej", s1), _Segment(" ", s1)],
+        [Segment("hej", s1), Segment(" ", s1)],
         [],
         [],
-        [_Segment("hej2", s1)]
+        [Segment("hej2", s1)]
     ]
 
 def test_wrap_line_default_trim():
     s = Style()
     assert wrap_line_default(
-        [_Segment(" ", s),_Segment("aaa", s), _Segment(" ", s)],
+        [Segment(" ", s),Segment("aaa", s), Segment(" ", s)],
         3,
         measure_text
-    ) == [[_Segment("aaa", s)]]
+    ) == [[Segment("aaa", s)]]
 
 def test_wrap_line_default_works():
     s = Style()
     assert wrap_line_default(
-        [_Segment("aaa", s), _Segment(" ", s), _Segment("bbb", s)],
+        [Segment("aaa", s), Segment(" ", s), Segment("bbb", s)],
         3,
         measure_text
     ) == [
-        [_Segment("aaa", s)],
-        [_Segment("bbb", s)]
+        [Segment("aaa", s)],
+        [Segment("bbb", s)]
     ]
 
 
