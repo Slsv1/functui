@@ -155,17 +155,17 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
                 )
                 continue
 
-            lines = iter(lines)
-            last_elem = next(lines)
+            lines_iter = iter(lines)
+            last_elem = next(lines_iter)
             _extend_line_with_segments(
                 out_lines[-1],
                 _split_by_spaces(last_elem, span.style, measure_text)
             )
-            for line in lines:
-                out.append([])
+            for line in lines_iter:
+                out_lines.append([])
                 _extend_line_with_segments(
                     out_lines[-1],
-                    _split_by_spaces(last_elem, span.style, measure_text)
+                    _split_by_spaces(line, span.style, measure_text)
                 )
             continue
 
