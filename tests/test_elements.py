@@ -61,26 +61,29 @@ def test_span_to_lines():
         Group((Segment(" ", s1, 1),), True),
         Group((Segment("blue", s2, 4), Segment("hi", s1, 2)), False)
     ]]
-#
-#
-# def test_span_to_segments_with_newline():
-#     s1 = Style()
-#     s2 = Style(fg=Color.BLUE)
-#     assert _span_to_segments(
-#         Span(
-#             (
-#                 "hej \nhej2 ",
-#                 Span(
-#                     ("blue",),
-#                     s2
-#                 )
-#             ),
-#             s1
-#         )
-#     ) == [
-#         [Segment("hej", s1), Segment(" ", s1)],
-#         [Segment("hej2", s1), Segment(" ", s1), Segment("blue", s2)]
-#     ]
+
+def _to_group(string:str, style:Style):
+    return Group((Segment(string, style, measure_text(string)),), string.isspace())
+
+def test_span_to_segments_with_newline():
+    s1 = Style()
+    s2 = Style(fg=Color.BLUE)
+    assert _span_to_lines(
+        Span(
+            (
+                "hej \nmig2 ",
+                Span(
+                    ("blue",),
+                    s2
+                )
+            ),
+            s1
+        ),
+        measure_text
+    ) == [
+        [_to_group("hej", s1), _to_group(" ", s1)],
+        [_to_group("mig2", s1), _to_group(" ", s1), _to_group("blue", s2)]
+    ]
 # def test_span_to_segments_with_multilple_newlines():
 #     s1 = Style()
 #     assert _span_to_segments(
