@@ -30,9 +30,10 @@ class Segment(NamedTuple):
 class Group:
     segments: tuple[Segment, ...]
     is_space: bool
-    @cache
+    @property
     def length(self):
-        return sum(i.length for i in segments)
+        return sum(i.length for i in self.segments)
+
     def extend(self, seg: Segment):
         return self.__class__((*self.segments, seg), self.is_space)
 
@@ -92,7 +93,7 @@ text_wrap_func = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[It
 
 
 def adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
-    segments = tuple(tuple(i) for i in _span_to_segments(_Span(string, style=Style())))
+    groups = tuple(tuple(i) for i in _span_to_lines(Span(string, style=Style())))
     def min_size(measure_text, available: Rect):
         lines = list(
             chain.from_iterable(
@@ -100,28 +101,28 @@ def adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator: str = 
             )
         )
         return Rect(
-            max(measure_text("".join(seg.text for seg in line)) for line in lines),
+            max(sum(group.length for group in line) for line in lines),
             len(lines)
         )
     return Node(
         func=adaptive_text,
         min_size=min_size,
-        render=partial(_adaptive_text_render, segments, justify, terminator),
+        render=partial(_adaptive_text_render, groups, justify, terminator),
     )
 
 
 
 @lru_cache(32)
-def _adaptive_text_render(segments: Iterable[Iterable[Segment]], justify: Justify, terminator: str, frame: Frame, box: Box):
+def _adaptive_text_render(groups: Iterable[Iterable[Groups]], justify: Justify, terminator: str, frame: Frame, box: Box):
     res = Result()
     lines = list(
         chain.from_iterable(
-            wrap_line_default(line, box.width, frame.measure_text) for line in segments
+            wrap_line_default(line, box.width, frame.measure_text) for line in groups
         )
     )
     for dy, line in enumerate(lines):
         dx = 0
-        for segment in line:
+        for segment in chain.from_iterable(g.segments for g in groups):
             res.draw_string_line(frame.with_style(frame.default_style.combine(segment.style)), segment.text, box.offset + Coordinate(dx, dy))
             dx += frame.measure_text(segment.text)
     return res
@@ -185,23 +186,24 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
 def span(*text: str | _Span, style: Style):
     return Span(text, style)
 
-def wrap_line_default(groups: Iterable[Group], max_width: int, measure_text: MeasureTextFunc) -> list[list[Group]]:
+def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: MeasureTextFunc) -> list[list[Group]]:
     out = [[]]
     curr_len = 0
-    for group in groups:
+    for group in line:
+        # ignore trailing space
+        if group.is_space and curr_len == 0:
+            continue
+
         if group.length + curr_len > max_width:
             if curr_len == 0 and not group.is_space: # if word is longer than line, then split it
-
-                # prefix = segment.text[:max_width]
-                # postfix = segment.text[max_width:]
-                # out[curr_line].append(Segment(prefix, segment.style))
-                # segment = Segment(postfix, segment.style)
                 pass
             # start new line, if it does not start with space
             out.append([] if group.is_space else [group])
-            curr_len = 0 if group.isspace else group.length
-        else:
-            out[-1].append(segment)
-            curr_len += group.length
-    return out
+            curr_len = 0 if group.is_space else group.length
+            continue
 
+        out[-1].append(group)
+        curr_len += group.length
+
+
+    return out if not out[-1] == [] else out[:-1]
