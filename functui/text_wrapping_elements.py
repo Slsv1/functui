@@ -14,7 +14,7 @@ class Justify(Enum):
     RIGHT = auto()
 
 
-@dataclass
+@dataclass(frozen=True)
 class Span:
     text: tuple[str | Self, ...]
     style: Style
@@ -79,8 +79,8 @@ class Group:
         if not overflowing_segments:
             return [self]
         return [
-            Group(tuple(allowed_segments), self.is_space),
-            Group(tuple(overflowing_segments), self.is_space)
+            self.__class__(tuple(allowed_segments), self.is_space),
+            self.__class__(tuple(overflowing_segments), self.is_space)
         ]
 
 
@@ -92,12 +92,13 @@ text_wrap_func = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[It
 
 
 
-def adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
-    groups = tuple(tuple(i) for i in _span_to_lines(Span(string, style=Style())))
+def adaptive_text(*string: Span | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
+    span = Span(string, style=Style())
     def min_size(measure_text, available: Rect):
+        groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
         lines = list(
             chain.from_iterable(
-                wrap_line_default(line, available.width, measure_text) for line in segments
+                wrap_line_default(line, available.width, measure_text) for line in groups
             )
         )
         return Rect(
@@ -107,13 +108,14 @@ def adaptive_text(*string: _Span | str, justify=Justify.LEFT, terminator: str = 
     return Node(
         func=adaptive_text,
         min_size=min_size,
-        render=partial(_adaptive_text_render, groups, justify, terminator),
+        render=partial(_adaptive_text_render, span, justify, terminator),
     )
 
 
 
 @lru_cache(32)
-def _adaptive_text_render(groups: Iterable[Iterable[Groups]], justify: Justify, terminator: str, frame: Frame, box: Box):
+def _adaptive_text_render(span: Span, justify: Justify, terminator: str, frame: Frame, box: Box):
+    groups = _span_to_lines(span, frame.measure_text)
     res = Result()
     lines = list(
         chain.from_iterable(
@@ -122,8 +124,10 @@ def _adaptive_text_render(groups: Iterable[Iterable[Groups]], justify: Justify, 
     )
     for dy, line in enumerate(lines):
         dx = 0
-        for segment in chain.from_iterable(g.segments for g in groups):
-            res.draw_string_line(frame.with_style(frame.default_style.combine(segment.style)), segment.text, box.offset + Coordinate(dx, dy))
+        for segment in chain.from_iterable(g.segments for g in line):
+            res.draw_string_line(
+                frame.with_style(frame.default_style.combine(segment.style)), segment.text, box.offset + Coordinate(dx, dy)
+            )
             dx += frame.measure_text(segment.text)
     return res
 
@@ -140,7 +144,7 @@ def _append_segment_to_line(line: list[Group], seg: Segment):
         return
     line.append(Group((seg,), seg.text.isspace()))
 
-def _extend_line_with_segments(line: list[Group], segments: list[Segmen]):
+def _extend_line_with_segments(line: list[Group], segments: list[Segment]):
     for s in segments:
         _append_segment_to_line(line, s)
 
@@ -177,13 +181,19 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
             ),
             measure_text
         )
-        lines = iter(child_res)
-        out_lines[-1].extend(next(lines))
-        for line in lines:
+        child_lines_iter = iter(child_res)
+        first_child_line = next(child_lines_iter)
+        first_child_group = first_child_line[0]
+        _extend_line_with_segments(
+            out_lines[-1],
+            list(first_child_group.segments)
+        )
+        out_lines[-1].extend(first_child_line[1:])
+        for line in child_lines_iter:
             out_lines.append(line)
     return out_lines
 
-def span(*text: str | _Span, style: Style):
+def span(*text: str | Span, style: Style):
     return Span(text, style)
 
 def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: MeasureTextFunc) -> list[list[Group]]:
