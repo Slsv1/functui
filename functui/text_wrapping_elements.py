@@ -123,6 +123,8 @@ def _adaptive_text_render(span: Span, justify: Justify, terminator: str, frame: 
         )
     )
     for dy, line in enumerate(lines):
+        if dy == box.height:
+            break
         dx = 0
         for segment in chain.from_iterable(g.segments for g in line):
             res.draw_string_line(
