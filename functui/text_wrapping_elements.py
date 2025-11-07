@@ -5,6 +5,7 @@ from itertools import chain
 import re
 import math
 
+
 from .classes import *
 
 
@@ -67,7 +68,8 @@ class Group:
                 allowed_segments.append(
                     Segment("".join(allowed_letters), segment.style, total_letter_length)
                 )
-            overflowing_segments.append(
+            overflowing_segments.insert(
+                0, 
                 Segment(
                     "".join(overflowing_letters),
                     segment.style,
@@ -82,9 +84,6 @@ class Group:
             self.__class__(tuple(allowed_segments), self.is_space),
             self.__class__(tuple(overflowing_segments), self.is_space)
         ]
-
-
-
 
 
 text_wrap_func = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[Iterable[Segment]]]
@@ -198,7 +197,39 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
 def span(*text: str | Span, style: Style):
     return Span(text, style)
 
-def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: MeasureTextFunc) -> list[list[Group]]:
+def _wrap_word(
+    group: Group,
+    out: list[list[Group]],
+    max_width: int,
+    continuation_str_width: int,
+    continuation_str: str,
+    measure_text: MeasureTextFunc
+):
+    prefix, left_over = group.split(max_width - continuation_str_width, measure_text)
+    print("\ng: ",group,"\np: ",prefix, "\nl: ",left_over, "\n---\n")
+    segments = (*prefix.segments, Segment(
+        continuation_str, 
+        prefix.segments[-1].style,
+        continuation_str_width
+    ))
+    prefix = Group(segments, False)
+    out[-1].append(prefix)
+    if left_over.length > max_width:
+        out.append([])
+        _wrap_word(
+            left_over,
+            out,
+            max_width,
+            continuation_str_width,
+            continuation_str,
+            measure_text
+        )
+        return
+    out.append([left_over])
+
+
+def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: MeasureTextFunc, continuation_str: str="-") -> list[list[Group]]:
+    continuation_str_width = measure_text(continuation_str)
     out = [[]]
     curr_len = 0
     for group in line:
@@ -208,7 +239,16 @@ def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: Measu
 
         if group.length + curr_len > max_width:
             if curr_len == 0 and not group.is_space: # if word is longer than line, then split it
-                pass
+                _wrap_word(
+                    group,
+                    out,
+                    max_width,
+                    continuation_str_width,
+                    continuation_str,
+                    measure_text
+                )
+                curr_len = out[-1][-1].length
+                continue
             # start new line, if it does not start with space
             out.append([] if group.is_space else [group])
             curr_len = 0 if group.is_space else group.length
@@ -216,6 +256,5 @@ def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: Measu
 
         out[-1].append(group)
         curr_len += group.length
-
 
     return out if not out[-1] == [] else out[:-1]

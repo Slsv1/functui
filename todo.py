@@ -1,3 +1,21 @@
+# TODO
+
+# documentation
+#
+# text jusitication 
+# word wrapping
+#
+# simple grid layout
+#
+# change to using pipes
+
+
+
+
+
+
+
+
 import blessed
 from functui import *
 from functui.default_elements import *
