@@ -20,6 +20,15 @@ def test_group_split_overflow_with_break():
         Group((Segment("c", s2, 1),), False)
     ]
 
+def test_group_split_overflow_with_break_and_trailing_group():
+    s1 = Style()
+    s2 = Style(fg=Color.BLUE)
+    assert _to_group_with_segments(("abc", s1), ("d", s2))\
+        .split(2, measure_text)\
+        ==[
+        _to_group_with_segments(("ab", s1)),
+        _to_group_with_segments(("c", s1), ("d", s2))
+    ]
 
 def test_group_split_no_overflow():
     s1 = Style()
@@ -85,6 +94,12 @@ def test_span_to_lines_join():
 def _to_group(string:str, style:Style):
     return Group((Segment(string, style, measure_text(string)),), string.isspace())
 
+def _to_group_with_segments(*segments: tuple[str, Style]):
+    return Group(
+        tuple(Segment(string, style, measure_text(string)) for string, style in segments),
+        segments[-1][0].isspace()
+    )
+
 
 def test_span_to_segments_with_newline():
     s1 = Style()
@@ -146,16 +161,38 @@ def test_wrap_line_default_wrap_and_remove_whitespace():
     ]
 
 
-# def test_wrap_line_default_word_too_long():
-#     s = Style()
-#     assert wrap_line_default(
-#         [_to_group("abcdefg", s)]
-#         4,
-#         measure_text
-#     ) == [
-#         [Group((Segment("abc", )))],
-#         [_to_group("defg", s)]
-#     ]
+def test_wrap_line_default_word_too_long():
+    s = Style()
+    assert wrap_line_default(
+        [_to_group("abcdefg", s)],
+        4,
+        measure_text
+    ) == [
+        [_to_group_with_segments(("abc", s), ("-", s))],
+        [_to_group("defg", s)]
+    ]
+def test_wrap_line_default_word_too_long_take_up_3_lines():
+    s = Style()
+    assert wrap_line_default(
+        [_to_group("abcdefgh", s)],
+        4,
+        measure_text
+    ) == [
+        [_to_group_with_segments(("abc", s), ("-", s))],
+        [_to_group_with_segments(("def", s), ("-", s))],
+        [_to_group("gh", s)]
+    ]
+def test_wrap_line_default_word_too_long_and_segment_after():
+    s = Style()
+    assert wrap_line_default(
+        [_to_group_with_segments(("abcdefgh", s), ("jj", s))],
+        4,
+        measure_text
+    ) == [
+        [_to_group_with_segments(("abc", s), ("-", s))],
+        [_to_group_with_segments(("def", s), ("-", s))],
+        [_to_group_with_segments(("gh", s), ("jj", s))]
+    ]
 
 
 # def test_adaptive_text_wrapping_remove_white_space():
