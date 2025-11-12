@@ -6,10 +6,8 @@ grid(
         GridItem(Box(...), border_top=rounded, border_bottom=rounded, text("hej"))
         # box contains coordinate and width and hight of item
     ]
-    # items = uniform_grid([
-    #   [text, text, text],
-    #   [text, text, text],
-    # ])
 )
 
+
+# anotha idea
 ```
