@@ -206,7 +206,6 @@ def _wrap_word(
     measure_text: MeasureTextFunc
 ):
     prefix, left_over = group.split(max_width - continuation_str_width, measure_text)
-    print("\ng: ",group,"\np: ",prefix, "\nl: ",left_over, "\n---\n")
     segments = (*prefix.segments, Segment(
         continuation_str, 
         prefix.segments[-1].style,
