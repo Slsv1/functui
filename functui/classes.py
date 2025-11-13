@@ -12,12 +12,13 @@ import wcwidth
 @dataclass(frozen=True)
 class Applicable[T, U]:
     func: Callable[[T], U]
-    def __pow__(self, other: T) -> U:
+    def __or__(self, other: T) -> U:
         return self.func(other)
     def __call__(self, arg: T) -> U:
         return self.func(arg)
 
 def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
+    return func
     """ Allows functions that take in a signle argument to be called with the following
     syntax 
     ```
@@ -433,6 +434,9 @@ class Node:
     min_size: MinSize
     render: partial[Result]
     """chould take in frame and box as first two args"""
+
+    def __or__(self, other):
+        return other(self)
     # def __hash__(self) -> int:
     #     return hash((self.func, self.render.args)) 
     # def __eq__(self, value: object, /) -> bool:
