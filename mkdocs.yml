@@ -1,0 +1,25 @@
+site_name: My Docs
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+
+theme: 
+  name: material
+  palette: 
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: black
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Palette toggle for light mode
+    # - scheme: default
+    #   primary: white
+    #   accent: teal
+    #   toggle:
+    #     icon: material/brightness-7 
+    #     name: Switch to dark mode
+
