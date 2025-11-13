@@ -337,8 +337,8 @@ def border_with_title(title: Node, border_node=border):
     @applicable
     def out(child: Node):
         return static_box([
-            border_node ** child,
-            shrink_y ** shrink_by(0, 0, 1, 1) ** title,
+            border_node(child),
+            shrink_y(shrink_by(0, 0, 1, 1)(title)),
         ])
     return out
 
@@ -373,11 +373,11 @@ def flex_custom(grow=1, shrink=1, basis=False):
 
 @applicable
 def flex(node: Node):
-    return flex_custom(1, 1, False) ** node
+    return flex_custom(1, 1, False)(node)
 
 @applicable
 def no_flex(node: Node):
-    return flex_custom(0, 0, True) ** node
+    return flex_custom(0, 0, True)(node)
 
 
 def vbox_flex(children: Iterable[Flex]):
