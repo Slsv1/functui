@@ -82,6 +82,7 @@ def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
 
 
 def vbar(char: str = "|"):
+    """Vertical Bar"""
     return Node(
         func=vbar,
         min_size=min_size_constant(Rect(1, 1)),
