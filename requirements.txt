@@ -11,3 +11,4 @@ mkdocstrings-python
 
 # documentation (sphinx)
 sphinx
+pydata-sphinx-theme
