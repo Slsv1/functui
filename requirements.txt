@@ -1,0 +1,13 @@
+
+wcwidth
+blessings
+
+# testing
+pytest
+
+# documentation (mkdocs)
+mkdocs-material
+mkdocstrings-python
+
+# documentation (sphinx)
+sphinx
