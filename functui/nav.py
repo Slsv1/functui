@@ -5,7 +5,7 @@ from types import MappingProxyType
 from functools import partial
 import curses
 
-from .classes import Coordinate, Result, ResultData, applicable, Node, Frame, Box
+from .classes import Coordinate, Result, ResultData, applicable, Layout, Frame, Box
 class NavAction(Enum):
     NONE = auto()
     SELECT = auto()
@@ -197,8 +197,8 @@ class NavState:
         )
     def interaction_area(self, interactible_id: InteractibleID):
         @applicable
-        def _out(child: Node):
-            return Node(
+        def _out(child: Layout):
+            return Layout(
                 func=self.interaction_area,
                 hash=(child,),
                 min_size=child.min_size,
@@ -210,7 +210,7 @@ class NavState:
 def _render_read_box(
     interactible_id: InteractibleID,
     mouse_position: Coordinate,
-    child: Node,
+    child: Layout,
     frame: Frame,
     box: Box
 ) -> Result:

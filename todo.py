@@ -141,7 +141,7 @@ def item(item, id, nav: NavState):
     return adaptive_text(item.description)\
         | (combine(strike_through, fg(Colors.done)) if item.done else empty)\
         | styled(border, Style(fg=Colors.active if nav.is_active(id) else None))\
-        | limit_height(5)\
+        | clamp_height(5)\
         | (fg(Colors.was_active) if nav.was_active(id) else empty)\
 
 

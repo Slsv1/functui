@@ -8,7 +8,7 @@ BIG_INT = 2 ** 16
 class GridItem:
     box: Box
     borders: tuple
-    node: Node
+    node: Layout
 
 
 GetSize = Callable[[MeasureTextFunc, Rect, tuple[GridItem, ...]], tuple[int, ...]]

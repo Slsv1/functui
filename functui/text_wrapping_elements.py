@@ -104,7 +104,7 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, terminator: str = "
             max(sum(group.length for group in line) for line in lines),
             len(lines)
         )
-    return Node(
+    return Layout(
         func=adaptive_text,
         min_size=min_size,
         render=partial(_adaptive_text_render, span, justify, terminator),
@@ -127,7 +127,7 @@ def _adaptive_text_render(span: Span, justify: Justify, terminator: str, frame: 
         dx = 0
         for segment in chain.from_iterable(g.segments for g in line):
             res.draw_string_line(
-                frame.with_style(frame.default_style.combine(segment.style)), segment.text, box.offset + Coordinate(dx, dy)
+                frame.with_style(frame.default_style.combine(segment.style)), segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
     return res
