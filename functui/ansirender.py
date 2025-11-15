@@ -1,5 +1,5 @@
 from .classes import Color, CharStyle, CharType, MeasureTextFunc, Pixel, Coordinate, ResultData, Rect,\
-    MeasureTextFunc, DrawBox, DrawPixel, DrawCommand, ResultCreatedWith, Result, Node,\
+    MeasureTextFunc, DrawBox, DrawPixel, DrawCommand, ResultCreatedWith, Result, Layout,\
     layout_to_result
 from typing import Callable, Iterable
 from dataclasses import dataclass
@@ -36,8 +36,8 @@ class Screen:
 
             elif isinstance(command, DrawBox):
                 box = command.box
-                for x in range(box.offset.x, box.offset.x + box.width):
-                    for y in range(box.offset.y, box.offset.y + box.height):
+                for x in range(box.position.x, box.position.x + box.width):
+                    for y in range(box.position.y, box.position.y + box.height):
                         self.set(Coordinate(x, y), command.fill)
             else: #DrawStringLine
                 for delta_x, pixel in enumerate(command.string):
@@ -153,5 +153,5 @@ def result_to_str(result: Result) -> str:
     screen.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
     return render_ansi(screen) # 30 %
 
-def layout_to_str(layout: Node, dimensions: Rect) -> str:
+def layout_to_str(layout: Layout, dimensions: Rect) -> str:
     return result_to_str(layout_to_result(dimensions=dimensions, layout=layout))

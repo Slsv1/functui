@@ -3,7 +3,7 @@ from enum import IntFlag, auto
 from typing import NamedTuple, Iterable
 from dataclasses import dataclass
 from functools import partial
-from .classes import Pixel, Style, Coordinate, Node, min_size_constant, Result, Rect, Frame, Box
+from .classes import Pixel, Style, Coordinate, Layout, min_size_constant, Result, Rect, Frame, Box
 from math import floor
 
 # https://en.wikipedia.org/wiki/Braille_Patterns#Identifying.2C_naming_and_ordering
@@ -159,7 +159,7 @@ class BrailleCanvas:
 
 
 def plot(*lines: PlotXY):
-    return Node(
+    return Layout(
         func = plot,
         min_size = min_size_constant(Rect(1, 1)),
         render = partial(_plot_render, lines)
@@ -182,7 +182,7 @@ def _plot_render(lines: tuple[PlotXY, ...], frame: Frame, box: Box):
             res.draw_custom_pixel(Pixel(
                 char=sector_to_braille(part.sector),
                 style=frame.default_style.combine(part.style)
-            ), box.offset + Coordinate(x, y))
+            ), box.position + Coordinate(x, y))
         # res.draw_string_line(
         #     frame,
         #     "".join(sector_to_braille(i.sector) for i in line),

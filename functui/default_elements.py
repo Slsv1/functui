@@ -40,20 +40,20 @@ LRU_MAX_SIZE = 128
 
 def combine(*node_constructors: ElementConstructor) -> ElementConstructor:
     @applicable
-    def out(child: Node):
+    def out(child: Layout):
         rnode_constructors = reversed(node_constructors)
         return reduce(lambda a, b: b(a), rnode_constructors, child)
     return out
 
 def nothing():
-    return Node(
+    return Layout(
         func=nothing,
         min_size=min_size_constant(Rect(0, 0)),
         render=partial(lambda f, b: Result()),
     )
 
 @applicable
-def empty(node: Node):
+def empty(node: Layout):
     return node
 
 #
@@ -64,7 +64,7 @@ LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
 
 def text(string: str):
     split_string = tuple(string.split('\n'))
-    return Node(
+    return Layout(
         func=text,
         min_size = lambda measure_text, _: Rect(
             width=max([measure_text(i) for i in split_string]),
@@ -77,13 +77,13 @@ def text(string: str):
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     res = Result()
     for y, line in enumerate(text):
-        res.draw_string_line(frame, line, box.offset + Coordinate(0, y))
+        res.draw_string_line(frame, line, box.position + Coordinate(0, y))
     return res
 
 
 def vbar(char: str = "|"):
     """Vertical Bar"""
-    return Node(
+    return Layout(
         func=vbar,
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_vbar_render, char)
@@ -91,11 +91,11 @@ def vbar(char: str = "|"):
 @lru_cache(LRU_MAX_SIZE)
 def _vbar_render(char: str, frame: Frame, box: Box):
     res = Result()
-    res.draw_box(frame, char, Box(1, box.height, box.offset))
+    res.draw_box(frame, char, Box(1, box.height, box.position))
     return res
 
 def hbar(char: str = "-"):
-    return Node(
+    return Layout(
         func=hbar,
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_hbar_render, char)
@@ -103,7 +103,7 @@ def hbar(char: str = "-"):
 @lru_cache(LRU_MAX_SIZE)
 def _hbar_render(char: str, frame: Frame, box: Box):
     res = Result()
-    res.draw_box(frame, char, Box(box.width, 1, box.offset))
+    res.draw_box(frame, char, Box(box.width, 1, box.position))
     return res
 #
 # Border Elements
@@ -128,26 +128,26 @@ BORDER_ROUNDED = BorderStyle(
 )
 
 @applicable
-def border(child: Node):
-    return Node(
+def border(child: Layout):
+    return Layout(
         func=border,
         min_size=min_size_expand(child.min_size, 2, 2),
         render=partial(_border_render, child),
     )
 
 @lru_cache(LRU_MAX_SIZE)
-def _border_render(child: Node, frame: Frame, box: Box):
+def _border_render(child: Layout, frame: Frame, box: Box):
     style = BORDER_ROUNDED
     res = Result()
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.offset))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.offset))
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.offset + Coordinate(box.width-1, 0)))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.offset + Coordinate(0, box.height-1)))
-    res.draw_pixel(frame, fill=style.corner_tl, at=box.offset + Coordinate(0, 0))
-    res.draw_pixel(frame, fill=style.corner_tr, at=box.offset + Coordinate(box.width-1, 0))
-    res.draw_pixel(frame, fill=style.corner_br, at=box.offset + Coordinate(box.width-1, box.height-1))
-    res.draw_pixel(frame, fill=style.corner_bl, at=box.offset + Coordinate(0, box.height-1))
-    res.add_children_after([child.render(frame, box.shrink(1, 1, 1, 1))])
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+    res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
+    res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
+    res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
+    res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
+    res.add_children_after([child.render(frame, box.resize(-1, -1, -1, -1))])
     return res
 
 
@@ -172,39 +172,39 @@ def _border_render(child: Node, frame: Frame, box: Box):
 # def _set_pixel_style_render()
 
 
-def add_style(style: Style, child: Node):
-    return Node(
+def add_style(style: Style, child: Layout):
+    return Layout(
         func=add_style,
         min_size=child.min_size,
         render=partial(_add_style_render, child, style)
     )
-def _add_style_render(child: Node, style: Style, frame: Frame, box: Box):
+def _add_style_render(child: Layout, style: Style, frame: Frame, box: Box):
     return child.render(
         frame.with_style(frame.default_style.combine(style)),
         box
     )
-def force_style(style: Style, child: Node):
-    return Node(
+def force_style(style: Style, child: Layout):
+    return Layout(
         func=force_style,
         min_size=child.min_size,
         render=partial(_force_style_render, child, style)
     )
-def _force_style_render(child: Node, style: Style, frame: Frame, box: Box):
+def _force_style_render(child: Layout, style: Style, frame: Frame, box: Box):
     return child.render(
         frame.with_style(style),
         box
     )
 
 @applicable
-def bold(node: Node): return add_style(Style(char_style=CharStyle.BOLD), node)
+def bold(node: Layout): return add_style(Style(char_style=CharStyle.BOLD), node)
 @applicable
-def reverse(node: Node): return add_style(Style(char_style=CharStyle.REVERSED), node)
+def reverse(node: Layout): return add_style(Style(char_style=CharStyle.REVERSED), node)
 @applicable
-def underlined(node: Node): return add_style(Style(char_style=CharStyle.UNDERLINED), node)
+def underlined(node: Layout): return add_style(Style(char_style=CharStyle.UNDERLINED), node)
 @applicable
-def italic(node: Node): return add_style(Style(char_style=CharStyle.ITALIC), node)
+def italic(node: Layout): return add_style(Style(char_style=CharStyle.ITALIC), node)
 @applicable
-def strike_through(node: Node): return add_style(Style(char_style=CharStyle.STRIKE_THROUGH), node)
+def strike_through(node: Layout): return add_style(Style(char_style=CharStyle.STRIKE_THROUGH), node)
 
 # def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
 #         return child.render(
@@ -222,16 +222,16 @@ def bg(color: Any):
 
 def styled(element: ElementConstructor, style: Style):
     @applicable
-    def out(child: Node):
+    def out(child: Layout):
         composed_child = element(child)
-        return Node(
+        return Layout(
             func=styled,
             min_size=composed_child.min_size,
             render=partial(_styled_render, child, element, style)
         )
     return out
 
-def _styled_render(child: Node, element: ElementConstructor, style: Style, frame, box):
+def _styled_render(child: Layout, element: ElementConstructor, style: Style, frame, box):
     return add_style(style, element(
             force_style(frame.default_style, child)
         )
@@ -240,52 +240,52 @@ def _styled_render(child: Node, element: ElementConstructor, style: Style, frame
 # Containers
 #
 
-def static_box(children: Iterable[Node]):
+def static_box(children: Iterable[Layout]):
     children = tuple(children)
-    return Node(
+    return Layout(
         func=static_box,
         min_size=min_size_union([i.min_size for i in children]),
         render=partial(_static_box_render, children),
     )
-def _static_box_render(children: tuple[Node, ...], frame: Frame, box: Box):
+def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
     res = Result()
     for child in children:
         res.add_children_after([child.render(frame, box)])
     return res
 
-def vbox(children: Iterable[Node], at_y: int=0):
+def vbox(children: Iterable[Layout], at_y: int=0):
     children = tuple(children)
-    return Node(
+    return Layout(
         func=vbox,
         min_size=min_size_vertical([i.min_size for i in children]),
         render=partial(_vbox_render, children, at_y)
     )
 
 @lru_cache(LRU_MAX_SIZE)
-def _vbox_render(children: Iterable[Node], at_y: int, frame: Frame, box: Box):
+def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
         child_min_size = node.min_size(frame.measure_text, box.rect)
-        child_box = Box(box.width, child_min_size.height).offset_by(box.offset + Coordinate(0, at_y))
+        child_box = Box(box.width, child_min_size.height).offset_by(box.position + Coordinate(0, at_y))
         res.add_children_after([
                 node.render(frame.shrink_to(child_box.intersect(box)), child_box)
         ])
         at_y += child_box.height
     return res
 
-def hbox(children: Iterable[Node], at_x: int=0):
+def hbox(children: Iterable[Layout], at_x: int=0):
     children = tuple(children)
-    return Node(
+    return Layout(
         func=hbox,
         min_size=min_size_horizontal([i.min_size for i in children]),
         render=partial(_hbox_render, children, at_x)
     )
 @lru_cache(LRU_MAX_SIZE)
-def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
+def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
         child_min_size = node.min_size(frame.measure_text, box.rect)
-        child_box = Box(child_min_size.width, box.height).offset_by(box.offset + Coordinate(at_x, 0))
+        child_box = Box(child_min_size.width, box.height).offset_by(box.position + Coordinate(at_x, 0))
         res.add_children_after([
             node.render(frame.shrink_to(child_box.intersect(box)), child_box)
         ])
@@ -293,39 +293,39 @@ def _hbox_render(children: Iterable[Node], at_x: int, frame: Frame, box: Box):
     return res
 
 @applicable
-def center(child: Node):
-    return Node(
+def center(child: Layout):
+    return Layout(
         func=center,
         min_size=child.min_size,
         render=partial(_center_render, child)
     )
 
-def _center_render(child: Node, frame: Frame, box: Box):
+def _center_render(child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
     empty_space_x = _even_divide(box.width - min_size.width, 2)
     empty_space_y = _even_divide(box.height - min_size.height, 2)
     return child.render(
         frame,
-        box.shrink(
-            top=empty_space_y[0],
-            bottom=empty_space_y[1],
-            left=empty_space_x[0],
-            right=empty_space_x[1]
+        box.resize(
+            top=-empty_space_y[0],
+            bottom=-empty_space_y[1],
+            left=-empty_space_x[0],
+            right=-empty_space_x[1]
         )
     )
 #
 #
 def bg_fill_char(char: str):
     @applicable
-    def out(child: Node):
-        return Node(
+    def out(child: Layout):
+        return Layout(
             func=bg_fill_char,
             min_size=child.min_size,
             render=partial(_bg_fill_char_render, char, child)
         )
 
     return out
-def _bg_fill_char_render(char: str, child: Node, frame: Frame, box: Box):
+def _bg_fill_char_render(char: str, child: Layout, frame: Frame, box: Box):
     res = Result()
     res.draw_box(frame, char, box)
     res.add_children_after([child.render(frame, box)])
@@ -334,9 +334,9 @@ def _bg_fill_char_render(char: str, child: Node, frame: Frame, box: Box):
 bg_fill = bg_fill_char(" ")
 #
 #
-def border_with_title(title: Node, border_node=border):
+def border_with_title(title: Layout, border_node=border):
     @applicable
-    def out(child: Node):
+    def out(child: Layout):
         return static_box([
             border_node(child),
             shrink_y(shrink_by(0, 0, 1, 1)(title)),
@@ -361,29 +361,29 @@ def border_with_title(title: Node, border_node=border):
 
 @dataclass(frozen=True, eq=True)
 class Flex:
-    node: Node
+    node: Layout
     grow: int
     shrink: int
     basis: bool
 
 def flex_custom(grow=1, shrink=1, basis=False):
     @applicable
-    def out(node: Node):
+    def out(node: Layout):
         return Flex(node, grow, shrink, basis)
     return out
 
 @applicable
-def flex(node: Node):
+def flex(node: Layout):
     return flex_custom(1, 1, False)(node)
 
 @applicable
-def no_flex(node: Node):
+def no_flex(node: Layout):
     return flex_custom(0, 0, True)(node)
 
 
 def vbox_flex(children: Iterable[Flex]):
     children = tuple(children)
-    return Node(
+    return Layout(
         func=vbox_flex,
         min_size=min_size_vertical([i.node.min_size for i in children]),
         render=partial(_vbox_flex_render, children)
@@ -406,14 +406,14 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
             width=box.width,
             height=child_min_height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
         )
-        child_box = child_box.offset_by(box.offset + Coordinate(0, at_y))
+        child_box = child_box.offset_by(box.position + Coordinate(0, at_y))
         res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
         at_y += child_box.height
     return res
 
 def hbox_flex(children: Iterable[Flex]):
     children = tuple(children)
-    return Node(
+    return Layout(
         func=hbox_flex,
         min_size=min_size_horizontal([i.node.min_size for i in children]),
         render=partial(_hbox_flex_render, children)
@@ -434,7 +434,7 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
             width=child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
             height=box.height,
         )
-        child_box = child_box.offset_by(box.offset + Coordinate(at_x, 0))
+        child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))
         res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
         at_x += child_box.width
     return res
@@ -445,20 +445,20 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
 
 def _shrink_custom(x: bool, y: bool):
     @applicable
-    def out(child: Node):
-        return Node(
+    def out(child: Layout):
+        return Layout(
             func=_shrink_custom,
             min_size=child.min_size,
             render=partial(_shrink_render, x, y, child),
         )
     return out
 
-def _shrink_render(x: bool, y: bool, child: Node, frame: Frame, box: Box):
+def _shrink_render(x: bool, y: bool, child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
     child_box = Box(
         min_size.width if x else box.width,
         min_size.height if y else box.height,
-        box.offset
+        box.position
     )
     return child.render(frame, child_box)
 
@@ -473,49 +473,49 @@ def shrink_by(
     right: int = 0,
 ):
     @applicable
-    def out(child: Node):
-        return Node(
+    def out(child: Layout):
+        return Layout(
             func=shrink_by,
             min_size=min_size_expand(child.min_size, left+right, top+bottom),
             render=partial(_shrink_by_render, top, bottom, left, right ,child),
         )
     return out
 def _shrink_by_render(top, bottom, left, right, child, frame: Frame, box: Box):
-    return child.render(frame, box.shrink(top, bottom, left, right))
+    return child.render(frame, box.resize(-top, -bottom, -left, -right))
 
 
 def offset(x: int=0, y: int=0):
     coord = Coordinate(x, y)
     @applicable
-    def out(child: Node):
-        return Node(
+    def out(child: Layout):
+        return Layout(
             func=offset,
             min_size=min_size_expand(child.min_size, coord.x, coord.y),
             render=partial(_offset_render, coord, child),
         )
     return out
 @lru_cache(LRU_MAX_SIZE)
-def _offset_render(by: Coordinate, node: Node, frame: Frame, box: Box):
+def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
     return node.render(frame, box.offset_by(by))
 
-def limit_width(width: int):
+def clamp_width(width: int):
     @applicable
-    def out(child: Node):
-        return Node(
-            func=limit_width,
-            min_size=lambda mtf, r: child.min_size(mtf, r.limit_width(width)).limit_width(width),
+    def out(child: Layout):
+        return Layout(
+            func=clamp_width,
+            min_size=lambda mtf, r: child.min_size(mtf, r.clamp_width(width)).clamp_width(width),
             # here we have to sadly wrap in a partial
-            render=partial(lambda frame, box: child.render(frame, box.using_rect(box.rect.limit_width(width))))
+            render=partial(lambda frame, box: child.render(frame, box.using_rect(box.rect.clamp_width(width))))
         )
     return out
 
-def limit_height(height: int):
+def clamp_height(height: int):
     @applicable
-    def out(child: Node):
-        return Node(
-            func=limit_height,
-            min_size=lambda mtf, r: child.min_size(mtf, r.limit_height(height)).limit_height(height),
-            render=partial(lambda frame, box: child.render(frame, box.using_rect(box.rect.limit_height(height))))
+    def out(child: Layout):
+        return Layout(
+            func=clamp_height,
+            min_size=lambda mtf, r: child.min_size(mtf, r.clamp_height(height)).clamp_height(height),
+            render=partial(lambda frame, box: child.render(frame, box.using_rect(box.rect.clamp_height(height))))
         )
     return out
 
@@ -529,7 +529,7 @@ def limit_height(height: int):
 # # ╵╷│
 #
 def h_guage(progress: int):
-    return Node(
+    return Layout(
         func=h_guage,
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_h_guage_render, "#", progress),
@@ -540,14 +540,14 @@ def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box) ->
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = start_at_pixel - start_at_pixel_int
     res = Result()
-    res.draw_box(frame, progress_str[0], Box(start_at_pixel_int, 1 ,box.offset))
-    res.draw_pixel(frame, progress_str[(len(progress_str)-1) * start_at_progress], box.offset + Coordinate(start_at_pixel_int, 0))
+    res.draw_box(frame, progress_str[0], Box(start_at_pixel_int, 1 ,box.position))
+    res.draw_pixel(frame, progress_str[(len(progress_str)-1) * start_at_progress], box.position + Coordinate(start_at_pixel_int, 0))
     return res
 
 
 
 def v_scroll_bar(start: float, showing: float):
-    return Node(
+    return Layout(
         func=v_scroll_bar,
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_v_scroll_bar_render, start, showing)
@@ -581,9 +581,9 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
     res = Result()
     for i in range(box.height):
         if i == start_at_pixel_int:
-            res.draw_pixel(frame, start_char, box.offset + Coordinate(0, i))
+            res.draw_pixel(frame, start_char, box.position + Coordinate(0, i))
         elif i == end_at_pixel_int:
-            res.draw_pixel(frame, end_char, box.offset + Coordinate(0, i))
+            res.draw_pixel(frame, end_char, box.position + Coordinate(0, i))
         elif start_at_pixel_int < i < end_at_pixel_int:
-            res.draw_pixel(frame, "│", box.offset + Coordinate(0, i))
+            res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
     return res

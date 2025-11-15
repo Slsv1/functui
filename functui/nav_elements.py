@@ -21,7 +21,7 @@ UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(
         state: NavState,
         key: InteractibleID,
-        children: Iterable[tuple[InteractibleID, Node]],
+        children: Iterable[tuple[InteractibleID, Layout]],
         # scroll_bar_key: InteractibleID = EMPTY_INTERACTIBLE,
         # render=lambda,
         # scroll_bar: Callable[[_VboxRenderParams], Node] = lambda start, showing, state, key: nothing()# (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),
@@ -37,14 +37,14 @@ def vbox_scroll(
             selected_index = i
     # we need a custom node here so that we can get the available_height
 
-    return Node(
+    return Layout(
         func=vbox_scroll,
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
         render=partial(_vbox_scroll_render, key, tuple(child_nodes), selected_index, direction_down, state.try_state(key, int))
     )
 def _vbox_scroll_render(
         key: InteractibleID,
-        child_nodes: tuple[Node],
+        child_nodes: tuple[Layout],
         selected_index: int | None,
         direction_down: bool,
         last_at_y: int | None,

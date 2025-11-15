@@ -19,14 +19,7 @@ class Applicable[T, U]:
 
 def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
     return func
-    """ Allows functions that take in a signle argument to be called with the following
-    syntax 
-    ```
-    foo ** bar ** baz
-    # same as
-    foo(bar(baz))
-    ```"""
-    return Applicable(func)
+    # return Applicable(func)
 
 #
 # General Data Structures
@@ -34,6 +27,12 @@ def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
 
 @dataclass(frozen=True, eq=True)
 class Coordinate:
+    """An immutable coordinate in 2d space
+
+    Attributes: 
+        x:
+        y:
+    """
     x: int
     y: int
     def __add__(self, other):
@@ -43,95 +42,222 @@ class Coordinate:
 
 @dataclass(frozen=True, eq=True)
 class Rect:
+    """A simple immutable rectangle defined by width and height.
+
+    Attributes:
+        width:
+        height:
+    """
+
     width: int
     height: int
-    def expand(self, width: int=0, height: int=0) -> Self:
+
+    def resize(self, width: int = 0, height: int = 0) -> Self:
+        """Returns a new Rect resized by expanding or shrinking.
+
+        Positive values expand; negative values shrink.
+
+        Args:
+            width: Amount to expand (or shrink) on the x axis.
+            height: Amount to expand (or shrink) on the y axis.
+
+        Returns: A new rectangle with altered size.
+        """
         return self.__class__(
-            width = self.width + width,
-            height = self.height + height,
-        )
-    def union(self, other: Self) -> Self:
-        return self.__class__(
-            width = self.width if other.width < self.width else other.width,
-            height = self.height if other.height < self.height else other.height,
-        )
-    def limit(self, other: Self) -> Self:
-        """if box width or hight is bigger than other, then scale down"""
-        return self.__class__(
-            width = self.width if other.width > self.width else other.width,
-            height = self.height if other.height > self.height else other.height,
-        )
-    def limit_width(self, width: int) -> Self:
-        return self.__class__(
-            width = self.width if width > self.width else width,
-            height = self.height
-        )
-    def limit_height(self, height: int) -> Self:
-        return self.__class__(
-            width = self.width,
-            height = self.height if height > self.height else height,
+            width=self.width + width,
+            height=self.height + height,
         )
 
+    def union(self, other: Self) -> Self:
+        """Returns a rectangle representing the maximum dimensions of this and another.
+
+        Effectively selects the largest width and height between the two rectangles.
+
+        Args:
+            other: The rectangle to compare against.
+
+        Returns:
+            Rect: A new rectangle whose dimensions are the max of the two.
+        """
+        return self.__class__(
+            width=self.width if other.width < self.width else other.width,
+            height=self.height if other.height < self.height else other.height,
+        )
+
+    def clamp(self, other: Self) -> Self:
+        """Returns a rectangle clamped so its dimensions do not exceed another rectangle.
+
+        Effectively selects the minimum width and height between the two rectangles.
+
+        Args:
+            other: The rectangle whose dimensions act as an upper bound.
+
+        Returns:
+            Rect: A new rectangle whose dimensions are the min of the two.
+        """
+        return self.__class__(
+            width=self.width if other.width > self.width else other.width,
+            height=self.height if other.height > self.height else other.height,
+        )
+
+    def clamp_width(self, width: int) -> Self:
+        """Returns a rectangle with its width limited to a maximum value.
+
+        Args:
+            width: The maximum allowed width.
+
+        Returns:
+            Rect: A new rectangle with width clamped to at most the given value.
+        """
+        return self.__class__(
+            width=self.width if width > self.width else width,
+            height=self.height,
+        )
+
+    def clamp_height(self, height: int) -> Self:
+        """Returns a rectangle with its height limited to a maximum value.
+
+        Args:
+            height: The maximum allowed height.
+
+        Returns:
+            Rect: A new rectangle with height clamped to at most the given value.
+        """
+        return self.__class__(
+            width=self.width,
+            height=self.height if height > self.height else height,
+        )
 @dataclass(frozen=True, eq=True)
 class Box:
+    """An immutable rectangle defined by width, height and position.
+
+    Attributes:
+        width: The rectangle's width.
+        height: The rectangle's height.
+        position: The rectangle's position.
+    """
     width: int
     height: int
-    offset: Coordinate = Coordinate(0, 0)
-    def shrink(
+    position: Coordinate = Coordinate(0, 0)
+    def resize(
         self,
         top: int = 0,
         bottom: int = 0,
         left: int = 0,
         right: int = 0,
     ) -> Self:
+        """Returns a new box resized by expanding or shrinking each side.
+
+        Positive values expand outward; negative values shrink inward.
+
+        Args:
+            top: Amount to expand (or shrink) upward. Defaults to 0.
+            bottom: Amount to expand downward. Defaults to 0.
+            left: Amount to expand leftward. Defaults to 0.
+            right: Amount to expand rightward. Defaults to 0.
+
+        Returns:
+            A new box with adjusted width, height, and shifted position.
+        """
         return self.__class__(
-            width=self.width - left - right,
-            height=self.height - top - bottom,
-            offset=self.offset + Coordinate(left, top)
+            width=self.width + left + right,
+            height=self.height + top + bottom,
+            position=self.position - Coordinate(left, top)
         )
     @property
     def rect(self) -> Rect:
+        """Returns a Rect representing only this box's size.
+
+        Returns:
+            A rectangle with the same width and height as the box.
+        """
         return Rect(self.width, self.height)
 
     def using_rect(self, rect: Rect):
+        """Returns a copy of this box but with dimensions replaced by a Rect.
+
+        Args:
+            rect: The rectangle whose width and height should be applied.
+
+        Returns:
+            A new box with updated width and height, unchanged position.
+        """
         return self.__class__(
             height=rect.height,
             width=rect.width,
-            offset=self.offset
+            position=self.position
         )
 
     def intersect(self, other: Self) -> Self:
-        x1 = max(self.offset.x, other.offset.x)
-        x2 = min(self.offset.x+self.width, other.offset.x+other.width)
-        y1 = max(self.offset.y, other.offset.y)
-        y2 = min(self.offset.y+self.height, other.offset.y+other.height)
+        """Returns the intersection region between this box and another.
+
+        If the boxes do not overlap, the resulting width or height may be zero
+        or negative, depending on the input.
+
+        Args:
+            other: The box to intersect with.
+
+        Returns:
+            A new box representing the overlap region.
+        """
+        x1 = max(self.position.x, other.position.x)
+        x2 = min(self.position.x+self.width, other.position.x+other.width)
+        y1 = max(self.position.y, other.position.y)
+        y2 = min(self.position.y+self.height, other.position.y+other.height)
         return self.__class__(
             height=y2-y1,
             width=x2-x1,
-            offset=Coordinate(x1, y1),
+            position=Coordinate(x1, y1),
         )
 
-    def offset_by(self, coordinate: Coordinate):
-        return Box(
+    def offset_by(self, coordinate: Coordinate) -> Self:
+        """Returns a new box moved by the given coordinate offset.
+
+        Args:
+            coordinate: The (dx, dy) offset to apply.
+
+        Returns:
+            A new box shifted by the provided coordinate.
+        """
+        return self.__class__(
             width=self.width,
             height=self.height,
-            offset=self.offset + coordinate
+            position=self.position + coordinate
         )
 
     def union(self, other: Self) -> Self:
-        x1 = min(self.offset.x, other.offset.x)
-        x2 = max(self.offset.x+self.width, other.offset.x+other.width)
-        y1 = min(self.offset.y, other.offset.y)
-        y2 = max(self.offset.y+self.height, other.offset.y+other.height)
+        """Returns the smallest box that fully contains both this box and another.
+
+        Args:
+            other: The box to union with.
+
+        Returns:
+            A new box representing the bounding rectangle of both boxes.
+        """
+        x1 = min(self.position.x, other.position.x)
+        x2 = max(self.position.x+self.width, other.position.x+other.width)
+        y1 = min(self.position.y, other.position.y)
+        y2 = max(self.position.y+self.height, other.position.y+other.height)
         return self.__class__(
             height=y2-y1,
             width=x2-x1,
-            offset=Coordinate(x1, y1),
+            position=Coordinate(x1, y1),
         )
 
     def is_point_inside(self, point: Coordinate):
-        return self.offset.x <= point.x < (self.offset.x + self.width)\
-            and self.offset.y <= point.y < (self.offset.y + self.height) 
+        """Determines whether a point lies within the box's boundaries.
+
+        The check uses half-open bounds: inclusive of the top/left edges,
+        exclusive of the bottom/right edges.
+
+        Args:
+            point: The point to test.
+
+        Returns:
+            True if the point lies inside the box, else False.
+        """
+        return self.position.x <= point.x < (self.position.x + self.width)\
+            and self.position.y <= point.y < (self.position.y + self.height) 
 
 class CharStyle(Flag):
     BOLD = auto()
@@ -225,7 +351,6 @@ type MeasureTextFunc = Callable[[str], int]
 
 @dataclass(frozen=True, eq=True)
 class Frame:
-    """a view on to the canvas"""
     view_box: Box
     screen_rect: Rect
     default_style: Style
@@ -248,7 +373,8 @@ class Frame:
         )
 
 type MinSize = Callable[[MeasureTextFunc, Rect], Rect]
-type ElementConstructor = Applicable[Node, Node]
+"""A Function that returns a [functui.clases.Layout][]s minimum size."""
+type ElementConstructor = Applicable[Layout, Layout]
 
 # minsize util functions
 
@@ -258,7 +384,7 @@ def min_size_expand(
     height_change: int
 ) -> MinSize:
     def out(measure_text: MeasureTextFunc, from_size: Rect):
-        return child_size(measure_text, from_size.expand(-width_change, -height_change)).expand(width_change, height_change)
+        return child_size(measure_text, from_size.resize(-width_change, -height_change)).resize(width_change, height_change)
     return out
 
 def min_size_vertical(
@@ -359,22 +485,22 @@ class Result:
         #         |   |
         #         #---#
         #       content
-        if at.y < bounds.offset.y or at.y >= bounds.offset.y + bounds.height:
+        if at.y < bounds.position.y or at.y >= bounds.position.y + bounds.height:
             return
 
         content_len = frame.measure_text(content)
-        outer_x_bound = bounds.offset.x + bounds.width
+        outer_x_bound = bounds.position.x + bounds.width
         #         #---#
         # content |   | content
         #         #---#
-        if at.x +content_len < bounds.offset.x or at.x >= outer_x_bound:
+        if at.x +content_len < bounds.position.x or at.x >= outer_x_bound:
             return
 
         # find initial x offset
         #         #---#
         #    content  |
         #    ^^^^^#---#
-        required_offset = bounds.offset.x - at.x
+        required_offset = bounds.position.x - at.x
         x_content_offset = 0
         char_offset = 0
         if required_offset > 0:
@@ -429,11 +555,17 @@ class Result:
 
 
 @dataclass(eq=True, frozen=True)
-class Node:
+class Layout:
+    """An immutable layout that can be rendered as a string
+
+    Attributes:
+        func: The function that returned this layout. Used to give this layout a name.
+        min_size: Function that returns
+
+    """
     func: Callable
     min_size: MinSize
     render: partial[Result]
-    """chould take in frame and box as first two args"""
 
     def __or__(self, other):
         return other(self)
@@ -453,7 +585,7 @@ class ResultCreatedWith(ResultData):
     def create_dummy(cls):
         raise RuntimeError("Result should not be merged with with this data")
 
-def layout_to_result(dimensions: Rect, layout: Node, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
+def layout_to_result(dimensions: Rect, layout: Layout, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
     result = layout.render(
         Frame(
             screen_rect=dimensions,
