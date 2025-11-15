@@ -1,6 +1,7 @@
 site_name: My Docs
 
 plugins:
+  - mkdocs_plugin:
   - search:
   - mkdocstrings:
       default_handler: python
