@@ -79,7 +79,6 @@ def text(string: str):
     """A simple text node.
 
     Examples:
-        The string may include new line characters which will wrap the string.
         >>> from functui import layout_to_str, Rect
         >>> from functui.common import text
         >>> layout = text("foo\\nbar\\nbaz")
@@ -360,7 +359,32 @@ def _styled_render(child: Layout, node: WrapperNode, style: Style, frame, box):
 # Containers
 #
 
-def static_box(children: Iterable[Layout]):
+def static_box(children: Iterable[Layout]) -> Layout:
+    """A container node that does not arrange its children in any way
+    
+    Usefull if you want to draw nodes on top of each other.
+
+    Args:
+        children:
+            Children will be rendered in order.
+            (First child rendered first)
+    Examples:
+        >>> from functui import Rect, layout_to_str
+        >>> from functui.common import *
+        >>> layout = static_box([
+        ...     text("first") | border | shrink,
+        ...     text("second") | border | shrink | offset(1, 2)
+        ... ]) | border
+        >>> print(layout_to_str(layout, Rect(10, 8)))
+        ┌────────┐
+        │┌─────┐ │
+        ││first│ │
+        │└┌──────│
+        │ │second│
+        │ └──────│
+        │        │
+        └────────┘
+    """
     children = tuple(children)
     return Layout(
         func=static_box,
@@ -370,10 +394,20 @@ def static_box(children: Iterable[Layout]):
 def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
     res = Result()
     for child in children:
-        res.add_children_after([child.render(frame, box)])
+        res.add_children_after([child.render(frame.shrink_to(box), box)])
     return res
 
 def vbox(children: Iterable[Layout], at_y: int=0):
+    """A container node that arranges its chilren verticaly.
+
+    Children will be shrunk to their minimum size along the y axis.
+
+    Args:
+        children:
+        at_y:
+            Y coordinate to start rendering children at.
+            Usefull for implementing scrolling.
+    """
     children = tuple(children)
     return Layout(
         func=vbox,
@@ -394,6 +428,16 @@ def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
     return res
 
 def hbox(children: Iterable[Layout], at_x: int=0):
+    """A container node that arranges its chilren Horizontaly.
+
+    Children will be shrunk to their minimum size along the x axis.
+
+    Args:
+        children:
+        at_x:
+            X coordinate to start rendering children at.
+            Usefull for implementing scrolling.
+    """
     children = tuple(children)
     return Layout(
         func=hbox,
@@ -414,6 +458,7 @@ def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
 
 @applicable
 def center(child: Layout):
+    """Shrink and center child layout in remaining space"""
     return Layout(
         func=center,
         min_size=child.min_size,
@@ -436,6 +481,7 @@ def _center_render(child: Layout, frame: Frame, box: Box):
 #
 #
 def bg_char(char: str):
+    """Fill background with char"""
     @applicable
     def out(child: Layout):
         return Layout(
@@ -455,6 +501,11 @@ bg_fill = bg_char(" ")
 #
 #
 def border_with_title(title: Layout, border_node=border):
+    """Border with a title attached on top.
+
+    Args:
+        title: Layout to render on top.
+        border_node: WrapperNode to put around child layout."""
     @applicable
     def out(child: Layout):
         return static_box([
@@ -592,7 +643,7 @@ def shrink_by(
     left: int = 0,
     right: int = 0,
 ):
-    @applicable
+    """Shrink a layout by differences"""
     def out(child: Layout):
         return Layout(
             func=shrink_by,
@@ -604,9 +655,12 @@ def _shrink_by_render(top, bottom, left, right, child, frame: Frame, box: Box):
     return child.render(frame, box.resize(-top, -bottom, -left, -right))
 
 
-def offset(x: int=0, y: int=0):
+def offset(x: int=0, y: int=0) -> WrapperNode:
+    """Offset layout by a difference
+
+    Positive values move down and right.
+    Negative values of move up and left."""
     coord = Coordinate(x, y)
-    @applicable
     def out(child: Layout):
         return Layout(
             func=offset,
@@ -619,7 +673,7 @@ def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
     return node.render(frame, box.offset_by(by))
 
 def clamp_width(width: int):
-    @applicable
+    """Limit width of a child layout"""
     def out(child: Layout):
         return Layout(
             func=clamp_width,
@@ -630,7 +684,7 @@ def clamp_width(width: int):
     return out
 
 def clamp_height(height: int):
-    @applicable
+    """Limit height of a child layout"""
     def out(child: Layout):
         return Layout(
             func=clamp_height,

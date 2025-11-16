@@ -1,9 +1,7 @@
 from functui import Rect, layout_to_str
 from functui.common import *
-
-layout = vbox([
-    text("foo"),
-    hbox([text("bar"), vbar(), text("buz")]) | border,
+layout = static_box([
+    text("first") | border | shrink,
+    text("second") | border | shrink | offset(1, 2)
 ]) | border
-
-print(layout_to_str(layout, Rect(20, 9)))
+print(layout_to_str(layout, Rect(10, 8)))
