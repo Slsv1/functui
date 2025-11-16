@@ -38,7 +38,7 @@ Nodes are often called with the pipe `|` syntax. The example layout is identical
     layout = bg_char(".")(center(border(text("Welcome to the functui introduction"))))
 
 
-:func:`border` and :func:`center` are wrapper nodes. A node returns a :class:`~functui.classes.Layout` which can be expanded on by wrapper nodes. 
+border and center are wrapper nodes. A node returns a :class:`~functui.classes.Layout` which can be expanded on by wrapper nodes. 
 In the above example the text node returned a layout that got 'piped' into the border node.
 The border node expanded the layout (by adding a border) and then returned a new layout.
 But wrapper nodes have more functionality apart from adding visuals.
@@ -48,7 +48,8 @@ But wrapper nodes have more functionality apart from adding visuals.
     By default layouts take up as much space as they can.
     Wrapper nodes limits their children's sizes and decide their position.
 
-A good example of a wrapper node limiting their childrens size is the :func:`~center` node.
+A good example of a wrapper node limiting their childrens size
+is the center node.
 First it limits its child to its minimum size,
 and then centers it in the remaining space.
 If the example code did not have the center node,
@@ -79,7 +80,8 @@ Expected output:
 
 Rendering
 ---------
-To render a layout you can simply use the :func:`~functui.renderansi.layout_to_str` function with a :class:`functui.classes.Rect` to specifiy dimensions.
+To render a layout you can simply use the :func:`~functui.renderansi.layout_to_str`
+function with a :class:`~functui.classes.Rect` to specifiy dimensions.
 
 .. tip::
 
