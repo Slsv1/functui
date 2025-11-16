@@ -1,9 +1,7 @@
-# bonjour2
+Common
+======
 
-hej
-
-
-```{eval-rst}
 .. automodule:: functui.common
    :members:
-```
+
+
