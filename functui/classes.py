@@ -7,7 +7,10 @@ import wcwidth
 #
 # utilities
 #
+def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
+def even_divide(num, denomenator) -> list[int]:
+    return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
 
 @dataclass(frozen=True)
 class Applicable[T, U]:

@@ -1,6 +1,7 @@
+"""Interactible Nodes"""
 from .nav import *
 from .classes import *
-from .default_elements import *
+from .common import *
 from typing import NamedTuple
 
 # class _VboxRenderParams(NamedTuple):
