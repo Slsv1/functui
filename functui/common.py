@@ -43,13 +43,13 @@ def combine(*wrapper_nodes: WrapperNode) -> WrapperNode:
         >>> text("hi") | border | center == text("hi") | border | center
         True
     """
-    @applicable
     def out(child: Layout):
         # wrapper_nodesr = reversed(wrapper_nodes)
         return reduce(lambda a, b: b(a), wrapper_nodes, child)
     return out
 
 def nothing():
+    """A dummy node for situations where a node is required but not needed"""
     return Layout(
         func=nothing,
         min_size=min_size_constant(Rect(0, 0)),
@@ -67,6 +67,19 @@ def empty(node: Layout):
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 def text(string: str):
+    """A simple text node
+
+    Examples:
+        >>> from functui import layout_to_str, Rect
+        >>> from functui.common import text
+        >>> layout = text("foo\nbar\nbaz")
+        >>> print(layout_to_str(layout, Rect(3, 3)))
+        foo
+        bar
+        baz
+
+    Args:
+        string: A string that may include new line characters."""
     split_string = tuple(string.split('\n'))
     return Layout(
         func=text,
@@ -99,11 +112,13 @@ def _vbar_render(char: str, frame: Frame, box: Box):
     return res
 
 def hbar(char: str = "-"):
+    """Horizonatal Rule"""
     return Layout(
         func=hbar,
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_hbar_render, char)
     )
+
 @lru_cache(LRU_MAX_SIZE)
 def _hbar_render(char: str, frame: Frame, box: Box):
     res = Result()
@@ -130,18 +145,53 @@ BORDER_ROUNDED = BorderStyle(
     corner_bl="╰",
     corner_br="╯",
 )
+BORDER_REGULAR = BorderStyle(
+    line_v="│",
+    line_h="─",
+    corner_tl="┌",
+    corner_tr="┐",
+    corner_bl="└",
+    corner_br="┘",
+)
 
-@applicable
-def border(child: Layout):
-    return Layout(
-        func=border,
-        min_size=min_size_expand(child.min_size, 2, 2),
-        render=partial(_border_render, child),
-    )
+BORDER_THICK = BorderStyle(
+    line_v="┃",
+    line_h="━",
+    corner_tl="┏",
+    corner_tr="┓",
+    corner_bl="┗",
+    corner_br="┛",
+)
+
+BORDER_DOUBLE = BorderStyle(
+    line_v="║",
+    line_h="═",
+    corner_tl="╔",
+    corner_tr="╗",
+    corner_bl="╚",
+    corner_br="╝",
+)
+
+def custom_border(style: BorderStyle) -> WrapperNode:
+    def out(child: Layout):
+        return Layout(
+            func=custom_border,
+            min_size=min_size_expand(child.min_size, 2, 2),
+            render=partial(_border_render, style, child),
+        )
+    return out
+
+border = custom_border(style=BORDER_REGULAR)
+"""Puts a border around a layout"""
+border_rounded = custom_border(style=BORDER_ROUNDED)
+"""Puts a rounded border around a layout"""
+border_thick = custom_border(style=BORDER_THICK)
+"""Puts a thick border around a layout"""
+border_double = custom_border(style=BORDER_DOUBLE)
+"""Puts a double border around a layout"""
 
 @lru_cache(LRU_MAX_SIZE)
-def _border_render(child: Layout, frame: Frame, box: Box):
-    style = BORDER_ROUNDED
+def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
     res = Result()
     res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
     res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
@@ -199,8 +249,8 @@ def _force_style_render(child: Layout, style: Style, frame: Frame, box: Box):
         box
     )
 
-@applicable
 def bold(node: Layout): return add_style(Style(char_style=CharStyle.BOLD), node)
+"""Style all descendants as bold"""
 @applicable
 def reverse(node: Layout): return add_style(Style(char_style=CharStyle.REVERSED), node)
 @applicable
@@ -224,19 +274,19 @@ def fg(color: Any):
 def bg(color: Any):
     return applicable(partial(add_style, Style(bg=color)))
 
-def styled(element: ElementConstructor, style: Style):
+def styled(node: WrapperNode, style: Style):
     @applicable
     def out(child: Layout):
-        composed_child = element(child)
+        composed_child = node(child)
         return Layout(
             func=styled,
             min_size=composed_child.min_size,
-            render=partial(_styled_render, child, element, style)
+            render=partial(_styled_render, child, node, style)
         )
     return out
 
-def _styled_render(child: Layout, element: ElementConstructor, style: Style, frame, box):
-    return add_style(style, element(
+def _styled_render(child: Layout, node: WrapperNode, style: Style, frame, box):
+    return add_style(style, node(
             force_style(frame.default_style, child)
         )
     ).render(frame, box)
@@ -319,23 +369,23 @@ def _center_render(child: Layout, frame: Frame, box: Box):
     )
 #
 #
-def bg_fill_char(char: str):
+def bg_char(char: str):
     @applicable
     def out(child: Layout):
         return Layout(
-            func=bg_fill_char,
+            func=bg_char,
             min_size=child.min_size,
-            render=partial(_bg_fill_char_render, char, child)
+            render=partial(_bg_char_render, char, child)
         )
 
     return out
-def _bg_fill_char_render(char: str, child: Layout, frame: Frame, box: Box):
+def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
     res = Result()
     res.draw_box(frame, char, box)
     res.add_children_after([child.render(frame, box)])
     return res
 
-bg_fill = bg_fill_char(" ")
+bg_fill = bg_char(" ")
 #
 #
 def border_with_title(title: Layout, border_node=border):

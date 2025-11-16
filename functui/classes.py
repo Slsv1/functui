@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Self, Iterable, Any
+from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias
 from enum import Enum, Flag, auto
 from abc import ABC, abstractmethod
 from functools import partial
@@ -11,6 +11,24 @@ def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
 def even_divide(num, denomenator) -> list[int]:
     return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
+
+def intersperse[T](iterable: Iterable[T], sep: T) -> Iterable[T]:
+    """Yield elements with sep inserted between them.
+
+    Example:
+        >>> from functui.classes import intersperse
+        >>> list(intersperse([1, 2, 3], 0))
+        [1, 0, 2, 0, 3]
+    """
+    iterator = iter(iterable)
+    try:
+        first = next(iterator)
+    except StopIteration:
+        return
+    yield first
+    for item in iterator:
+        yield sep
+        yield item
 
 @dataclass(frozen=True)
 class Applicable[T, U]:
@@ -349,8 +367,17 @@ class DrawStringLine:
     string: tuple[Pixel]
     at: Coordinate
 
-type DrawCommand = DrawPixel | DrawBox | DrawStringLine
-type MeasureTextFunc = Callable[[str], int]
+DrawCommand: TypeAlias = DrawPixel | DrawBox | DrawStringLine
+
+class MeasureTextFunc(Protocol):
+    """A function that measures how long a string is when it is printed.
+
+    Args:
+        string (str)
+    Returns:
+        int: Printed length of the string"""
+    def __call__(self, string: str, /) -> int:
+        ...
 
 @dataclass(frozen=True, eq=True)
 class Frame:
@@ -375,9 +402,31 @@ class Frame:
             measure_text=self.measure_text,
         )
 
-type MinSize = Callable[[MeasureTextFunc, Rect], Rect]
-"""A Function that returns a [functui.clases.Layout][]s minimum size."""
-type ElementConstructor = Applicable[Layout, Layout]
+
+class MinSize(Protocol):
+    """A function that returns a :obj:`Layout`'s minimum size.
+
+    Args:
+        measure_text (MeasureTextFunc):
+        rect (Rect):
+            Available space for the layout. 
+            Useful for implementing text wrapping, where the layouts height depends on available width.
+    Returns:
+        Rect: A Layout's minium size.
+    """
+    def __call__(self, measure_text: MeasureTextFunc, rect: Rect, /) -> Rect:
+        ...
+
+
+class WrapperNode(Protocol):
+    """A function that creates a layout based on a child layout.
+
+    Args:
+        child_layout (Layout):
+    Returns:
+        Layout: New layout based on child."""
+    def __call__(self, child_layout: Layout, /) -> Layout:
+        ...
 
 # minsize util functions
 
