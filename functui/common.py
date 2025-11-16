@@ -35,12 +35,12 @@ LRU_MAX_SIZE = 128
 #
 
 def combine(*wrapper_nodes: WrapperNode) -> WrapperNode:
-    """Combines multiple wrapper nodes into one
+    """Combines multiple wrapper nodes into one.
 
-    Example:
+    Examples:
         >>> from functui.common import *
         >>> border_and_center = combine(border, center)
-        >>> text("hi") | border | center == text("hi") | border | center
+        >>> text("hi") | border | center == text("hi") | border_and_center
         True
     """
     def out(child: Layout):
@@ -49,15 +49,24 @@ def combine(*wrapper_nodes: WrapperNode) -> WrapperNode:
     return out
 
 def nothing():
-    """A dummy node for situations where a node is required but not needed"""
+    """A dummy node for situations where a node is required but not needed."""
+
     return Layout(
         func=nothing,
         min_size=min_size_constant(Rect(0, 0)),
         render=partial(lambda f, b: Result()),
     )
 
-@applicable
 def empty(node: Layout):
+    """A dummy wrapper node for situation when a wrapper node is required but not needed.
+
+    This wrapper node may be usefull if you are for example making a button which gets a border around it if it is selected.
+
+    Examples:
+        >>> from functui.common import *
+        >>> selected = True
+        >>> layout = (border if selected else empty) | border
+    """
     return node
 
 #
@@ -67,12 +76,13 @@ def empty(node: Layout):
 LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 def text(string: str):
-    """A simple text node
+    """A simple text node.
 
     Examples:
+        The string may include new line characters which will wrap the string.
         >>> from functui import layout_to_str, Rect
         >>> from functui.common import text
-        >>> layout = text("foo\nbar\nbaz")
+        >>> layout = text("foo\\nbar\\nbaz")
         >>> print(layout_to_str(layout, Rect(3, 3)))
         foo
         bar
@@ -112,7 +122,7 @@ def _vbar_render(char: str, frame: Frame, box: Box):
     return res
 
 def hbar(char: str = "-"):
-    """Horizonatal Rule"""
+    """Horizonatal Bar"""
     return Layout(
         func=hbar,
         min_size=min_size_constant(Rect(1, 1)),
@@ -226,9 +236,9 @@ def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
 # def _set_pixel_style_render()
 
 
-def add_style(style: Style, child: Layout):
+def _add_style(style: Style, child: Layout):
     return Layout(
-        func=add_style,
+        func=_add_style,
         min_size=child.min_size,
         render=partial(_add_style_render, child, style)
     )
@@ -237,9 +247,9 @@ def _add_style_render(child: Layout, style: Style, frame: Frame, box: Box):
         frame.with_style(frame.default_style.combine(style)),
         box
     )
-def force_style(style: Style, child: Layout):
+def _force_style(style: Style, child: Layout):
     return Layout(
-        func=force_style,
+        func=_force_style,
         min_size=child.min_size,
         render=partial(_force_style_render, child, style)
     )
@@ -249,16 +259,46 @@ def _force_style_render(child: Layout, style: Style, frame: Frame, box: Box):
         box
     )
 
-def bold(node: Layout): return add_style(Style(char_style=CharStyle.BOLD), node)
-"""Style all descendants as bold"""
-@applicable
-def reverse(node: Layout): return add_style(Style(char_style=CharStyle.REVERSED), node)
-@applicable
-def underlined(node: Layout): return add_style(Style(char_style=CharStyle.UNDERLINED), node)
-@applicable
-def italic(node: Layout): return add_style(Style(char_style=CharStyle.ITALIC), node)
-@applicable
-def strike_through(node: Layout): return add_style(Style(char_style=CharStyle.STRIKE_THROUGH), node)
+def bold(node: Layout):
+    """Style all descendants as bold.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _add_style(Style(char_style=CharStyle.BOLD), node)
+
+def reverse(node: Layout):
+    """Style all descendants as reverse.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _add_style(Style(char_style=CharStyle.REVERSED), node)
+
+def underlined(node: Layout):
+    """Style all descendants as underlined.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _add_style(Style(char_style=CharStyle.UNDERLINED), node)
+
+def italic(node: Layout):
+    """Style all descendants as italic.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _add_style(Style(char_style=CharStyle.ITALIC), node)
+
+def strike_through(node: Layout):
+    """Style all descendants as strike_through.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _add_style(Style(char_style=CharStyle.STRIKE_THROUGH), node)
+
 
 # def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
 #         return child.render(
@@ -269,13 +309,39 @@ def strike_through(node: Layout): return add_style(Style(char_style=CharStyle.ST
 #             )),
 #             box
 #         )
-def fg(color: Any):
-    return applicable(partial(add_style, Style(fg=color)))
-def bg(color: Any):
-    return applicable(partial(add_style, Style(bg=color)))
+def fg(color: Any) -> WrapperNode:
+    """Style all descendants with specified foreground.
 
-def styled(node: WrapperNode, style: Style):
-    @applicable
+    Styling may be ovverriden with another styling node.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return partial(_add_style, Style(fg=color))
+def bg(color: Any) -> WrapperNode:
+    """Style all descendants with specified background.
+
+    Styling may be ovverriden with another styling node.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return partial(_add_style, Style(bg=color))
+
+def styled(node: WrapperNode, style: Style) -> WrapperNode:
+    """Style a wrapper node with specified style
+
+    As with all other styling nodes,
+    styles assigned with previous nodes will be kept unless overridden.
+
+    Tip:
+        If you want to style multiple wrapper nodes with same style concider using :obj:`combine`.
+
+    Args:
+        node: Wrapper node to be styled.
+        style: Style to assign to the wrapper node
+
+    """
     def out(child: Layout):
         composed_child = node(child)
         return Layout(
@@ -286,8 +352,8 @@ def styled(node: WrapperNode, style: Style):
     return out
 
 def _styled_render(child: Layout, node: WrapperNode, style: Style, frame, box):
-    return add_style(style, node(
-            force_style(frame.default_style, child)
+    return _add_style(style, node(
+            _force_style(frame.default_style, child)
         )
     ).render(frame, box)
 #

@@ -621,10 +621,10 @@ class Layout:
 
     def __or__(self, other):
         return other(self)
-    # def __hash__(self) -> int:
-    #     return hash((self.func, self.render.args)) 
-    # def __eq__(self, value: object, /) -> bool:
-    #     return self.__hash__ == (value.func, value.hash) # type: ignore
+    def __hash__(self) -> int:
+        return hash((self.func, self.render.args)) 
+    def __eq__(self, value: object, /) -> bool:
+        return hash(self) == hash(value)
 
 @dataclass(frozen=True, eq=True)
 class ResultCreatedWith(ResultData):
