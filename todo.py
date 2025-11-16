@@ -18,11 +18,11 @@
 
 import blessed
 from functui import *
-from functui.default_elements import *
+from functui.common import *
 from functui.textfield import blessed_text_input_action
-from functui.text_wrapping_elements import adaptive_text
+from functui.text_wrapping import adaptive_text
 from functui.nav import blessed_nav_action
-from functui.nav_elements import vbox_scroll
+from functui.interactible import vbox_scroll
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace

@@ -28,21 +28,25 @@ from .classes import *
 #     "underlined",
 # ]
 
-def _clamp(n, smallest, largest): return max(smallest, min(n, largest))
-
-def _even_divide(num, denomenator) -> list[int]:
-    return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
 
 LRU_MAX_SIZE = 128
 #
 # Element Utils
 #
 
-def combine(*node_constructors: ElementConstructor) -> ElementConstructor:
+def combine(*wrapper_nodes: WrapperNode) -> WrapperNode:
+    """Combines multiple wrapper nodes into one
+
+    Example:
+        >>> from functui.common import *
+        >>> border_and_center = combine(border, center)
+        >>> text("hi") | border | center == text("hi") | border | center
+        True
+    """
     @applicable
     def out(child: Layout):
-        rnode_constructors = reversed(node_constructors)
-        return reduce(lambda a, b: b(a), rnode_constructors, child)
+        # wrapper_nodesr = reversed(wrapper_nodes)
+        return reduce(lambda a, b: b(a), wrapper_nodes, child)
     return out
 
 def nothing():
@@ -302,8 +306,8 @@ def center(child: Layout):
 
 def _center_render(child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
-    empty_space_x = _even_divide(box.width - min_size.width, 2)
-    empty_space_y = _even_divide(box.height - min_size.height, 2)
+    empty_space_x = even_divide(box.width - min_size.width, 2)
+    empty_space_y = even_divide(box.height - min_size.height, 2)
     return child.render(
         frame,
         box.resize(
@@ -397,7 +401,7 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     total_shrink = sum(i.shrink for i in children)
 
     available_space = box.height - reserved_space
-    space_rations = _even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
     at_y = 0
     res = Result()
     for flex in children:
@@ -425,7 +429,7 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     total_shrink = sum(i.shrink for i in children)
 
     available_space = box.width - reserved_space
-    space_rations = _even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
     at_x = 0
     res = Result()
     for flex in children:
@@ -587,3 +591,4 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
         elif start_at_pixel_int < i < end_at_pixel_int:
             res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
     return res
+
