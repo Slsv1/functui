@@ -1,4 +1,7 @@
 **__pycache__
 **.pytest_cache
+
+.venv
 run.prof
 _build
+docs/_build

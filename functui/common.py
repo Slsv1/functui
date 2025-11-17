@@ -65,7 +65,7 @@ def empty(node: Layout):
     Examples:
         >>> from functui.common import *
         >>> selected = True
-        >>> layout = (border if selected else empty) | border
+        >>> layout = text("button") | (border if selected else empty)
     """
     return node
 
@@ -480,9 +480,8 @@ def _center_render(child: Layout, frame: Frame, box: Box):
     )
 #
 #
-def bg_char(char: str):
+def bg_char(char: str) -> WrapperNode:
     """Fill background with char"""
-    @applicable
     def out(child: Layout):
         return Layout(
             func=bg_char,
@@ -498,8 +497,11 @@ def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
     return res
 
 bg_fill = bg_char(" ")
-#
-#
+"""Fill background with whitespace.
+
+Usefull if you want to fill background with a color using :obj:`bg` or :obj:`styled`"""
+
+
 def border_with_title(title: Layout, border_node=border):
     """Border with a title attached on top.
 
@@ -510,25 +512,10 @@ def border_with_title(title: Layout, border_node=border):
     def out(child: Layout):
         return static_box([
             border_node(child),
-            shrink_y(shrink_by(0, 0, 1, 1)(title)),
+            shrink_y(custom_padding(0, 0, 1, 1)(title)),
         ])
     return out
 
-#
-#
-# def _padding(top: int, bottom: int, left: int, right: int, node: Node):
-#     def render(frame: Frame, box: Box):
-#         node.render(frame, box.shrink(top, bottom, left, right))
-#     return Node(min_size_expand(node.min_size, left+right, top+bottom), render)
-#
-# def custom_padding(top=0, bottom=0, left=0, right=0):
-#     @applicable
-#     def out(node: Node):
-#         return _padding(top, bottom, left, right, node)
-#     return out
-# padding = custom_padding(1, 1, 1, 1)
-#
-#
 
 @dataclass(frozen=True, eq=True)
 class Flex:
@@ -634,25 +621,36 @@ def _shrink_render(x: bool, y: bool, child: Layout, frame: Frame, box: Box):
     return child.render(frame, child_box)
 
 shrink = _shrink_custom(True, True)
-shrink_y = _shrink_custom(False, True)
-shrink_x = _shrink_custom(True, False)
+"""Shrink child layout to its minimum size"""
 
-def shrink_by(
+shrink_y = _shrink_custom(False, True)
+"""Shrink child layout to its minimum size along the y axis"""
+
+shrink_x = _shrink_custom(True, False)
+"""Shrink child layout to its minimum size along the x axis"""
+
+def custom_padding(
     top: int = 0,
     bottom: int = 0,
     left: int = 0,
     right: int = 0,
-):
-    """Shrink a layout by differences"""
+) -> WrapperNode:
+    """Add padding / Shrink a layout by differences"""
     def out(child: Layout):
         return Layout(
-            func=shrink_by,
+            func=custom_padding,
             min_size=min_size_expand(child.min_size, left+right, top+bottom),
-            render=partial(_shrink_by_render, top, bottom, left, right ,child),
+            render=partial(_custom_padding_render, top, bottom, left, right ,child),
         )
     return out
-def _shrink_by_render(top, bottom, left, right, child, frame: Frame, box: Box):
+
+def _custom_padding_render(top, bottom, left, right, child, frame: Frame, box: Box):
     return child.render(frame, box.resize(-top, -bottom, -left, -right))
+
+padding = custom_padding(left=1, right=1)
+"""Add padding to left and right of a child layout.
+
+Eqivelent to :obj:`custom_padding```(left=1, right=1)``."""
 
 
 def offset(x: int=0, y: int=0) -> WrapperNode:
@@ -668,9 +666,12 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
             render=partial(_offset_render, coord, child),
         )
     return out
+
+
 @lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
     return node.render(frame, box.offset_by(by))
+
 
 def clamp_width(width: int):
     """Limit width of a child layout"""

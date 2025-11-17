@@ -418,15 +418,6 @@ class MinSize(Protocol):
         ...
 
 
-class WrapperNode(Protocol):
-    """A function that creates a layout based on a child layout.
-
-    Args:
-        child_layout (Layout):
-    Returns:
-        Layout: New layout based on child."""
-    def __call__(self, child_layout: Layout, /) -> Layout:
-        ...
 
 # minsize util functions
 
@@ -625,6 +616,16 @@ class Layout:
         return hash((self.func, self.render.args)) 
     def __eq__(self, value: object, /) -> bool:
         return hash(self) == hash(value)
+
+class WrapperNode(Protocol):
+    """A function that creates a layout based on a child layout.
+
+    Args:
+        child_layout (Layout):
+    Returns:
+        Layout: New layout based on child."""
+    def __call__(self, child_layout: Layout, /) -> Layout:
+        ...
 
 @dataclass(frozen=True, eq=True)
 class ResultCreatedWith(ResultData):
