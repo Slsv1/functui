@@ -1,6 +1,6 @@
 
 wcwidth
-blessings
+blessed
 
 # testing
 pytest
