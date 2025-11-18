@@ -1,6 +1,0 @@
-Nodes by Type
-=============
-
-Utility
--------
-

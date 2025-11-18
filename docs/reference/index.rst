@@ -5,7 +5,7 @@ Api Reference
    :caption: Nodes
    :maxdepth: 3
 
-   nodes_by_type
+   nodes_by_category
    common
 
 
