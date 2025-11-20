@@ -283,6 +283,15 @@ class Box:
             and self.position.y <= point.y < (self.position.y + self.height) 
 
 class CharStyle(Flag):
+    """Flags representing different syles
+
+    Attributes:
+        BOLD
+        REVERSED
+        ITALIC
+        UNDERLINED
+        STRIKE_THROUGH
+    """
     BOLD = auto()
     REVERSED = auto()
     ITALIC = auto()
@@ -290,6 +299,18 @@ class CharStyle(Flag):
     STRIKE_THROUGH = auto()
 
 class Color(Enum):
+    """ANSI SGR codes for 3 bit colors
+
+    Attributes:
+        BLACK:
+        RED:
+        GREEN:
+        YELLOW:
+        BLUE:
+        MAGENT:
+        CYAN:
+        WHITE:
+        RESET: Dont display any color."""
     BLACK = 30
     RED = 31
     GREEN = 32
@@ -302,6 +323,13 @@ class Color(Enum):
 
 @dataclass(frozen=True)
 class Style:
+    """An immutable dataclass for style attributes:
+
+    Attributes:
+        fg: Foreground
+        bg: Background
+        char_style: Styling flags.
+    """
     fg: Color | None = None 
     bg: Color | None = None
     char_style: CharStyle = CharStyle(0)
@@ -377,7 +405,7 @@ class MeasureTextFunc(Protocol):
     Args:
         string (str)
     Returns:
-        int: Printed length of the string"""
+        int: Printed length of the string."""
     def __call__(self, string: str, /) -> int:
         ...
 

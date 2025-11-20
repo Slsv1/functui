@@ -89,6 +89,21 @@ def hbox_flex(children: Iterable[Flex | Layout]):
     If multiple childred with the :obj:`flex` node are added, the remaing space will be devided equaly among them.
     To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
 
+    Examples:
+        >>> from functui import Rect, layout_to_str
+        >>> from functui.common import border, text
+        >>> from functui.flex import flex, hbox_flex
+        >>> layout = hbox_flex([
+        ...     text("Flex.") | border | flex,
+        ...     text("No flex.") | border,
+        ... ]) | border
+        >>> print(layout_to_str(layout, Rect(40, 5)))
+        ┌──────────────────────────────────────┐
+        │┌──────────────────────────┐┌────────┐│
+        ││Flex.                     ││No flex.││
+        │└──────────────────────────┘└────────┘│
+        └──────────────────────────────────────┘
+
     """
     children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
     return Layout(

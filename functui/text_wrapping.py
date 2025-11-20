@@ -1,6 +1,6 @@
 from functools import reduce, partial, lru_cache, cache
 from enum import Enum, auto
-from typing import NamedTuple
+from typing import NamedTuple, Protocol
 from itertools import chain
 import re
 import math
@@ -10,6 +10,13 @@ from .classes import *
 
 
 class Justify(Enum):
+    """Text Justification.
+
+    Attributes:
+        LEFT:
+        CENTER:
+        RIGHT:
+    """
     LEFT = auto()
     CENTER = auto()
     RIGHT = auto()
@@ -86,12 +93,22 @@ class Group:
         ]
 
 
-text_wrap_func = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[Iterable[Segment]]]
+TextWrapFunc = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[Iterable[Segment]]]
 """takes in a line. If line is too long it will be wrapped. New line characters have no effect on the outcome"""
 
 
 
-def adaptive_text(*string: Span | str, justify=Justify.LEFT, terminator: str = "...", extend: str = "-"):
+def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = "-"):
+    """A data node for text that can be wrapped and styled.
+
+    Args:
+        *string:
+            The text content. Parts of content can be wrapped in a :obj:`span` for styling.
+        justify:
+            Text justification.
+        soft_hyphen:
+            Display to signal a word being wrapped between to line.
+    """
     span = Span(string, style=Style())
     def min_size(measure_text, available: Rect):
         groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
@@ -107,13 +124,13 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, terminator: str = "
     return Layout(
         func=adaptive_text,
         min_size=min_size,
-        render=partial(_adaptive_text_render, span, justify, terminator),
+        render=partial(_adaptive_text_render, span, justify),
     )
 
 
 
-@lru_cache(32)
-def _adaptive_text_render(span: Span, justify: Justify, terminator: str, frame: Frame, box: Box):
+@lru_cache(LRU_MAX_SIZE)
+def _adaptive_text_render(span: Span, justify: Justify, frame: Frame, box: Box):
     groups = _span_to_lines(span, frame.measure_text)
     res = Result()
     lines = list(
@@ -195,6 +212,7 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
     return out_lines
 
 def span(*text: str | Span, style: Style):
+    """Style a text segment in an :obj:`adaptive_text` node."""
     return Span(text, style)
 
 def _wrap_word(
