@@ -7,6 +7,7 @@ Api Reference
 
    nodes_by_category
    common
+   flex
 
 
 .. toctree::

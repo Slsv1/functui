@@ -43,6 +43,8 @@ Sizing and Constraints
    functui.common.shrink_y
    functui.common.clamp_width
    functui.common.clamp_height
+   functui.flex.flex
+   functui.flex.flex_custom
 
 Containers
 ----------
@@ -52,6 +54,8 @@ Containers
    functui.common.vbox
    functui.common.hbox
    functui.common.static_box
+   functui.flex.vbox_flex
+   functui.flex.hbox_flex
 
 Styling
 -------

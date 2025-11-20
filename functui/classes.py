@@ -7,6 +7,8 @@ import wcwidth
 #
 # utilities
 #
+LRU_MAX_SIZE = 128
+
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
 def even_divide(num, denomenator) -> list[int]:
