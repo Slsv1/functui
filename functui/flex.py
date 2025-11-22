@@ -90,19 +90,45 @@ def hbox_flex(children: Iterable[Flex | Layout]):
     To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
 
     Examples:
-        >>> from functui import Rect, layout_to_str
-        >>> from functui.common import border, text
-        >>> from functui.flex import flex, hbox_flex
-        >>> layout = hbox_flex([
-        ...     text("Flex.") | border | flex,
-        ...     text("No flex.") | border,
-        ... ]) | border
-        >>> print(layout_to_str(layout, Rect(40, 5)))
-        ┌──────────────────────────────────────┐
-        │┌──────────────────────────┐┌────────┐│
-        ││Flex.                     ││No flex.││
-        │└──────────────────────────┘└────────┘│
-        └──────────────────────────────────────┘
+        Usage with flex:
+            >>> from functui import Rect, layout_to_str
+            >>> from functui.common import border, text
+            >>> from functui.flex import flex, hbox_flex, flex_custom
+            >>> layout = hbox_flex([
+            ...     text("Flex.") | border | flex,
+            ...     text("No flex.") | border,
+            ... ]) | border
+            >>> print(layout_to_str(layout, Rect(40, 5)))
+            ┌──────────────────────────────────────┐
+            │┌──────────────────────────┐┌────────┐│
+            ││Flex.                     ││No flex.││
+            │└──────────────────────────┘└────────┘│
+            └──────────────────────────────────────┘
+
+        Usage with flex_custom grow argument:
+            >>> layout = hbox_flex([
+            ...     text("grow 1") | border | flex_custom(grow=1),
+            ...     text("grow 2") | border | flex_custom(grow=2),
+            ...     text("grow 1") | border | flex, # flex same as flex_custom(1)
+            ... ]) | border
+            >>> print(layout_to_str(layout, Rect(40, 5)))
+            ┌──────────────────────────────────────┐
+            │┌───────┐┌─────────────────┐┌────────┐│
+            ││grow 1 ││grow 2           ││grow 1  ││
+            │└───────┘└─────────────────┘└────────┘│
+            └──────────────────────────────────────┘
+
+        Usage with flex_custom grow and basis arguments:
+            >>> layout = hbox_flex([
+            ...     text("basis and grow") | border | flex_custom(grow=1, basis=True),
+            ...     text("grow") | border | flex, # flex is same as flex_custom(grow=1)
+            ... ]) | border
+            >>> print(layout_to_str(layout, Rect(40, 5)))
+            ┌──────────────────────────────────────┐
+            │┌─────────────────────────┐┌─────────┐│
+            ││basis and grow           ││grow     ││
+            │└─────────────────────────┘└─────────┘│
+            └──────────────────────────────────────┘
 
     """
     children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)

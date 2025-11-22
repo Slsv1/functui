@@ -1,10 +1,51 @@
 functui documentation
 =====================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+.. raw:: html
 
+    <pre style="font-family:monospace">
+    ┌───────────────<b> [Items] </b>──────────────┐┌────────────<b> [Properties] </b>────────────┐
+    │┌────────────────────────────────────┐││aabbccdd                              │
+    ││Lorem ipsum dolor sit amet,         │││                                      │
+    ││consectetur adipiscing elit, sed do │││                                      │
+    ││eiusmod tempor incididunt ut labore │││                                      │
+    │└────────────────────────────────────┘││                                      │
+    │┌────────────────────────────────────┐││                                      │
+    ││aabbccdd                            │││                                      │
+    │└────────────────────────────────────┘││                                      │
+    │┌────────────────────────────────────┐││                                      │
+    ││<strike><span style="color:#0A0">Sample Task 2</span></strike>                       <span style="color:#FFF">│││                                      │
+    │└────────────────────────────────────┘││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││                                      │
+    │                                      ││┌────────────────────────────────────┐│
+    │                                      │││               <span style="color:#A00">delete               <span style="color:#FFF">││
+    │                                      ││└────────────────────────────────────┘│
+    │                                      ││┌────────────────────────────────────┐│
+    │                                      │││              <span style="color:#0A0">complete              <span style="color:#FFF">││
+    │                                      ││└────────────────────────────────────┘│
+    │                                      ││┌────────────────────────────────────┐│
+    │                                      │││                edit                ││
+    │                                      ││└────────────────────────────────────┘│
+    │                                      │└──────────────────────────────────────┘
+    │                                      │┌──────────────────────────────────────┐
+    │                                      ││               New Task               │
+    └──────────────────────────────────────┘└──────────────────────────────────────┘
+    </span></span></span></span></span>
+    </pre>
 
 .. toctree::
    :maxdepth: 2
