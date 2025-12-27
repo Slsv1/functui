@@ -8,15 +8,7 @@
 # simple grid layout
 #
 # change to using pipes
-
-
-
-
-
-
-
-
-import blessed
+import curses
 from functui import *
 from functui.common import *
 from functui.textfield import blessed_text_input_action
@@ -68,9 +60,7 @@ tasks = [
 # Logic
 #
 
-def update(res: Result, m: Model):
-    input_val = term.inkey()
-
+def update(input_val, res: Result, m: Model):
     if m.current_text_input is not None:
         m.current_text_input = m.current_text_input.update(blessed_text_input_action(input_val))
     else:
@@ -187,10 +177,22 @@ m = Model(
     tasks_ids=[],
     nav_data=[],
 )
-term = blessed.Terminal()
-with term.cbreak():
+def main(stdscr: curses.window):
+    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION) # enable reporting of all mouse events
+    curses.mouseinterval(0)
+    print('\033[?1003h') # xterm enable reporting of all mouse events
     while True:
         res = layout_to_result(Rect(80, 40), view(m))
-        with term.location():
-            print(result_to_str(res))
-        update(res, m)
+        print(result_to_str(res))
+        key = stdscr.get_wch()  # Get a single key press
+        if key == 'q':
+            break
+        if key == curses.KEY_MOUSE:
+            try:
+                _, x, y, _, state = curses.getmouse()
+                print(x, y)
+                # stdscr.addstr(2, 0, f"Mouse at x={x}, y={y}      ")
+                # stdscr.refresh()
+            except curses.error:
+                pass
+        update(key, res, m)

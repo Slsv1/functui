@@ -1,11 +1,11 @@
+import curses
 from enum import Enum, auto
 from typing import Self, Literal, Iterable, Any, NamedTuple
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial
-import curses
-
 from .classes import Coordinate, Result, ResultData, applicable, Layout, Frame, Box
+
 class NavAction(Enum):
     NONE = auto()
     SELECT = auto()
