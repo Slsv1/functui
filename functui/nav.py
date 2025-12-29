@@ -7,7 +7,6 @@ from functools import partial
 from .classes import Coordinate, Result, ResultData, applicable, Layout, Frame, Box
 
 class NavAction(Enum):
-    NONE = auto()
     SELECT = auto()
     NAV_UP = auto()
     NAV_RIGHT = auto()
@@ -118,7 +117,7 @@ class NextInteractible(ResultData):
 @dataclass(frozen=True)
 class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
-    action: NavAction = NavAction.NONE
+    action: NavAction | None = None
     _selected_id: InteractibleID = EMPTY_INTERACTIBLE
     _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
     _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
@@ -157,9 +156,9 @@ class NavState:
     def update(
             self,
             res: Result,
-            action: NavAction = NavAction.NONE,
+            action: NavAction | None = None,
             nav_data: list[InteractibleID] = field(default_factory=list),
-            mouse_position: Coordinate = Coordinate(-1, -1),
+            mouse_position: Coordinate | None = None,
     ):
         # persistent state
         next_state = dict(self._persistent_state)
@@ -189,7 +188,7 @@ class NavState:
         if self._selected_id not in nav_data and nav_data:
             next_id = nav_data[0]
         return NavState(
-            mouse_position=mouse_position,
+            mouse_position=mouse_position if mouse_position is not None else self.mouse_position,
             action=action,
             _selected_id=next_id,
             _persistent_state=MappingProxyType(next_state),
@@ -200,7 +199,6 @@ class NavState:
         def _out(child: Layout):
             return Layout(
                 func=self.interaction_area,
-                hash=(child,),
                 min_size=child.min_size,
                 render=partial(_render_read_box, interactible_id, self.mouse_position, child)
             )
@@ -362,20 +360,17 @@ def debug_nav_data_str(state: NavState, nav_data: Iterable[InteractibleID], pers
             out.append((">" if state.is_active(id) else " ") + interactible_str)
     return "\n".join(out)
 
-def blessed_nav_action(val) -> NavAction:
-    if not val.is_sequence:
-        match val:
-            case "h":
-                return NavAction.NAV_LEFT
-            case "j":
-                return NavAction.NAV_DOWN
-            case "k":
-                return NavAction.NAV_UP
-            case "l":
-                return NavAction.NAV_RIGHT
-            case _:
-                return NavAction.NONE
-    match val.code:
-        case curses.KEY_ENTER:
-            return NavAction.SELECT
-    return NavAction.NONE
+
+default_nav_bindings = {
+    "h": NavAction.NAV_LEFT,
+    "left": NavAction.NAV_LEFT,
+    "j": NavAction.NAV_DOWN,
+    "down": NavAction.NAV_DOWN,
+    "k": NavAction.NAV_UP,
+    "up": NavAction.NAV_UP,
+    "l": NavAction.NAV_RIGHT,
+    "right": NavAction.NAV_RIGHT,
+    "enter": NavAction.SELECT,
+    "left mouse": NavAction.SELECT,
+    " ": NavAction.SELECT,
+}

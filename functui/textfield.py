@@ -50,13 +50,19 @@ class TextInput():
             new_submited, 
         )
 
-def blessed_text_input_action(val) -> TextAction | TextActionChar:
-    if not val.is_sequence:
-        return TextActionChar(val)
-    match val.code:
-        case curses.KEY_EXIT:
-            return TextAction.SUBMIT
-        case curses.KEY_BACKSPACE:
-            return TextAction.DELETE
-        case _:
-            return TextAction.NONE
+default_text_input_bindings = {
+    "esc": TextAction.SUBMIT,
+    "backspace": TextAction.DELETE,
+    "left": TextAction.CURSOR_LEFT,
+    "right": TextAction.CURSOR_LEFT
+}
+def create_text_input_event(key_event: str | None, bindings = default_text_input_bindings):
+    if key_event is None:
+        return
+    if len(key_event)== 1:
+        return TextActionChar(key_event)
+    if key_event in default_text_input_bindings.keys():
+        return default_text_input_bindings[key_event]
+
+
+

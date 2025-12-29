@@ -9,15 +9,18 @@
 #
 # change to using pipes
 import curses
+import sys
 from functui import *
 from functui.common import *
-from functui.textfield import blessed_text_input_action
+from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
-from functui.nav import blessed_nav_action
+from functui.nav import default_nav_bindings
 from functui.interactible import vbox_scroll
+from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
+
 
 #
 # Data
@@ -60,12 +63,16 @@ tasks = [
 # Logic
 #
 
-def update(input_val, res: Result, m: Model):
-    if m.current_text_input is not None:
-        m.current_text_input = m.current_text_input.update(blessed_text_input_action(input_val))
+def update(input: InputEvent, res: Result, m: Model):
+    if m.current_text_input is not None and (event := create_text_input_event(input.key_event)):
+        m.current_text_input = m.current_text_input.update(event)
     else:
-        action = blessed_nav_action(input_val)
-        m.nav = m.nav.update(res, action, m.nav_data)
+        event = input.key_event if input.key_event is not None else input.mouse_button_event
+        action = None
+        if event in default_nav_bindings:
+            action = default_nav_bindings[event]
+
+        m.nav = m.nav.update(res, action, m.nav_data, input.mouse_position_event)
 
     for index, task_id in enumerate(m.tasks_ids):
         if m.nav.is_active(task_id):
@@ -178,21 +185,16 @@ m = Model(
     nav_data=[],
 )
 def main(stdscr: curses.window):
-    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION) # enable reporting of all mouse events
-    curses.mouseinterval(0)
-    print('\033[?1003h') # xterm enable reporting of all mouse events
     while True:
         res = layout_to_result(Rect(80, 40), view(m))
-        print(result_to_str(res))
-        key = stdscr.get_wch()  # Get a single key press
-        if key == 'q':
+        stdscr.clear()
+        draw_result(res, stdscr)
+        stdscr.refresh()
+
+        # stdscr.addstr(0, 0, result_to_str(res))
+        # sys.stdout.write(result_to_str(res))
+        key: InputEvent = get_input_event(stdscr)  # Get a single key press
+        if key.key_event == 'ctrl+c':
             break
-        if key == curses.KEY_MOUSE:
-            try:
-                _, x, y, _, state = curses.getmouse()
-                print(x, y)
-                # stdscr.addstr(2, 0, f"Mouse at x={x}, y={y}      ")
-                # stdscr.refresh()
-            except curses.error:
-                pass
         update(key, res, m)
+wrapper(main)

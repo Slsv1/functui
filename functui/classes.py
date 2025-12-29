@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias
+from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias, NamedTuple
 from enum import Enum, Flag, auto
 from abc import ABC, abstractmethod
 from functools import partial
@@ -8,6 +8,11 @@ import wcwidth
 # utilities
 #
 LRU_MAX_SIZE = 128
+
+class InputEvent(NamedTuple):
+    key_event: str | None = None
+    mouse_button_event: str | None = None
+    mouse_position_event: Coordinate | None = None
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
@@ -395,6 +400,7 @@ class DrawBox:
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
     string: tuple[Pixel]
+    """All pixels are assumed to contain the same style"""
     at: Coordinate
 
 DrawCommand: TypeAlias = DrawPixel | DrawBox | DrawStringLine
@@ -680,3 +686,87 @@ def layout_to_result(dimensions: Rect, layout: Layout, measure_text: MeasureText
     )
     result.set_data(ResultCreatedWith(measure_text, screen_size=dimensions))
     return result
+
+def _get_default_data(width: int, height: int):
+    return [[Pixel() for _ in range(width)] for _ in range(height)]
+
+class Screen:
+    """Represents the text grid of a screen."""
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.wide_char_cutoff = "#"
+        self._data: list[list[Pixel]] = _get_default_data(width, height)
+
+    def get(self, pos: Coordinate) -> Pixel:
+        return self._data[pos.y][pos.x]
+
+    def set(self, pos: Coordinate, data: Pixel) -> None:
+        """may error if out of range!!!"""
+        self._data[pos.y][pos.x] = data
+    def split_by_lines(self) -> list[list[Pixel]]:
+        # BUG
+        # right now wide chars wont be frickign yeah
+        return self._data
+        #     # current_row = tuple(i for i in current_row if i.char_type != CharType.WIDE_TAIL)
+        #     out.append(current_row)
+        # return out
+
+    def apply_draw_commands(self, measure_text_func: Callable[[str], int],  draw_commands: Iterable[DrawCommand]):
+        for command in draw_commands:
+            if isinstance(command, DrawPixel):
+                self.set(command.at, command.pixel)
+
+            elif isinstance(command, DrawBox):
+                box = command.box
+                for x in range(box.position.x, box.position.x + box.width):
+                    for y in range(box.position.y, box.position.y + box.height):
+                        self.set(Coordinate(x, y), command.fill)
+            else: #DrawStringLine
+                for delta_x, pixel in enumerate(command.string):
+
+                    at = Coordinate(command.at.x + delta_x, command.at.y)
+                    self.set(at, pixel)
+        self._clean_up_wide_chars()
+
+    def _clean_up_wide_chars(self):
+        # print("".join(str(i.char_type) for i in self._data))
+        for line in self._data:
+            for i, pixel in enumerate(line):
+                if ((i+1) % self.width) == 0: # if on last char of line
+                    continue
+                next_pixel = line[i+1]
+                # print("comparing", pixel.char_type, next_pixel.char_type)
+                match (pixel.char_type, next_pixel.char_type):
+                    case (CharType.NORMAL, CharType.NORMAL)\
+                        | (CharType.WIDE_TAIL, CharType.NORMAL)\
+                        | (CharType.WIDE_HEAD, CharType.WIDE_TAIL)\
+                        | (CharType.NORMAL, CharType.WIDE_HEAD)\
+                        | (CharType.WIDE_TAIL, CharType.WIDE_HEAD):
+                        continue
+                    case (CharType.WIDE_HEAD, CharType.WIDE_HEAD)\
+                        | (CharType.WIDE_HEAD, CharType.NORMAL):
+                        line[i] = pixel.with_char_type(CharType.NORMAL)\
+                            .with_char(self.wide_char_cutoff)
+                    case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
+                        line[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
+                            .with_char(self.wide_char_cutoff)
+        # print("".join(str(i.char_type) for i in self._data))
+
+
+
+# if last char is wide_head, meake it normal
+
+# N N -> N N
+# T N -> T N
+# H T -> H T
+# N H -> N H
+# T H -> T H
+
+# convert next to normal
+# N T -> N N
+# T T -> T N
+
+# convert current to normal (notice it is only head that can be converted)
+# H H -> N H
+# H N -> N N
