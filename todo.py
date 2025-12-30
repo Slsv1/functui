@@ -64,8 +64,9 @@ tasks = [
 #
 
 def update(input: InputEvent, res: Result, m: Model):
-    if m.current_text_input is not None and (event := create_text_input_event(input.key_event)):
-        m.current_text_input = m.current_text_input.update(event)
+    if m.current_text_input is not None:
+        if event := create_text_input_event(input.key_event):
+            m.current_text_input = m.current_text_input.update(event)
     else:
         event = input.key_event if input.key_event is not None else input.mouse_button_event
         action = None
@@ -132,7 +133,7 @@ def update(input: InputEvent, res: Result, m: Model):
 #
 
 def button(id, nav: NavState):
-    return styled(border, Style(fg=Colors.active if nav.is_active(id) else None))
+    return combine(styled(border, Style(fg=Colors.active if nav.is_active(id) else None)), nav.interaction_area(id))
 
 def item(item, id, nav: NavState):
     return adaptive_text(item.description)\
@@ -140,6 +141,7 @@ def item(item, id, nav: NavState):
         | styled(border, Style(fg=Colors.active if nav.is_active(id) else None))\
         | clamp_height(5)\
         | (fg(Colors.was_active) if nav.was_active(id) else empty)\
+        | nav.interaction_area(id)
 
 
 def view(m: Model):

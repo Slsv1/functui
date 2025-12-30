@@ -326,7 +326,7 @@ class Color(Enum):
     WHITE = 37
     RESET = 39
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class Style:
     """An immutable dataclass for style attributes:
 
@@ -648,10 +648,10 @@ class Layout:
 
     def __or__(self, other):
         return other(self)
-    def __hash__(self) -> int:
-        return hash((self.func, self.render.args)) 
-    def __eq__(self, value: object, /) -> bool:
-        return hash(self) == hash(value)
+    # def __hash__(self) -> int:
+    #     return hash((self.func, self.render.args)) 
+    # def __eq__(self, value: object, /) -> bool:
+    #     return hash(self) == hash(value)
 
 class WrapperNode(Protocol):
     """A function that creates a layout based on a child layout.

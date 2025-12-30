@@ -12,6 +12,7 @@ class NavAction(Enum):
     NAV_RIGHT = auto()
     NAV_DOWN = auto()
     NAV_LEFT = auto()
+
 type NavDirAction = Literal[NavAction.NAV_DOWN, NavAction.NAV_UP, NavAction.NAV_LEFT, NavAction.NAV_RIGHT]
 
 class Direction(Enum):
@@ -195,7 +196,6 @@ class NavState:
             _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
         )
     def interaction_area(self, interactible_id: InteractibleID):
-        @applicable
         def _out(child: Layout):
             return Layout(
                 func=self.interaction_area,
