@@ -163,55 +163,81 @@ def char_style_to_attr(style: Style) -> int:
     return out
 
 def color_to_curses(clr: Color):
-    # out = clr.value - 30 # Ansi assignd index 30 for black (1st color) while curses assigns 0
-    match clr:
-        
-        case Color.BLACK:
-            return curses.COLOR_BLACK
-        case Color.RED:
-            return curses.COLOR_RED
-        case Color.GREEN:
-            return curses.COLOR_GREEN
-        case Color.YELLOW:
-            return curses.COLOR_YELLOW
-        case _:
-            return curses.COLOR_WHITE
+    out = clr.value - 30 # Ansi assignd index 30 for black (1st color) while curses assigns 0
+    # match clr:
+    #
+    #     case Color.BLACK:
+    #         return curses.COLOR_BLACK
+    #     case Color.RED:
+    #         return curses.COLOR_RED
+    #     case Color.GREEN:
+    #         return curses.COLOR_GREEN
+    #     case Color.YELLOW:
+    #         return curses.COLOR_YELLOW
+    #     case Color.WHITE:
+    #         return curses.COLOR_WHITE
+    #     case Color.BLACK:
+    #         return curses.COLOR_BLACK
         # BLUE = 34
         # MAGENTA = 35
         # CYAN = 36
         # WHITE = 37
         # RESET = 39
-    # if out > 7: # don't do anything with reset
-    #     return 0
+    if out > 7: # don't do anything with reset
+        return 0
+    return out
 
+pair_cache: dict[tuple[int, int], int] = {}
 def init_pair_from_style(i: int, style: Style):
     curr_fg, curr_bg = curses.pair_content(i)
-    curses.init_pair(i, color_to_curses(style.fg) if style.fg else curr_fg, color_to_curses(style.bg) if style.bg else curses.COLOR_BLACK)
+    new_fg = color_to_curses(style.fg) if style.fg else curr_fg
+    new_bg = color_to_curses(style.bg) if style.bg else curr_bg
+    try:
+        return pair_cache[(new_fg, new_bg)]
+    except KeyError:
+        new_pair_number = len(pair_cache) + 1
+        curses.init_pair(new_pair_number, new_fg, new_bg)
+        pair_cache[(new_fg, new_bg)] = new_pair_number
+        return new_pair_number
+    return i
 
 
 def draw_result(result: Result, stdscr: curses.window):
     PAIR = 1
-    curses.init_pair(1, curses.COLOR_BLUE, curses.COLOR_BLACK)
+    pair_number = 1
+    curses.COLOR_PAIRS
+    # curses.init_pair(1, curses.COLOR_BLUE, curses.COLOR_BLACK)
     data = result.try_data(ResultCreatedWith)
     if data is None:
         raise AssertionError("bahh")
     for command in result.get_commands():
-        if isinstance(command, DrawPixel) and command.pixel.char_type != CharType.WIDE_TAIL:
-            init_pair_from_style(PAIR, command.pixel.style)
+        if isinstance(command, DrawPixel):
+            pair_number = init_pair_from_style(pair_number, command.pixel.style)
             stdscr.addch(
                 command.at.y,
                 command.at.x,
                 command.pixel.char,
-                char_style_to_attr(command.pixel.style) | curses.color_pair(PAIR)
+                char_style_to_attr(command.pixel.style) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawStringLine):
-            init_pair_from_style(PAIR, command.string[0].style)
+            pair_number = init_pair_from_style(pair_number, command.string[0].style)
             stdscr.addstr(
                 command.at.y,
                 command.at.x,
                 "".join([i.char for i in command.string if i.char_type != CharType.WIDE_TAIL]),
-                char_style_to_attr(command.string[0].style) | curses.color_pair(PAIR)
+                char_style_to_attr(command.string[0].style) | curses.color_pair(pair_number)
             )
+        elif isinstance(command, DrawBox):
+            pair_number = init_pair_from_style(pair_number, command.fill.style)
+            s = [command.box.width * command.fill.char for _ in range(command.box.height)]
+            for dy, line in enumerate(s):
+                stdscr.addstr(
+                    command.box.position.y + dy,
+                    command.box.position.x,
+                    line,
+                    char_style_to_attr(command.fill.style) | curses.color_pair(pair_number)
+                )
+
 
 
     # screen = Screen(data.screen_size.width, data.screen_size.height)

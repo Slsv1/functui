@@ -171,7 +171,7 @@ def view(m: Model):
             ]) | flex
         ]),
         text_widget
-    ])
+    ]) | fg(Color.WHITE) | bg(Color.BLACK)
 
 # adaptive_styled_text([
 #     "hejsan", styled("hehejsan", fg=Color.RED), "hej hej hej"
@@ -189,9 +189,8 @@ def main(stdscr: curses.window):
         res = layout_to_result(Rect(80, 40), view(m))
         stdscr.clear()
         draw_result(res, stdscr)
-        stdscr.refresh()
+        # stdscr.refresh()
 
-        # stdscr.addstr(0, 0, result_to_str(res))
         # sys.stdout.write(result_to_str(res))
         key: InputEvent = get_input_event(stdscr)  # Get a single key press
         if key.key_event == 'ctrl+c':

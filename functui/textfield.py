@@ -51,7 +51,8 @@ class TextInput():
         )
 
 default_text_input_bindings = {
-    "esc": TextAction.SUBMIT,
+    "escape": TextAction.SUBMIT,
+    "enter": TextAction.SUBMIT,
     "backspace": TextAction.DELETE,
     "left": TextAction.CURSOR_LEFT,
     "right": TextAction.CURSOR_LEFT
