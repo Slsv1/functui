@@ -76,6 +76,14 @@ class InteractibleID:
             else:
                 break
         return self.__class__(tuple(out))
+    def ancestors(self) -> list[Self]:
+        out = []
+        for part in self.data:
+            if len(out):
+                out.append(InteractibleID((*out[-1].data, part,)))
+            else:
+                out.append(InteractibleID((part,)))
+        return out
 
     def __bool__(self):
         return bool(len(self.data))
@@ -168,7 +176,6 @@ class NavState:
                 next_state[(key, state.__class__)] = state
 
         # reactivity
-        next_persistent_selected_id = dict(self._persistent_selected_id)
 
         next_id = self._selected_id
         if action in (NavAction.NAV_DOWN, NavAction.NAV_LEFT, NavAction.NAV_UP, NavAction.NAV_RIGHT) and len(nav_data):
@@ -177,17 +184,23 @@ class NavState:
                 selected_index = nav_data.index(self._selected_id)
                 if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
                     next_id = result.next_id
-
-                    if result.shared_parent.persistent:
-                        next_persistent_selected_id[result.shared_parent] = result.next_id
             else:
                 next_id = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
             # use mouse navigation instead
             next_id = next_inderactible.next_id
 
+        # update persistent selected ids
+
+        next_persistent_selected_id = dict(self._persistent_selected_id)
+
+        for ancestor in next_id.ancestors():
+            if ancestor.persistent:
+                next_persistent_selected_id[ancestor] = next_id
+
         if self._selected_id not in nav_data and nav_data:
             next_id = nav_data[0]
+
         return NavState(
             mouse_position=mouse_position if mouse_position is not None else self.mouse_position,
             action=action,

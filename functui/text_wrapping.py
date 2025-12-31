@@ -34,7 +34,7 @@ class Segment(NamedTuple):
     length: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class Group:
     segments: tuple[Segment, ...]
     is_space: bool
@@ -151,7 +151,7 @@ def _adaptive_text_render(span: Span, justify: Justify, frame: Frame, box: Box):
 
 
 # adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")
-
+@cache
 def _split_by_spaces(s: str, style: Style, measure_text: MeasureTextFunc):
     r = filter(lambda x: x!='',re.split(r'(\s+)', s))
     return [Segment(t, style, measure_text(t)) for t in r]
@@ -165,7 +165,7 @@ def _append_segment_to_line(line: list[Group], seg: Segment):
 def _extend_line_with_segments(line: list[Group], segments: list[Segment]):
     for s in segments:
         _append_segment_to_line(line, s)
-
+@cache
 def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group]]:
     out_lines = [[]]
     for t in span.text:

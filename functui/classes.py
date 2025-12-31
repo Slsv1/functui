@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias, NamedTuple
 from enum import Enum, Flag, auto
 from abc import ABC, abstractmethod
-from functools import partial
+from functools import partial, cache
 import wcwidth
 #
 # utilities
@@ -420,7 +420,7 @@ class Frame:
     view_box: Box
     screen_rect: Rect
     default_style: Style
-    measure_text: MeasureTextFunc
+    measure_text: MeasureTextFunc = field(hash=False, compare=False)
 
     def with_style(self, style: Style):
         return self.__class__(
@@ -462,6 +462,7 @@ def min_size_expand(
     width_change: int,
     height_change: int
 ) -> MinSize:
+    @cache
     def out(measure_text: MeasureTextFunc, from_size: Rect):
         return child_size(measure_text, from_size.resize(-width_change, -height_change)).resize(width_change, height_change)
     return out
@@ -633,7 +634,7 @@ class Result:
 # it beign split between multiple methods would 
 
 
-@dataclass(eq=True, frozen=True)
+@dataclass(frozen=True)
 class Layout:
     """An immutable layout that can be rendered as a string
 
@@ -648,10 +649,13 @@ class Layout:
 
     def __or__(self, other):
         return other(self)
-    # def __hash__(self) -> int:
-    #     return hash((self.func, self.render.args)) 
-    # def __eq__(self, value: object, /) -> bool:
-    #     return hash(self) == hash(value)
+    def __hash__(self) -> int:
+        # print("hej", self.func.__module__)
+        h = hash((self.func, *self.render.args))
+        # print(h)
+        return h
+    def __eq__(self, value: object, /) -> bool:
+        return hash(self) == hash(value)
 
 class WrapperNode(Protocol):
     """A function that creates a layout based on a child layout.

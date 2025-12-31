@@ -137,7 +137,7 @@ def _hbar_render(char: str, frame: Frame, box: Box):
 # Border Elements
 #
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class BorderStyle:
     line_v: str
     line_h: str

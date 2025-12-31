@@ -2,6 +2,7 @@ import curses
 import sys
 from typing import NamedTuple, Any, Callable
 from ..classes import *
+from functools import cache
 
 _curses_int_to_standard_key_name = {
     1: "ctrl+a",
@@ -118,6 +119,7 @@ def mouse_button_to_str(mouse_button: int) -> str:
 
 def wrapper(func: Callable[[curses.window], Any]):
     def wrapped_func(stdscr):
+        curses.curs_set(0)
         curses.raw()
         curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
         curses.mouseinterval(0)
@@ -148,17 +150,18 @@ def get_input_event(stdscr: curses.window) -> InputEvent:
             pass
     return InputEvent(key_event=key_code_to_str(key))
 
-def char_style_to_attr(style: Style) -> int:
+@cache
+def char_style_to_attr(style: CharStyle) -> int:
     out = 0
-    if style.char_style & CharStyle.BOLD:
+    if style & CharStyle.BOLD:
         out |= curses.A_BOLD
-    if style.char_style & CharStyle.ITALIC:
+    if style & CharStyle.ITALIC:
         out |= curses.A_ITALIC
-    if style.char_style & CharStyle.REVERSED:
+    if style & CharStyle.REVERSED:
         out |= curses.A_REVERSE
-    if style.char_style & CharStyle.STRIKE_THROUGH:
+    if style & CharStyle.STRIKE_THROUGH:
         out |= curses.A_HORIZONTAL
-    if style.char_style & CharStyle.UNDERLINED:
+    if style & CharStyle.UNDERLINED:
         out |= curses.A_UNDERLINE
     return out
 
@@ -203,13 +206,10 @@ def init_pair_from_style(i: int, style: Style):
 
 
 def draw_result(result: Result, stdscr: curses.window):
-    PAIR = 1
-    pair_number = 1
-    curses.COLOR_PAIRS
-    # curses.init_pair(1, curses.COLOR_BLUE, curses.COLOR_BLACK)
     data = result.try_data(ResultCreatedWith)
     if data is None:
         raise AssertionError("bahh")
+    pair_number = 1
     for command in result.get_commands():
         if isinstance(command, DrawPixel):
             pair_number = init_pair_from_style(pair_number, command.pixel.style)
@@ -217,7 +217,7 @@ def draw_result(result: Result, stdscr: curses.window):
                 command.at.y,
                 command.at.x,
                 command.pixel.char,
-                char_style_to_attr(command.pixel.style) | curses.color_pair(pair_number)
+                char_style_to_attr(command.pixel.style.char_style) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawStringLine):
             pair_number = init_pair_from_style(pair_number, command.string[0].style)
@@ -225,7 +225,7 @@ def draw_result(result: Result, stdscr: curses.window):
                 command.at.y,
                 command.at.x,
                 "".join([i.char for i in command.string if i.char_type != CharType.WIDE_TAIL]),
-                char_style_to_attr(command.string[0].style) | curses.color_pair(pair_number)
+                char_style_to_attr(command.string[0].style.char_style) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawBox):
             pair_number = init_pair_from_style(pair_number, command.fill.style)
@@ -235,7 +235,7 @@ def draw_result(result: Result, stdscr: curses.window):
                     command.box.position.y + dy,
                     command.box.position.x,
                     line,
-                    char_style_to_attr(command.fill.style) | curses.color_pair(pair_number)
+                    char_style_to_attr(command.fill.style.char_style) | curses.color_pair(pair_number)
                 )
 
 
@@ -244,10 +244,46 @@ def draw_result(result: Result, stdscr: curses.window):
     # screen.apply_draw_commands(data.measure_text_func, result.get_commands())
     # lines = screen.split_by_lines()
     #
-    # for line in lines:
-    #     for pixel in line:
+    # curr_style = CharStyle(0)
+    # curr_fg = Color.RESET
+    # curr_bg = Color.RESET
+    # # curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    # for y, line in enumerate(lines):
+    #     line_str = []
+    #     for x, pixel in enumerate(line):
+    #         if pixel.char_type == CharType.WIDE_TAIL:
+    #             continue
     #         if curr_style != pixel.style.char_style:
-                
+    #             if line_str:
+    #                 stdscr.addstr(
+    #                     y,
+    #                     x - data.measure_text_func("".join(line_str)),
+    #                     "".join(line_str),
+    #                     char_style_to_attr(curr_style) | pair_number
+    #                 )
+    #                 line_str.clear()
+    #             curr_style = pixel.style.char_style
+    #         if (curr_fg, curr_bg) != (pixel.style.fg, pixel.style.bg):
+    #             if line_str:
+    #                 stdscr.addstr(
+    #                     y,
+    #                     x - data.measure_text_func("".join(line_str)),
+    #                     "".join(line_str),
+    #                     char_style_to_attr(curr_style) | pair_number
+    #                 )
+    #                 line_str.clear()
+    #             pair_number = init_pair_from_style(pair_number, pixel.style)
+    #             curr_fg = pixel.style.fg
+    #             curr_bg = pixel.style.bg
+    #         line_str.append(pixel.char)
+    #     if line_str:
+    #         stdscr.addstr(
+    #             y,
+    #             len(line) - len(line_str),
+    #             "".join(line_str),
+    #             char_style_to_attr(curr_style) | pair_number
+    #         )
+
 
 
 
