@@ -7,7 +7,8 @@ from functools import partial
 from .classes import Coordinate, Result, ResultData, applicable, Layout, Frame, Box
 
 class NavAction(Enum):
-    SELECT = auto()
+    SELECT_VIA_KEYBOARD = auto()
+    SELECT_VIA_MOUSE = auto()
     NAV_UP = auto()
     NAV_RIGHT = auto()
     NAV_DOWN = auto()
@@ -100,6 +101,7 @@ class InteractibleID:
 ROOT_VERTICAL = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
 ROOT_HORIZONTAL = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
 EMPTY_INTERACTIBLE = InteractibleID(())
+# EMPTY_INTERACTIBLE = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=-1, persistent=False, first_child_default=False),))
 
 
 @dataclass(frozen=True, eq=True)
@@ -127,7 +129,8 @@ class NextInteractible(ResultData):
 class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     action: NavAction | None = None
-    _selected_id: InteractibleID = EMPTY_INTERACTIBLE
+    _active_id: InteractibleID = EMPTY_INTERACTIBLE
+    _hovered_id: InteractibleID = EMPTY_INTERACTIBLE
     _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
     _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
     """if any interactible id part declares it self as persistent,
@@ -136,7 +139,7 @@ class NavState:
 
     @property
     def selected_id(self):
-        return self._selected_id
+        return self._active_id
     #
     # persistent state
     #
@@ -146,12 +149,18 @@ class NavState:
     # state management
     #
     def is_active(self, key: InteractibleID) -> bool:
-        if self._selected_id == EMPTY_INTERACTIBLE:
+        if self._active_id == EMPTY_INTERACTIBLE:
             return False
-        return key.data == self._selected_id.data[: len(key.data)]
+        return key.data == self._active_id.data[: len(key.data)]
+    def is_hover(self, key: InteractibleID) -> bool:
+        if self._hovered_id == EMPTY_INTERACTIBLE:
+            return False
+        return key.data == self._hovered_id.data[: len(key.data)]
+
     def is_selected(self, key: InteractibleID) -> bool:
-        return self.is_active(key) and self.action == NavAction.SELECT
-    def was_active(self, key: InteractibleID) -> bool:
+        # prioritise keyboard navigation over hover
+        return (self.is_active(key) and self.action == NavAction.SELECT_VIA_KEYBOARD) or (self.is_hover(key) and self.action == NavAction.SELECT_VIA_MOUSE)
+    def was_selected_or_active(self, key: InteractibleID) -> bool:
         for id in self._persistent_selected_id.values():
             if key.data == id.data[:len(key.data)]:
                 return True
@@ -177,34 +186,46 @@ class NavState:
 
         # reactivity
 
-        next_id = self._selected_id
+        next_active_id = self._active_id
+        next_hovered_id = self._hovered_id
         if action in (NavAction.NAV_DOWN, NavAction.NAV_LEFT, NavAction.NAV_UP, NavAction.NAV_RIGHT) and len(nav_data):
             # handle keyboard nav and its edge cases
-            if self._selected_id in nav_data and self._selected_id != EMPTY_INTERACTIBLE:
-                selected_index = nav_data.index(self._selected_id)
+
+            # there is already an active id
+            if self._active_id in nav_data and self._active_id != EMPTY_INTERACTIBLE:
+                selected_index = nav_data.index(self._active_id)
                 if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
-                    next_id = result.next_id
+                    next_active_id = result.next_id
+            # otherwise, use start from hovered id
+            elif self._hovered_id != EMPTY_INTERACTIBLE:
+                next_active_id = self._hovered_id
             else:
-                next_id = nav_data[0]
+                next_active_id = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
             # use mouse navigation instead
-            next_id = next_inderactible.next_id
+            next_hovered_id = next_inderactible.next_id
+            if action == NavAction.SELECT_VIA_MOUSE:
+                next_active_id = EMPTY_INTERACTIBLE
+        else:
+            next_hovered_id = EMPTY_INTERACTIBLE
 
         # update persistent selected ids
 
         next_persistent_selected_id = dict(self._persistent_selected_id)
 
-        for ancestor in next_id.ancestors():
-            if ancestor.persistent:
-                next_persistent_selected_id[ancestor] = next_id
-
-        if self._selected_id not in nav_data and nav_data:
-            next_id = nav_data[0]
-
+        if next_active_id != EMPTY_INTERACTIBLE:
+            for ancestor in next_active_id.ancestors():
+                if ancestor.persistent:
+                    next_persistent_selected_id[ancestor] = next_active_id
+        elif next_hovered_id and action == NavAction.SELECT_VIA_MOUSE:
+            for ancestor in next_hovered_id.ancestors():
+                if ancestor.persistent:
+                    next_persistent_selected_id[ancestor] = next_hovered_id
         return NavState(
             mouse_position=mouse_position if mouse_position is not None else self.mouse_position,
             action=action,
-            _selected_id=next_id,
+            _active_id=next_active_id,
+            _hovered_id=next_hovered_id,
             _persistent_state=MappingProxyType(next_state),
             _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
         )
@@ -383,7 +404,7 @@ default_nav_bindings = {
     "up": NavAction.NAV_UP,
     "l": NavAction.NAV_RIGHT,
     "right": NavAction.NAV_RIGHT,
-    "enter": NavAction.SELECT,
-    "left mouse": NavAction.SELECT,
-    " ": NavAction.SELECT,
+    "enter": NavAction.SELECT_VIA_KEYBOARD,
+    " ": NavAction.SELECT_VIA_KEYBOARD,
+    "left mouse": NavAction.SELECT_VIA_MOUSE,
 }

@@ -51,6 +51,11 @@ class Model():
     edit_button: InteractibleID = EMPTY_INTERACTIBLE
     tasks_container: InteractibleID = EMPTY_INTERACTIBLE
 
+def get_border_style(nav: NavState, id: InteractibleID):
+    return Style(
+        fg=Colors.active if nav.is_hover(id) else None,
+        bg=Colors.active if nav.is_active(id) else None
+    )
 
 tasks = [
     Task(LOREM, False),
@@ -76,7 +81,7 @@ def update(input: InputEvent, res: Result, m: Model):
         m.nav = m.nav.update(res, action, m.nav_data, input.mouse_position_event)
 
     for index, task_id in enumerate(m.tasks_ids):
-        if m.nav.is_active(task_id):
+        if m.nav.is_selected(task_id):
             m.selected_task_index = index
 
     if len(m.tasks):
@@ -133,14 +138,14 @@ def update(input: InputEvent, res: Result, m: Model):
 #
 
 def button(id, nav: NavState):
-    return combine(styled(border, Style(fg=Colors.active if nav.is_active(id) else None)), nav.interaction_area(id))
+    return combine(styled(border, get_border_style(nav, id)), nav.interaction_area(id))
 
-def item(item, id, nav: NavState):
+def item(item, m: Model, id, nav: NavState):
     return adaptive_text(item.description)\
         | (combine(strike_through, fg(Colors.done)) if item.done else empty)\
-        | styled(border, Style(fg=Colors.active if nav.is_active(id) else None))\
+        | styled(border, get_border_style(nav, id))\
         | clamp_height(5)\
-        | (fg(Colors.was_active) if nav.was_active(id) else empty)\
+        | (fg(Colors.was_active) if m.tasks[m.selected_task_index] == item else empty)\
         | nav.interaction_area(id)
 
 
@@ -157,7 +162,7 @@ def view(m: Model):
             vbox_scroll(
                 state=nav,
                 key=m.tasks_container,
-                children=[(id, item(task, id, nav)) for id, task in zip(m.tasks_ids, m.tasks)],
+                children=[(id, item(task,m, id, nav)) for id, task in zip(m.tasks_ids, m.tasks)],
             ) | border_with_title(text(" [Items] ") | bold | center) | flex,
             vbox_flex([
                 (vbox_flex([
@@ -188,8 +193,9 @@ m = Model(
 )
 def main(stdscr: curses.window):
     while True:
-        res = layout_to_result(Rect(80, 40), view(m))
-        stdscr.clear()
+        y, x = stdscr.getmaxyx()
+        res = layout_to_result(Rect(x-1, y-1), view(m))
+        stdscr.erase()
         draw_result(res, stdscr)
         # stdscr.refresh()
 
