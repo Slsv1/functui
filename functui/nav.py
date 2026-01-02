@@ -9,12 +9,20 @@ from .classes import Coordinate, Result, ResultData, applicable, Layout, Frame, 
 class NavAction(Enum):
     SELECT_VIA_KEYBOARD = auto()
     SELECT_VIA_MOUSE = auto()
+    PAGE_DOWN = auto()
+    PAGE_UP = auto()
+    SCROLL_UP = auto()
+    SCROLL_DOWN = auto()
     NAV_UP = auto()
     NAV_RIGHT = auto()
     NAV_DOWN = auto()
     NAV_LEFT = auto()
 
-type NavDirAction = Literal[NavAction.NAV_DOWN, NavAction.NAV_UP, NavAction.NAV_LEFT, NavAction.NAV_RIGHT]
+type KeyboardNavAction = Literal[NavAction.NAV_DOWN, NavAction.NAV_UP, NavAction.NAV_LEFT, NavAction.NAV_RIGHT]
+KEYBOARD_NAV_ACTION = [NavAction.NAV_DOWN, NavAction.NAV_UP, NavAction.NAV_LEFT, NavAction.NAV_RIGHT]
+
+type ScrollAction = Literal[NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, NavAction.SCROLL_UP]
+SCROLL_ACTION = [NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, NavAction.SCROLL_UP]
 
 class Direction(Enum):
     VERTICAL = auto()
@@ -129,6 +137,7 @@ class NextInteractible(ResultData):
 class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     action: NavAction | None = None
+    last_action: NavAction | None = None
     _active_id: InteractibleID = EMPTY_INTERACTIBLE
     _hovered_id: InteractibleID = EMPTY_INTERACTIBLE
     _last_active_or_hovered_id: InteractibleID = EMPTY_INTERACTIBLE
@@ -166,6 +175,18 @@ class NavState:
             if key.data == id.data[:len(key.data)]:
                 return True
         return False
+    def get_scrolling_difference(self):
+        if self.action == NavAction.SCROLL_UP:
+            if self.last_action == NavAction.SCROLL_UP:
+                return -2
+            return -1
+
+        if self.action == NavAction.SCROLL_DOWN:
+            if self.last_action == NavAction.SCROLL_DOWN:
+                return 2
+            return 1
+
+        return 0
 
     # while True:
     #    res = render() (print)
@@ -231,6 +252,7 @@ class NavState:
         return NavState(
             mouse_position=mouse_position if mouse_position is not None else self.mouse_position,
             action=action,
+            last_action=self.action,
             _active_id=next_active_id,
             _hovered_id=next_hovered_id,
             _last_active_or_hovered_id=next_last_active_or_hovered_id,
@@ -357,7 +379,7 @@ def _navigate_by_keyboard(
         persistent_selected_ids: MappingProxyType[InteractibleID, InteractibleID],
         current_index: int,
         nav_data: tuple[InteractibleID, ...],
-        action: NavDirAction 
+        action: KeyboardNavAction 
 ) -> _NavigationResult | None:
     direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
     backwards = False
@@ -412,7 +434,16 @@ default_nav_bindings = {
     "up": NavAction.NAV_UP,
     "l": NavAction.NAV_RIGHT,
     "right": NavAction.NAV_RIGHT,
+
     "enter": NavAction.SELECT_VIA_KEYBOARD,
     " ": NavAction.SELECT_VIA_KEYBOARD,
     "left mouse": NavAction.SELECT_VIA_MOUSE,
+
+    "page up": NavAction.PAGE_UP,
+    "ctrl+u": NavAction.PAGE_UP,
+    "page down": NavAction.PAGE_DOWN,
+    "ctrl+d": NavAction.PAGE_DOWN,
+
+    "mouse wheel down": NavAction.SCROLL_DOWN,
+    "mouse wheel up": NavAction.SCROLL_UP
 }

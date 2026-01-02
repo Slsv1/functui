@@ -47,8 +47,8 @@ _curses_int_to_standard_key_name = {
 
     curses.KEY_HOME: "home",
     curses.KEY_END: "end",
-    curses.KEY_NPAGE: "pgdown",
-    curses.KEY_PPAGE: "pgup",
+    curses.KEY_NPAGE: "page down",
+    curses.KEY_PPAGE: "page up",
 
     curses.KEY_DC: "delete",
     curses.KEY_IC: "insert",
@@ -110,9 +110,9 @@ def mouse_button_to_str(mouse_button: int) -> str:
     elif mouse_button & curses.BUTTON3_RELEASED:
         out.append("right mouse released")
     elif mouse_button & curses.BUTTON4_PRESSED:
-        out.append("wheel up")
+        out.append("mouse wheel up")
     elif mouse_button & curses.BUTTON5_PRESSED:
-        out.append("wheel down")
+        out.append("mouse wheel down")
     else:
         out.append("unknown")
     return "+".join(out)

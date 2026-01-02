@@ -142,6 +142,7 @@ def button(id, nav: NavState):
 
 def item(item, m: Model, id, nav: NavState):
     return adaptive_text(item.description)\
+        | padding\
         | (combine(strike_through, fg(Colors.done)) if item.done else empty)\
         | styled(border, get_border_style(nav, id))\
         | clamp_height(5)\
@@ -154,25 +155,27 @@ def view(m: Model):
     text_widget = nothing()
     if m.current_text_input is not None:
         text_widget = adaptive_text(m.current_text_input.value)\
-            | border_with_title(text("Input") | center)\
+            | bg_fill\
+            | border_with_title(text("Input") | center, border_double)\
+            | custom_padding(2, 2, 2, 2)\
             | center
 
     return static_box([
         hbox_flex([
             vbox_scroll(
-                state=nav,
+                nav=nav,
                 key=m.tasks_container,
                 children=[(id, item(task,m, id, nav)) for id, task in zip(m.tasks_ids, m.tasks)],
-            ) | border_with_title(text(" [Items] ") | bold | center) | flex,
+            ) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
             vbox_flex([
                 (vbox_flex([
-                    adaptive_text(m.tasks[m.selected_task_index].description) | no_flex,
+                    adaptive_text(m.tasks[m.selected_task_index].description) | padding | no_flex,
                     nothing() | flex,
                     text("delete") | center | fg(Color.RED) | button(m.delete_button, nav) | no_flex,
                     text("complete") | center | fg(Color.GREEN) | button(m.complete_button, nav) | no_flex,
                     text("edit") | center | button(m.edit_button, nav) | no_flex,
                 ]) if m.tasks else text("There are no tasks") | center) \
-                | border_with_title(text(" [Properties] ") | center | bold)\
+                | border_with_title(text(" [Properties] ") | center | bold, border_thick)\
                 | flex,
                 text("New Task") | center | button(m.create_button, nav) | no_flex,
             ]) | flex

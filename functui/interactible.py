@@ -20,7 +20,7 @@ from typing import NamedTuple
 
 UNLIMITED_SPACE = 2 ** 16
 def vbox_scroll(
-        state: NavState,
+        nav: NavState,
         key: InteractibleID,
         children: Iterable[tuple[InteractibleID, Layout]],
         # scroll_bar_key: InteractibleID = EMPTY_INTERACTIBLE,
@@ -30,24 +30,32 @@ def vbox_scroll(
 
     child_nodes = []
     selected_index = None
-    direction_down = True if state.action == NavAction.NAV_DOWN else False
 
     for i, (id, node) in enumerate(children):
         child_nodes.append(node)
-        if state.is_active(id):
+        if nav.is_active(id):
             selected_index = i
     # we need a custom node here so that we can get the available_height
 
     return Layout(
         func=vbox_scroll,
         min_size=min_size_vertical([i.min_size for i in child_nodes]),
-        render=partial(_vbox_scroll_render, key, tuple(child_nodes), selected_index, direction_down, state.try_state(key, int))
+        render=partial(
+            _vbox_scroll_render,
+            key,
+            tuple(child_nodes),
+            selected_index,
+            nav.action,
+            nav.get_scrolling_difference(),
+            nav.try_state(key, int),
+        )
     )
 def _vbox_scroll_render(
         key: InteractibleID,
         child_nodes: tuple[Layout],
         selected_index: int | None,
-        direction_down: bool,
+        action: NavAction | None,
+        scrolling_difference: int,
         last_at_y: int | None,
         frame: Frame, 
         box: Box
@@ -57,7 +65,8 @@ def _vbox_scroll_render(
         .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
     # decide at_y
 
-    if selected_index is not None:
+    if selected_index is not None and action in KEYBOARD_NAV_ACTION:
+        direction_down = True if action == NavAction.NAV_DOWN else False
         # selected at y is at what y coordinate the selected child starts
         # desired at y is where the at_y var needs to be so that the childs end is included at the bottom of the box
         selected_at_y_end = vbox(child_nodes[:selected_index+1])\
@@ -78,6 +87,18 @@ def _vbox_scroll_render(
         at_y = last_at_y
     else:
         at_y = 0
+
+    # scroll events
+    if action in SCROLL_ACTION:
+        match action:
+            case NavAction.PAGE_UP:
+                at_y -= (available_height -1)
+            case NavAction.PAGE_DOWN:
+                at_y += (available_height - 1)
+            case _:
+                at_y += scrolling_difference
+        at_y = clamp(at_y, 0, content_height - available_height)
+
 
     # render
 
