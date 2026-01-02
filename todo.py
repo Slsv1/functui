@@ -145,7 +145,7 @@ def item(item, m: Model, id, nav: NavState):
         | (combine(strike_through, fg(Colors.done)) if item.done else empty)\
         | styled(border, get_border_style(nav, id))\
         | clamp_height(5)\
-        | (fg(Colors.was_active) if m.tasks[m.selected_task_index] == item else empty)\
+        | (fg(Colors.was_active) if m.tasks[m.selected_task_index] is item else empty)\
         | nav.interaction_area(id)
 
 

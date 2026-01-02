@@ -131,6 +131,7 @@ class NavState:
     action: NavAction | None = None
     _active_id: InteractibleID = EMPTY_INTERACTIBLE
     _hovered_id: InteractibleID = EMPTY_INTERACTIBLE
+    _last_active_or_hovered_id: InteractibleID = EMPTY_INTERACTIBLE
     _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
     _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
     """if any interactible id part declares it self as persistent,
@@ -196,9 +197,9 @@ class NavState:
                 selected_index = nav_data.index(self._active_id)
                 if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
                     next_active_id = result.next_id
-            # otherwise, use start from hovered id
-            elif self._hovered_id != EMPTY_INTERACTIBLE:
-                next_active_id = self._hovered_id
+            # otherwise, use start from where we left off
+            elif self._last_active_or_hovered_id != EMPTY_INTERACTIBLE:
+                next_active_id = self._last_active_or_hovered_id
             else:
                 next_active_id = nav_data[0]
         elif next_inderactible := res.try_data(NextInteractible):
@@ -209,23 +210,30 @@ class NavState:
         else:
             next_hovered_id = EMPTY_INTERACTIBLE
 
-        # update persistent selected ids
+        # update persistent selected ids and last
 
         next_persistent_selected_id = dict(self._persistent_selected_id)
-
+        next_last_active_or_hovered_id = self._last_active_or_hovered_id
         if next_active_id != EMPTY_INTERACTIBLE:
+            next_last_active_or_hovered_id = next_active_id
+
             for ancestor in next_active_id.ancestors():
                 if ancestor.persistent:
                     next_persistent_selected_id[ancestor] = next_active_id
-        elif next_hovered_id and action == NavAction.SELECT_VIA_MOUSE:
-            for ancestor in next_hovered_id.ancestors():
-                if ancestor.persistent:
-                    next_persistent_selected_id[ancestor] = next_hovered_id
+        elif next_hovered_id != EMPTY_INTERACTIBLE:
+            next_last_active_or_hovered_id = next_hovered_id
+
+            if action == NavAction.SELECT_VIA_MOUSE:
+                for ancestor in next_hovered_id.ancestors():
+                    if ancestor.persistent:
+                        next_persistent_selected_id[ancestor] = next_hovered_id
+
         return NavState(
             mouse_position=mouse_position if mouse_position is not None else self.mouse_position,
             action=action,
             _active_id=next_active_id,
             _hovered_id=next_hovered_id,
+            _last_active_or_hovered_id=next_last_active_or_hovered_id,
             _persistent_state=MappingProxyType(next_state),
             _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
         )
