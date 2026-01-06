@@ -31,7 +31,6 @@ class Task():
     description: str
     done: bool
 
-
 class Colors(SimpleNamespace):
     was_active = Color.CYAN
     active = Color.BLUE

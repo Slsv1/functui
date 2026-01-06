@@ -118,14 +118,17 @@ def mouse_button_to_str(mouse_button: int) -> str:
     return "+".join(out)
 
 def wrapper(func: Callable[[curses.window], Any]):
-    def wrapped_func(stdscr):
-        curses.curs_set(0)
-        curses.raw()
-        curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
-        curses.mouseinterval(0)
-        print('\033[?1003h') # xterm enable reporting of all mouse events
-        func(stdscr)
-    curses.wrapper(wrapped_func)
+    try:
+        def wrapped_func(stdscr):
+            curses.curs_set(0)
+            curses.raw()
+            curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
+            curses.mouseinterval(0)
+            print('\033[?1003h') # xterm enable reporting of all mouse events
+            func(stdscr)
+        curses.wrapper(wrapped_func)
+    finally:
+        print('\033[?1003l') # xterm disable reporting of all mouse events
 
 
 def get_input_event(stdscr: curses.window) -> InputEvent:
@@ -166,7 +169,15 @@ def char_style_to_attr(style: CharStyle) -> int:
     return out
 
 def color_to_curses(clr: Color):
-    out = clr.value - 30 # Ansi assignd index 30 for black (1st color) while curses assigns 0
+    if isinstance(clr, Color4):
+        if clr.value == 39 or clr.value == 49:
+            return 0
+        if clr.value < 50:
+            out = clr.value - 30 # Ansi assignd index 30 for black (1st color) while curses assigns 0
+        else:
+            out = clr.value + 8 - (90)
+    else:
+        return clr.index
     # match clr:
     #
     #     case Color.BLACK:
@@ -186,8 +197,8 @@ def color_to_curses(clr: Color):
         # CYAN = 36
         # WHITE = 37
         # RESET = 39
-    if out > 7: # don't do anything with reset
-        return 0
+    # if out > 7: # don't do anything with reset
+    #     return 0
     return out
 
 pair_cache: dict[tuple[int, int], int] = {}

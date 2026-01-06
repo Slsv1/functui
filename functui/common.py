@@ -78,6 +78,9 @@ LOREM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
 def text(string: str):
     """A simple text node.
 
+    Args:
+        string: A string that may include new line characters.
+
     Examples:
         >>> from functui import layout_to_str, Rect
         >>> from functui.common import text
@@ -87,8 +90,7 @@ def text(string: str):
         bar
         baz
 
-    Args:
-        string: A string that may include new line characters."""
+    """
     split_string = tuple(string.split('\n'))
     return Layout(
         func=text,
@@ -246,6 +248,9 @@ def _add_style_render(child: Layout, style: Style, frame: Frame, box: Box):
         frame.with_style(frame.default_style.combine(style)),
         box
     )
+
+def style(style: Style):
+    return partial(_add_style, style)
 def _force_style(style: Style, child: Layout):
     return Layout(
         func=_force_style,
@@ -421,10 +426,18 @@ def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
     for node in children:
         child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(box.width, child_min_size.height).offset_by(box.position + Coordinate(0, at_y))
+
+        at_y += child_box.height
+        
+        # dont do commands for boxes out of bounds who are above
+        if at_y < 0:
+            continue
         res.add_children_after([
                 node.render(frame.shrink_to(child_box.intersect(box)), child_box)
         ])
-        at_y += child_box.height
+        if at_y > box.height:
+            break
+
     return res
 
 def hbox(children: Iterable[Layout], at_x: int=0):

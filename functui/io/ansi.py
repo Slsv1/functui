@@ -5,10 +5,16 @@ from dataclasses import dataclass
 
 from functools import cache
 def default_color_to_fg_ansi(color: Color):
-    return f"\033[{color.value}m"
+    if isinstance(color, Color4):
+        return f"\033[{color.value}m"
+    else:
+        return f"\033[38:5:{color.index}m"
 
 def default_color_to_bg_ansi(color: Color):
-    return f"\033[{color.value + 10}m"
+    if isinstance(color, Color4):
+        return f"\033[{color.value + 10}m"
+    else:
+        return f"\033[48:5:{color.index}m"
 
 @cache
 def style_to_ansi(style: CharStyle):
@@ -25,14 +31,15 @@ def style_to_ansi(style: CharStyle):
         out.append("\033[9m")
     return "".join(out)
 
+
 ANSI_RESET_STYLES = "\033[0m"
 
 def render_ansi(screen: Screen) -> str:
     out = []
     lines = screen.split_by_lines()
     curr_style = CharStyle(0)
-    curr_fg = Color.RESET
-    curr_bg = Color.RESET
+    curr_fg = Color4.RESET
+    curr_bg = Color4.RESET
     for line in lines:
         for pixel in line:
             line_str = []

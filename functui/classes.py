@@ -303,8 +303,8 @@ class CharStyle(Flag):
     UNDERLINED = auto()
     STRIKE_THROUGH = auto()
 
-class Color(Enum):
-    """ANSI SGR codes for 3 bit colors
+class Color4(Enum):
+    """ANSI SGR codes for 4 bit colors
 
     Attributes:
         BLACK:
@@ -324,7 +324,31 @@ class Color(Enum):
     MAGENTA = 35
     CYAN = 36
     WHITE = 37
+
+    BRIGHT_BLACK = 90
+    BRIGHT_RED = 91
+    BRIGHT_GREEN = 92
+    BRIGHT_YELLOW = 93
+    BRIGHT_BLUE = 94
+    BRIGHT_MAGENTA = 95
+    BRIGHT_CYAN = 96
+    BRIGHT_WHITE = 97
+
     RESET = 39
+
+@dataclass(frozen=True, eq=True)
+class Color8:
+    index: int
+
+@dataclass(frozen=True, eq=True)
+class Color24:
+    r: int
+    g: int
+    b: int
+
+Color = Color4 | Color8 | Color24
+
+# class Color8
 
 @dataclass(frozen=True, eq=True)
 class Style:
@@ -462,7 +486,6 @@ def min_size_expand(
     width_change: int,
     height_change: int
 ) -> MinSize:
-    @cache
     def out(measure_text: MeasureTextFunc, from_size: Rect):
         return child_size(measure_text, from_size.resize(-width_change, -height_change)).resize(width_change, height_change)
     return out
@@ -683,7 +706,7 @@ def layout_to_result(dimensions: Rect, layout: Layout, measure_text: MeasureText
         Frame(
             screen_rect=dimensions,
             view_box=Box(dimensions.width, dimensions.height),
-            default_style=Style(fg=Color.RESET, bg=Color.RESET),
+            default_style=Style(fg=Color4.RESET, bg=Color4.RESET),
             measure_text=measure_text
         ),
         Box(width=dimensions.width, height=dimensions.height),
