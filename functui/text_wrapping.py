@@ -25,12 +25,12 @@ class Justify(Enum):
 @dataclass(frozen=True)
 class Span:
     text: tuple[str | Self, ...]
-    style: Style
+    rule: StyleRule
 
 
 class Segment(NamedTuple):
     text: str
-    style: Style
+    rule: StyleRule
     length: int
 
 
@@ -73,13 +73,13 @@ class Group:
 
             if allowed_letters:
                 allowed_segments.append(
-                    Segment("".join(allowed_letters), segment.style, total_letter_length)
+                    Segment("".join(allowed_letters), segment.rule, total_letter_length)
                 )
             overflowing_segments.insert(
                 0, 
                 Segment(
                     "".join(overflowing_letters),
-                    segment.style,
+                    segment.rule,
                     segment.length - total_letter_length
                 )
             )
@@ -109,7 +109,7 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
         soft_hyphen:
             Display to signal a word being wrapped between to line.
     """
-    span = Span(string, style=Style())
+    span = Span(string, rule=StyleRule())
     def min_size(measure_text, available: Rect):
         groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
         lines = list(
@@ -144,7 +144,7 @@ def _adaptive_text_render(span: Span, justify: Justify, frame: Frame, box: Box):
         dx = 0
         for segment in chain.from_iterable(g.segments for g in line):
             res.draw_string_line(
-                frame.with_style(frame.default_style.combine(segment.style)), segment.text, box.position + Coordinate(dx, dy)
+                frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
     return res
@@ -152,9 +152,9 @@ def _adaptive_text_render(span: Span, justify: Justify, frame: Frame, box: Box):
 
 # adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")
 @cache
-def _split_by_spaces(s: str, style: Style, measure_text: MeasureTextFunc):
+def _split_by_spaces(s: str, rule: StyleRule, measure_text: MeasureTextFunc):
     r = filter(lambda x: x!='',re.split(r'(\s+)', s))
-    return [Segment(t, style, measure_text(t)) for t in r]
+    return [Segment(t, rule, measure_text(t)) for t in r]
 
 def _append_segment_to_line(line: list[Group], seg: Segment):
     if len(line) and (seg.text.isspace() == line[-1].is_space):
@@ -174,7 +174,7 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
             if len(lines) == 1:
                 _extend_line_with_segments(
                     out_lines[-1],
-                    _split_by_spaces(t, span.style, measure_text)
+                    _split_by_spaces(t, span.rule, measure_text)
                 )
                 continue
 
@@ -182,20 +182,20 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
             last_elem = next(lines_iter)
             _extend_line_with_segments(
                 out_lines[-1],
-                _split_by_spaces(last_elem, span.style, measure_text)
+                _split_by_spaces(last_elem, span.rule, measure_text)
             )
             for line in lines_iter:
                 out_lines.append([])
                 _extend_line_with_segments(
                     out_lines[-1],
-                    _split_by_spaces(line, span.style, measure_text)
+                    _split_by_spaces(line, span.rule, measure_text)
                 )
             continue
 
         child_res = _span_to_lines(
             Span(
                 text=t.text,
-                style=span.style.combine(t.style)
+                rule=span.rule | t.rule
             ),
             measure_text
         )
@@ -211,9 +211,9 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
             out_lines.append(line)
     return out_lines
 
-def span(*text: str | Span, style: Style):
+def span(*text: str | Span, rule: StyleRule):
     """Style a text segment in an :obj:`adaptive_text` node."""
-    return Span(text, style)
+    return Span(text, rule)
 
 def _wrap_word(
     group: Group,
@@ -226,7 +226,7 @@ def _wrap_word(
     prefix, left_over = group.split(max_width - continuation_str_width, measure_text)
     segments = (*prefix.segments, Segment(
         continuation_str, 
-        prefix.segments[-1].style,
+        prefix.segments[-1].rule,
         continuation_str_width
     ))
     prefix = Group(segments, False)

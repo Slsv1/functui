@@ -1,7 +1,7 @@
 import pytest
 # from functui.ansirender import layout_to_str
-from functui import Rect, layout_to_str, Style
-from functui.classes import Color
+from functui import Rect, layout_to_str
+from functui.classes import Color4, StyleRule
 from functui.text_wrapping import _span_to_lines, Segment, Span, wrap_line_default, Group
 from wcwidth import wcswidth
 
@@ -11,8 +11,8 @@ def measure_text(s):
 
 
 def test_group_split_overflow_with_break():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert Group((Segment("a", s1, 1), Segment("bc", s2, 2)), False)\
         .split(2, measure_text)\
         ==[
@@ -21,8 +21,8 @@ def test_group_split_overflow_with_break():
     ]
 
 def test_group_split_overflow_with_break_and_trailing_group():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert _to_group_with_segments(("abc", s1), ("d", s2))\
         .split(2, measure_text)\
         ==[
@@ -31,8 +31,8 @@ def test_group_split_overflow_with_break_and_trailing_group():
     ]
 
 def test_group_split_no_overflow():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert Group((Segment("a", s1, 1), Segment("bc", s2, 2)), False)\
         .split(3, measure_text)\
         ==[
@@ -41,8 +41,8 @@ def test_group_split_no_overflow():
 
 
 def test_group_split_overflow_no_break():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert Group((Segment("ab", s1, 2), Segment("cd", s2, 2)), False)\
         .split(2, measure_text)\
         ==[
@@ -52,8 +52,8 @@ def test_group_split_overflow_no_break():
 
 
 def test_span_to_lines():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert _span_to_lines(
         Span(
             (
@@ -75,8 +75,8 @@ def test_span_to_lines():
 
 
 def test_span_to_lines_join():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert _span_to_lines(
         Span(
             (
@@ -91,10 +91,10 @@ def test_span_to_lines_join():
     ]]
 
 
-def _to_group(string:str, style:Style):
+def _to_group(string:str, style:StyleRule):
     return Group((Segment(string, style, measure_text(string)),), string.isspace())
 
-def _to_group_with_segments(*segments: tuple[str, Style]):
+def _to_group_with_segments(*segments: tuple[str, StyleRule]):
     return Group(
         tuple(Segment(string, style, measure_text(string)) for string, style in segments),
         segments[-1][0].isspace()
@@ -102,8 +102,8 @@ def _to_group_with_segments(*segments: tuple[str, Style]):
 
 
 def test_span_to_segments_with_newline():
-    s1 = Style()
-    s2 = Style(fg=Color.BLUE)
+    s1 = StyleRule()
+    s2 = StyleRule(fg=Color4.BLUE)
     assert _span_to_lines(
         Span(
             (
@@ -123,7 +123,7 @@ def test_span_to_segments_with_newline():
 
 
 def test_span_to_segments_with_multilple_newlines():
-    s1 = Style()
+    s1 = StyleRule()
     assert _span_to_lines(
         Span(
             (
@@ -141,7 +141,7 @@ def test_span_to_segments_with_multilple_newlines():
 
 
 def test_wrap_line_default_trim():
-    s = Style()
+    s = StyleRule()
     assert wrap_line_default(
         [_to_group(" ", s),_to_group("aaa", s), _to_group(" ", s)],
         3,
@@ -150,7 +150,7 @@ def test_wrap_line_default_trim():
 
 
 def test_wrap_line_default_wrap_and_remove_whitespace():
-    s = Style()
+    s = StyleRule()
     assert wrap_line_default(
         [_to_group("aaa", s), _to_group(" ", s), _to_group("bbb", s)],
         3,
@@ -162,7 +162,7 @@ def test_wrap_line_default_wrap_and_remove_whitespace():
 
 
 def test_wrap_line_default_word_too_long():
-    s = Style()
+    s = StyleRule()
     assert wrap_line_default(
         [_to_group("abcdefg", s)],
         4,
@@ -172,7 +172,7 @@ def test_wrap_line_default_word_too_long():
         [_to_group("defg", s)]
     ]
 def test_wrap_line_default_word_too_long_take_up_3_lines():
-    s = Style()
+    s = StyleRule()
     assert wrap_line_default(
         [_to_group("abcdefgh", s)],
         4,
@@ -183,7 +183,7 @@ def test_wrap_line_default_word_too_long_take_up_3_lines():
         [_to_group("gh", s)]
     ]
 def test_wrap_line_default_word_too_long_and_segment_after():
-    s = Style()
+    s = StyleRule()
     assert wrap_line_default(
         [_to_group_with_segments(("abcdefgh", s), ("jj", s))],
         4,

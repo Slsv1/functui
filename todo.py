@@ -32,9 +32,9 @@ class Task():
     done: bool
 
 class Colors(SimpleNamespace):
-    was_active = Color.CYAN
-    active = Color.BLUE
-    done = Color.GREEN
+    was_active = Color4.CYAN
+    active = Color4.BLUE
+    done = Color4.GREEN
 
 @dataclass
 class Model():
@@ -50,8 +50,8 @@ class Model():
     edit_button: InteractibleID = EMPTY_INTERACTIBLE
     tasks_container: InteractibleID = EMPTY_INTERACTIBLE
 
-def get_border_style(nav: NavState, id: InteractibleID):
-    return Style(
+def get_border_rule(nav: NavState, id: InteractibleID):
+    return StyleRule(
         fg=Colors.active if nav.is_hover(id) else None,
         bg=Colors.active if nav.is_active(id) else None
     )
@@ -137,13 +137,13 @@ def update(input: InputEvent, res: Result, m: Model):
 #
 
 def button(id, nav: NavState):
-    return combine(styled(border, get_border_style(nav, id)), nav.interaction_area(id))
+    return combine(styled(border, get_border_rule(nav, id)), nav.interaction_area(id))
 
 def item(item, m: Model, id, nav: NavState):
     return adaptive_text(item.description)\
         | padding\
         | (combine(strike_through, fg(Colors.done)) if item.done else empty)\
-        | styled(border, get_border_style(nav, id))\
+        | styled(border, get_border_rule(nav, id))\
         | clamp_height(5)\
         | (fg(Colors.was_active) if m.tasks[m.selected_task_index] is item else empty)\
         | nav.interaction_area(id)
@@ -170,8 +170,8 @@ def view(m: Model):
                 (vbox_flex([
                     adaptive_text(m.tasks[m.selected_task_index].description) | padding | no_flex,
                     nothing() | flex,
-                    text("delete") | center | fg(Color.RED) | button(m.delete_button, nav) | no_flex,
-                    text("complete") | center | fg(Color.GREEN) | button(m.complete_button, nav) | no_flex,
+                    text("delete") | center | fg(Color4.RED) | button(m.delete_button, nav) | no_flex,
+                    text("complete") | center | fg(Color4.GREEN) | button(m.complete_button, nav) | no_flex,
                     text("edit") | center | button(m.edit_button, nav) | no_flex,
                 ]) if m.tasks else text("There are no tasks") | center) \
                 | border_with_title(text(" [Properties] ") | center | bold, border_thick)\
@@ -180,7 +180,7 @@ def view(m: Model):
             ]) | flex
         ]),
         text_widget
-    ]) | fg(Color.WHITE) | bg(Color.BLACK)
+    ])
 
 # adaptive_styled_text([
 #     "hejsan", styled("hehejsan", fg=Color.RED), "hej hej hej"

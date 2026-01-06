@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias, NamedTuple
-from enum import Enum, Flag, auto
+from enum import Enum, Flag, auto, IntEnum
 from abc import ABC, abstractmethod
-from functools import partial, cache
+from functools import cached_property, partial, cache
 import wcwidth
 #
 # utilities
@@ -37,17 +37,6 @@ def intersperse[T](iterable: Iterable[T], sep: T) -> Iterable[T]:
         yield sep
         yield item
 
-@dataclass(frozen=True)
-class Applicable[T, U]:
-    func: Callable[[T], U]
-    def __or__(self, other: T) -> U:
-        return self.func(other)
-    def __call__(self, arg: T) -> U:
-        return self.func(arg)
-
-def applicable[T, U](func: Callable[[T], U]) -> Applicable[T, U]:
-    return func
-    # return Applicable(func)
 
 #
 # General Data Structures
@@ -287,23 +276,23 @@ class Box:
         return self.position.x <= point.x < (self.position.x + self.width)\
             and self.position.y <= point.y < (self.position.y + self.height) 
 
-class CharStyle(Flag):
+class StyleAttr(Flag):
     """Flags representing different syles
 
     Attributes:
         BOLD
-        REVERSED
+        REVERSE
         ITALIC
-        UNDERLINED
+        UNDERLINE
         STRIKE_THROUGH
     """
     BOLD = auto()
-    REVERSED = auto()
+    REVERSE = auto()
     ITALIC = auto()
-    UNDERLINED = auto()
+    UNDERLINE = auto()
     STRIKE_THROUGH = auto()
 
-class Color4(Enum):
+class Color4(IntEnum):
     """ANSI SGR codes for 4 bit colors
 
     Attributes:
@@ -316,29 +305,26 @@ class Color4(Enum):
         CYAN:
         WHITE:
         RESET: Dont display any color."""
-    BLACK = 30
-    RED = 31
-    GREEN = 32
-    YELLOW = 33
-    BLUE = 34
-    MAGENTA = 35
-    CYAN = 36
-    WHITE = 37
+    BLACK = 0
+    RED = 1
+    GREEN = 2
+    YELLOW = 3
+    BLUE = 4
+    MAGENTA = 5
+    CYAN = 6
+    WHITE = 7
 
-    BRIGHT_BLACK = 90
-    BRIGHT_RED = 91
-    BRIGHT_GREEN = 92
-    BRIGHT_YELLOW = 93
-    BRIGHT_BLUE = 94
-    BRIGHT_MAGENTA = 95
-    BRIGHT_CYAN = 96
-    BRIGHT_WHITE = 97
+    BRIGHT_BLACK = 8
+    BRIGHT_RED = 9
+    BRIGHT_GREEN = 10
+    BRIGHT_YELLOW = 11
+    BRIGHT_BLUE = 12
+    BRIGHT_MAGENTA = 13
+    BRIGHT_CYAN = 14
+    BRIGHT_WHITE = 15
 
-    RESET = 39
+    RESET = -1
 
-@dataclass(frozen=True, eq=True)
-class Color8:
-    index: int
 
 @dataclass(frozen=True, eq=True)
 class Color24:
@@ -346,12 +332,43 @@ class Color24:
     g: int
     b: int
 
-Color = Color4 | Color8 | Color24
+    @property
+    @cache
+    def hex(self):
+        return (1 << 24 | self.r << 16 | self.g << 8 | self.b)
+
+
+def rgb(r, g, b, /):
+    return Color24(r, g, b)
+# def hex(value, /):
+#     return Color24()
+
+Color = int | Color24
 
 # class Color8
 
 @dataclass(frozen=True, eq=True)
-class Style:
+class ComputedStyle:
+    """An immutable dataclass for style attributes:
+
+    Attributes:
+        fg: Foreground
+        bg: Background
+        char_style: Styling flags.
+    """
+    fg: Color = Color4.RESET
+    bg: Color = Color4.RESET
+    attrs: StyleAttr = StyleAttr(0)
+
+    def apply_rule(self, rule: StyleRule):
+        return ComputedStyle(
+            attrs=(self.attrs | rule.add_attrs) & ~rule.remove_attrs,
+            fg=self.fg if rule.fg is None else rule.fg,
+            bg=self.bg if rule.bg is None else rule.bg,
+        )
+
+@dataclass(frozen=True, eq=True)
+class StyleRule:
     """An immutable dataclass for style attributes:
 
     Attributes:
@@ -361,15 +378,26 @@ class Style:
     """
     fg: Color | None = None 
     bg: Color | None = None
-    char_style: CharStyle = CharStyle(0)
-    def __iter__(self):
-        return iter((self.fg, self.bg, self.char_style))
-    def combine(self, other: Self):
-        return Style(
-            char_style=self.char_style | other.char_style,
-            fg=self.fg if other.fg is None else other.fg,
-            bg=self.bg if other.bg is None else other.bg,
+    add_attrs: StyleAttr = StyleAttr(0)
+    remove_attrs: StyleAttr = StyleAttr(0)
+
+    def __or__(self, rule: Self):
+        return StyleRule(
+            add_attrs=(self.add_attrs | rule.add_attrs),
+            remove_attrs=(self.add_attrs | rule.remove_attrs),
+            fg=self.fg if rule.fg is None else rule.fg,
+            bg=self.bg if rule.bg is None else rule.bg,
         )
+rule_bold = StyleRule(add_attrs=StyleAttr.BOLD)
+rule_italic = StyleRule(add_attrs=StyleAttr.ITALIC)
+rule_strike_through = StyleRule(add_attrs=StyleAttr.STRIKE_THROUGH)
+rule_reverse = StyleRule(add_attrs=StyleAttr.REVERSE)
+rule_underline = StyleRule(add_attrs=StyleAttr.UNDERLINE)
+def rule_fg(color: Color, /):
+    return StyleRule(fg=color)
+def rule_bg(color: Color, /):
+    return StyleRule(bg=color)
+# class Style:
 
 
 #
@@ -389,7 +417,7 @@ class CharType(Enum):
 class Pixel:
     char: str = " "
     char_type: CharType = CharType.NORMAL
-    style: Style = Style()
+    style: ComputedStyle = ComputedStyle()
 
     def with_char(self, char: str) -> Self:
         return self.__class__(
@@ -404,7 +432,7 @@ class Pixel:
             self.style,
         )
 
-    def with_style(self, style: Style) -> Self:
+    def with_style(self, style: ComputedStyle) -> Self:
         return self.__class__(
             self.char,
             self.char_type,
@@ -443,10 +471,10 @@ class MeasureTextFunc(Protocol):
 class Frame:
     view_box: Box
     screen_rect: Rect
-    default_style: Style
+    default_style: ComputedStyle
     measure_text: MeasureTextFunc = field(hash=False, compare=False)
 
-    def with_style(self, style: Style):
+    def with_style(self, style: ComputedStyle):
         return self.__class__(
             view_box=self.view_box,
             screen_rect=self.screen_rect,
@@ -562,10 +590,10 @@ class Result:
         self._draw_commands.append(
             DrawPixel(Pixel(char=fill, style=frame.default_style), at)
         )
-    def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
-        self._draw_commands.append(
-            DrawPixel(pixel, at)
-        )
+    # def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
+    #     self._draw_commands.append(
+    #         DrawPixel(pixel, at)
+    #     )
     def draw_box(
         self,
         frame: Frame,
@@ -706,7 +734,7 @@ def layout_to_result(dimensions: Rect, layout: Layout, measure_text: MeasureText
         Frame(
             screen_rect=dimensions,
             view_box=Box(dimensions.width, dimensions.height),
-            default_style=Style(fg=Color4.RESET, bg=Color4.RESET),
+            default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
             measure_text=measure_text
         ),
         Box(width=dimensions.width, height=dimensions.height),

@@ -5,29 +5,27 @@ from dataclasses import dataclass
 
 from functools import cache
 def default_color_to_fg_ansi(color: Color):
-    if isinstance(color, Color4):
-        return f"\033[{color.value}m"
-    else:
-        return f"\033[38:5:{color.index}m"
+    if color == -1:
+        return f"\033[39m"
+    return f"\033[38:5:{color}m"
 
 def default_color_to_bg_ansi(color: Color):
-    if isinstance(color, Color4):
-        return f"\033[{color.value + 10}m"
-    else:
-        return f"\033[48:5:{color.index}m"
+    if color == -1:
+        return f"\033[49m"
+    return f"\033[48:5:{color}m"
 
 @cache
-def style_to_ansi(style: CharStyle):
+def style_to_ansi(style: StyleAttr):
     out = []
-    if CharStyle.BOLD in style:
+    if StyleAttr.BOLD in style:
         out.append("\033[1m")
-    if CharStyle.ITALIC in style:
+    if StyleAttr.ITALIC in style:
         out.append("\033[3m")
-    if CharStyle.UNDERLINED in style:
+    if StyleAttr.UNDERLINE in style:
         out.append("\033[4m")
-    if CharStyle.REVERSED in style:
+    if StyleAttr.REVERSE in style:
         out.append("\033[7m")
-    if CharStyle.STRIKE_THROUGH in style:
+    if StyleAttr.STRIKE_THROUGH in style:
         out.append("\033[9m")
     return "".join(out)
 
@@ -37,19 +35,19 @@ ANSI_RESET_STYLES = "\033[0m"
 def render_ansi(screen: Screen) -> str:
     out = []
     lines = screen.split_by_lines()
-    curr_style = CharStyle(0)
+    curr_style = StyleAttr(0)
     curr_fg = Color4.RESET
     curr_bg = Color4.RESET
     for line in lines:
         for pixel in line:
             line_str = []
-            if curr_style != pixel.style.char_style:
-                style_changes = (curr_style ^ pixel.style.char_style)
-                new_style =  style_changes & pixel.style.char_style
+            if curr_style != pixel.style.attrs:
+                style_changes = (curr_style ^ pixel.style.attrs)
+                new_style =  style_changes & pixel.style.attrs
                 removed_style = bool(style_changes & curr_style)
-                curr_style = pixel.style.char_style
+                curr_style = pixel.style.attrs
                 line_str.extend(
-                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style.char_style)]\
+                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style.attrs)]\
                     if removed_style\
                     else [style_to_ansi(new_style)]
                 )

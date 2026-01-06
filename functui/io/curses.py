@@ -124,6 +124,7 @@ def wrapper(func: Callable[[curses.window], Any]):
             curses.raw()
             curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
             curses.mouseinterval(0)
+            curses.use_default_colors()
             print('\033[?1003h') # xterm enable reporting of all mouse events
             func(stdscr)
         curses.wrapper(wrapped_func)
@@ -154,30 +155,25 @@ def get_input_event(stdscr: curses.window) -> InputEvent:
     return InputEvent(key_event=key_code_to_str(key))
 
 @cache
-def char_style_to_attr(style: CharStyle) -> int:
+def char_style_to_attr(style: StyleAttr) -> int:
     out = 0
-    if style & CharStyle.BOLD:
+    if style & StyleAttr.BOLD:
         out |= curses.A_BOLD
-    if style & CharStyle.ITALIC:
+    if style & StyleAttr.ITALIC:
         out |= curses.A_ITALIC
-    if style & CharStyle.REVERSED:
+    if style & StyleAttr.REVERSE:
         out |= curses.A_REVERSE
-    if style & CharStyle.STRIKE_THROUGH:
+    if style & StyleAttr.STRIKE_THROUGH:
         out |= curses.A_HORIZONTAL
-    if style & CharStyle.UNDERLINED:
+    if style & StyleAttr.UNDERLINE:
         out |= curses.A_UNDERLINE
     return out
 
 def color_to_curses(clr: Color):
-    if isinstance(clr, Color4):
-        if clr.value == 39 or clr.value == 49:
-            return 0
-        if clr.value < 50:
-            out = clr.value - 30 # Ansi assignd index 30 for black (1st color) while curses assigns 0
-        else:
-            out = clr.value + 8 - (90)
+    if isinstance(clr, int):
+        return int(clr)
     else:
-        return clr.index
+        raise NotImplemented
     # match clr:
     #
     #     case Color.BLACK:
@@ -201,8 +197,10 @@ def color_to_curses(clr: Color):
     #     return 0
     return out
 
-pair_cache: dict[tuple[int, int], int] = {}
-def init_pair_from_style(i: int, style: Style):
+pair_cache: dict[tuple[int, int], int] = {
+    (-1, -1): 0 #curses alwayst initializes color pair 0 to be (-1 -1)
+}
+def init_pair_from_style(i: int, style: ComputedStyle):
     curr_fg, curr_bg = curses.pair_content(i)
     new_fg = color_to_curses(style.fg) if style.fg else curr_fg
     new_bg = color_to_curses(style.bg) if style.bg else curr_bg
@@ -228,7 +226,7 @@ def draw_result(result: Result, stdscr: curses.window):
                 command.at.y,
                 command.at.x,
                 command.pixel.char,
-                char_style_to_attr(command.pixel.style.char_style) | curses.color_pair(pair_number)
+                char_style_to_attr(command.pixel.style.attrs) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawStringLine):
             pair_number = init_pair_from_style(pair_number, command.string[0].style)
@@ -236,7 +234,7 @@ def draw_result(result: Result, stdscr: curses.window):
                 command.at.y,
                 command.at.x,
                 "".join([i.char for i in command.string if i.char_type != CharType.WIDE_TAIL]),
-                char_style_to_attr(command.string[0].style.char_style) | curses.color_pair(pair_number)
+                char_style_to_attr(command.string[0].style.attrs) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawBox):
             pair_number = init_pair_from_style(pair_number, command.fill.style)
@@ -246,7 +244,7 @@ def draw_result(result: Result, stdscr: curses.window):
                     command.box.position.y + dy,
                     command.box.position.x,
                     line,
-                    char_style_to_attr(command.fill.style.char_style) | curses.color_pair(pair_number)
+                    char_style_to_attr(command.fill.style.attrs) | curses.color_pair(pair_number)
                 )
 
 

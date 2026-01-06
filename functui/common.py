@@ -237,27 +237,27 @@ def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
 # def _set_pixel_style_render()
 
 
-def _add_style(style: Style, child: Layout):
+def _push_rule(rule: StyleRule, child: Layout):
     return Layout(
-        func=_add_style,
+        func=_push_rule,
         min_size=child.min_size,
-        render=partial(_add_style_render, child, style)
+        render=partial(_push_rule_render, child, rule)
     )
-def _add_style_render(child: Layout, style: Style, frame: Frame, box: Box):
+def _push_rule_render(child: Layout, rule: StyleRule, frame: Frame, box: Box):
     return child.render(
-        frame.with_style(frame.default_style.combine(style)),
+        frame.with_style(frame.default_style.apply_rule(rule)),
         box
     )
+def push_rule(rule: StyleRule):
+    return partial(_push_rule, rule)
 
-def style(style: Style):
-    return partial(_add_style, style)
-def _force_style(style: Style, child: Layout):
+def _force_style(style: ComputedStyle, child: Layout):
     return Layout(
         func=_force_style,
         min_size=child.min_size,
         render=partial(_force_style_render, child, style)
     )
-def _force_style_render(child: Layout, style: Style, frame: Frame, box: Box):
+def _force_style_render(child: Layout, style: ComputedStyle, frame: Frame, box: Box):
     return child.render(
         frame.with_style(style),
         box
@@ -269,23 +269,23 @@ def bold(node: Layout):
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return _add_style(Style(char_style=CharStyle.BOLD), node)
+    return _push_rule(rule_bold, node)
 
-def reverse(node: Layout):
+def reversed(node: Layout):
     """Style all descendants as reverse.
 
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return _add_style(Style(char_style=CharStyle.REVERSED), node)
+    return _push_rule(rule_reverse, node)
 
-def underlined(node: Layout):
+def underline(node: Layout):
     """Style all descendants as underlined.
 
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return _add_style(Style(char_style=CharStyle.UNDERLINED), node)
+    return _push_rule(rule_underline, node)
 
 def italic(node: Layout):
     """Style all descendants as italic.
@@ -293,7 +293,7 @@ def italic(node: Layout):
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return _add_style(Style(char_style=CharStyle.ITALIC), node)
+    return _push_rule(rule_italic, node)
 
 def strike_through(node: Layout):
     """Style all descendants as strike_through.
@@ -301,7 +301,7 @@ def strike_through(node: Layout):
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return _add_style(Style(char_style=CharStyle.STRIKE_THROUGH), node)
+    return _push_rule(rule_strike_through, node)
 
 
 # def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
@@ -313,7 +313,7 @@ def strike_through(node: Layout):
 #             )),
 #             box
 #         )
-def fg(color: Any) -> WrapperNode:
+def fg(color: Color) -> WrapperNode:
     """Style all descendants with specified foreground.
 
     Styling may be ovverriden with another styling node.
@@ -321,8 +321,8 @@ def fg(color: Any) -> WrapperNode:
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return partial(_add_style, Style(fg=color))
-def bg(color: Any) -> WrapperNode:
+    return partial(_push_rule, rule_fg(color))
+def bg(color: Color) -> WrapperNode:
     """Style all descendants with specified background.
 
     Styling may be ovverriden with another styling node.
@@ -330,10 +330,10 @@ def bg(color: Any) -> WrapperNode:
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
-    return partial(_add_style, Style(bg=color))
+    return partial(_push_rule, rule_bg(color))
 
-def styled(node: WrapperNode, style: Style) -> WrapperNode:
-    """Style a wrapper node with specified style
+def styled(node: WrapperNode, rule: StyleRule) -> WrapperNode:
+    """Style a wrapper node with specified rule
 
     As with all other styling nodes,
     styles assigned with previous nodes will be kept unless overridden.
@@ -351,12 +351,12 @@ def styled(node: WrapperNode, style: Style) -> WrapperNode:
         return Layout(
             func=styled,
             min_size=composed_child.min_size,
-            render=partial(_styled_render, child, node, style)
+            render=partial(_styled_render, child, node, rule)
         )
     return out
 
-def _styled_render(child: Layout, node: WrapperNode, style: Style, frame, box):
-    return _add_style(style, node(
+def _styled_render(child: Layout, node: WrapperNode, rule: StyleRule, frame, box):
+    return _push_rule(rule, node(
             _force_style(frame.default_style, child)
         )
     ).render(frame, box)
@@ -469,7 +469,6 @@ def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
         at_x += child_box.width
     return res
 
-@applicable
 def center(child: Layout):
     """Shrink and center child layout in remaining space"""
     return Layout(
@@ -521,7 +520,6 @@ def border_with_title(title: Layout, border_node=border):
     Args:
         title: Layout to render on top.
         border_node: WrapperNode to put around child layout."""
-    @applicable
     def out(child: Layout):
         return static_box([
             border_node(child),
@@ -538,16 +536,13 @@ class Flex:
     basis: bool
 
 def flex_custom(grow=1, shrink=1, basis=False):
-    @applicable
     def out(node: Layout):
         return Flex(node, grow, shrink, basis)
     return out
 
-@applicable
 def flex(node: Layout):
     return flex_custom(1, 1, False)(node)
 
-@applicable
 def no_flex(node: Layout):
     return flex_custom(0, 0, True)(node)
 
@@ -615,7 +610,6 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
 #
 
 def _shrink_custom(x: bool, y: bool):
-    @applicable
     def out(child: Layout):
         return Layout(
             func=_shrink_custom,

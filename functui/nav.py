@@ -4,7 +4,7 @@ from typing import Self, Literal, Iterable, Any, NamedTuple
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial
-from .classes import Coordinate, Result, ResultData, applicable, Layout, Frame, Box
+from .classes import Coordinate, Result, ResultData, Layout, Frame, Box
 
 class NavAction(Enum):
     SELECT_VIA_KEYBOARD = auto()
