@@ -27,6 +27,8 @@ def style_to_ansi(style: StyleAttr):
         out.append("\033[7m")
     if StyleAttr.STRIKE_THROUGH in style:
         out.append("\033[9m")
+    if StyleAttr.DIM in style:
+        out.append("\033[2m")
     return "".join(out)
 
 

@@ -302,6 +302,13 @@ def strike_through(node: Layout):
         If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return _push_rule(rule_strike_through, node)
+def dim(node: Layout):
+    """Style all descendants as dim.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _push_rule(rule_dim, node)
 
 
 # def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:

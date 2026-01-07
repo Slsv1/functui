@@ -285,12 +285,14 @@ class StyleAttr(Flag):
         ITALIC
         UNDERLINE
         STRIKE_THROUGH
+        DIM
     """
     BOLD = auto()
     REVERSE = auto()
     ITALIC = auto()
     UNDERLINE = auto()
     STRIKE_THROUGH = auto()
+    DIM = auto()
 
 class Color4(IntEnum):
     """ANSI SGR codes for 4 bit colors
@@ -393,6 +395,7 @@ rule_italic = StyleRule(add_attrs=StyleAttr.ITALIC)
 rule_strike_through = StyleRule(add_attrs=StyleAttr.STRIKE_THROUGH)
 rule_reverse = StyleRule(add_attrs=StyleAttr.REVERSE)
 rule_underline = StyleRule(add_attrs=StyleAttr.UNDERLINE)
+rule_dim = StyleRule(add_attrs=StyleAttr.DIM)
 def rule_fg(color: Color, /):
     return StyleRule(fg=color)
 def rule_bg(color: Color, /):

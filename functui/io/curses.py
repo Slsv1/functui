@@ -164,9 +164,11 @@ def char_style_to_attr(style: StyleAttr) -> int:
     if style & StyleAttr.REVERSE:
         out |= curses.A_REVERSE
     if style & StyleAttr.STRIKE_THROUGH:
-        out |= curses.A_HORIZONTAL
+        out |= curses.A_CHARTEXT
     if style & StyleAttr.UNDERLINE:
         out |= curses.A_UNDERLINE
+    if style & StyleAttr.DIM:
+        out |= curses.A_DIM
     return out
 
 def color_to_curses(clr: Color):
