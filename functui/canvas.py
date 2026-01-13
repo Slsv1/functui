@@ -3,7 +3,7 @@ from enum import IntFlag, auto
 from typing import NamedTuple, Iterable
 from dataclasses import dataclass
 from functools import partial
-from .classes import Pixel, Style, Coordinate, Layout, min_size_constant, Result, Rect, Frame, Box
+from .classes import Pixel, StyleRule, Coordinate, Layout, min_size_constant, Result, Rect, Frame, Box
 from math import floor
 
 # https://en.wikipedia.org/wiki/Braille_Patterns#Identifying.2C_naming_and_ordering
@@ -37,7 +37,7 @@ def coord_to_sector_y_up(x: int, y: int) -> Sector:
 
 class CanvasItem(NamedTuple):
     sector: Sector
-    style: Style
+    style: StyleRule
 
 
 # def get_line_coords(start: Coordinate, end: Coordinate) -> list[Coordinate]:
@@ -109,18 +109,18 @@ def get_line_coords(start: Coordinate, end: Coordinate) -> list[Coordinate]:
 class PlotXY(NamedTuple):
     x: Iterable[float]
     y: Iterable[float]
-    style: Style = Style()
+    style: StyleRule = StyleRule()
 
 class BrailleCanvas:
     def __init__(self, char_width: int, char_height: int) -> None:
         """width and height represent the text chars, not the actuall resolution"""
-        self.data =  [[CanvasItem(Sector(0), Style()) for _ in range(char_width)] for _ in range(char_height)]
+        self.data =  [[CanvasItem(Sector(0), StyleRule()) for _ in range(char_width)] for _ in range(char_height)]
         self.text_width = char_width
         self.text_height = char_height
         self.width = char_width * 2
         self.height = char_height * 4
 
-    def set(self, pos: Coordinate, style: Style) -> None:
+    def set(self, pos: Coordinate, style: StyleRule) -> None:
         x_char = pos.x // 2
         y_char = pos.y // 4
         x_remainder = pos.x % 2
@@ -129,7 +129,7 @@ class BrailleCanvas:
         last = self.data[y_char][x_char]
         self.data[y_char][x_char] = CanvasItem(last.sector | coord_to_sector_y_up(x_remainder, y_remainder), style)
 
-    def draw_line(self, start: Coordinate, end: Coordinate, style: Style):
+    def draw_line(self, start: Coordinate, end: Coordinate, style: StyleRule):
         for coord in get_line_coords(start, end):
             self.set(coord, style)
 

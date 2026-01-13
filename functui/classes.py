@@ -7,12 +7,9 @@ import wcwidth
 #
 # utilities
 #
+
 LRU_MAX_SIZE = 128
 
-class InputEvent(NamedTuple):
-    key_event: str | None = None
-    mouse_button_event: str | None = None
-    mouse_position_event: Coordinate | None = None
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
@@ -348,27 +345,6 @@ def rgb(r, g, b, /):
 Color = int | Color24
 
 # class Color8
-
-@dataclass(frozen=True, eq=True)
-class ComputedStyle:
-    """An immutable dataclass for style attributes:
-
-    Attributes:
-        fg: Foreground
-        bg: Background
-        char_style: Styling flags.
-    """
-    fg: Color = Color4.RESET
-    bg: Color = Color4.RESET
-    attrs: StyleAttr = StyleAttr(0)
-
-    def apply_rule(self, rule: StyleRule):
-        return ComputedStyle(
-            attrs=(self.attrs | rule.add_attrs) & ~rule.remove_attrs,
-            fg=self.fg if rule.fg is None else rule.fg,
-            bg=self.bg if rule.bg is None else rule.bg,
-        )
-
 @dataclass(frozen=True, eq=True)
 class StyleRule:
     """An immutable dataclass for style attributes:
@@ -390,6 +366,27 @@ class StyleRule:
             fg=self.fg if rule.fg is None else rule.fg,
             bg=self.bg if rule.bg is None else rule.bg,
         )
+
+@dataclass(frozen=True, eq=True)
+class ComputedStyle:
+    """An immutable dataclass for style attributes:
+
+    Attributes:
+        fg: Foreground
+        bg: Background
+        char_style: Styling flags.
+    """
+    fg: Color = Color4.RESET
+    bg: Color = Color4.RESET
+    attrs: StyleAttr = StyleAttr(0)
+
+    def apply_rule(self, rule: StyleRule):
+        return ComputedStyle(
+            attrs=(self.attrs | rule.add_attrs) & ~rule.remove_attrs,
+            fg=self.fg if rule.fg is None else rule.fg,
+            bg=self.bg if rule.bg is None else rule.bg,
+        )
+
 rule_bold = StyleRule(add_attrs=StyleAttr.BOLD)
 rule_italic = StyleRule(add_attrs=StyleAttr.ITALIC)
 rule_strike_through = StyleRule(add_attrs=StyleAttr.STRIKE_THROUGH)
@@ -828,3 +825,8 @@ class Screen:
 # convert current to normal (notice it is only head that can be converted)
 # H H -> N H
 # H N -> N N
+
+class InputEvent(NamedTuple):
+    key_event: str | None = None
+    mouse_button_event: str | None = None
+    mouse_position_event: Coordinate | None = None
