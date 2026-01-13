@@ -118,7 +118,7 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
             )
         )
         return Rect(
-            max(sum(group.length for group in line) for line in lines),
+            max((sum(group.length for group in line) for line in lines), default=0),
             len(lines)
         )
     return Layout(
@@ -177,6 +177,8 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
                     _split_by_spaces(t, span.rule, measure_text)
                 )
                 continue
+            elif len(lines) == 0:
+                return [[]]
 
             lines_iter = iter(lines)
             last_elem = next(lines_iter)

@@ -1,6 +1,7 @@
 from enum import Enum, auto
 from typing import NamedTuple, Self
 from dataclasses import dataclass
+from types import MappingProxyType
 import curses
 
 class TextActionChar(NamedTuple):
@@ -50,20 +51,20 @@ class TextInput():
             new_submited, 
         )
 
-default_text_input_bindings = {
+default_text_input_bindings = MappingProxyType({
     "escape": TextAction.SUBMIT,
     "enter": TextAction.SUBMIT,
     "backspace": TextAction.DELETE,
     "left": TextAction.CURSOR_LEFT,
-    "right": TextAction.CURSOR_LEFT
-}
+    "right": TextAction.CURSOR_RIGHT
+})
 def create_text_input_event(key_event: str | None, bindings = default_text_input_bindings):
     if key_event is None:
         return
     if len(key_event)== 1:
         return TextActionChar(key_event)
-    if key_event in default_text_input_bindings.keys():
-        return default_text_input_bindings[key_event]
+    if key_event in bindings.keys():
+        return bindings[key_event]
 
 
 

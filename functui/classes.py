@@ -508,6 +508,14 @@ class MinSize(Protocol):
 
 
 # minsize util functions
+def _get_widths_and_heights(children_sizes: Iterable[MinSize], measure_text: MeasureTextFunc, from_size: Rect):
+    widths = []
+    heights = []
+    for min_size in children_sizes:
+        result = min_size(measure_text, from_size)
+        widths.append(result.width)
+        heights.append(result.height)
+    return (widths, heights)
 
 def min_size_expand(
     child_size: MinSize,
@@ -522,9 +530,10 @@ def min_size_vertical(
     children_sizes: list[MinSize],
 ) -> MinSize:
     def out(measure_text: MeasureTextFunc, from_size: Rect):
+        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
         return Rect(
-            max(i(measure_text, from_size).width for i in children_sizes),
-            sum(i(measure_text, from_size).height for i in children_sizes),
+            max(widths),
+            sum(heights),
         ) if children_sizes else Rect(0, 0)
     return out
 
@@ -532,20 +541,23 @@ def min_size_horizontal(
     children_sizes: list[MinSize],
 ) -> MinSize:
     def out(measure_text: MeasureTextFunc, from_size: Rect):
+        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
         return Rect(
-            sum(i(measure_text, from_size).width for i in children_sizes),
-            max(i(measure_text, from_size).height for i in children_sizes),
+            sum(widths),
+            max(heights),
         ) if children_sizes else Rect(0, 0)
     return out
+
 def min_size_union(
     children_sizes: list[MinSize],
 ) -> MinSize:
-    def out(measure_text: MeasureTextFunc, from_size: Rect):
+    def _min_size_union(measure_text: MeasureTextFunc, from_size: Rect):
+        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
         return Rect(
-            max(i(measure_text, from_size).width for i in children_sizes),
-            max(i(measure_text, from_size).height for i in children_sizes),
+            max(widths),
+            max(heights),
         ) if children_sizes else Rect(0, 0)
-    return out
+    return _min_size_union
 def min_size_constant(return_value: Rect) -> MinSize:
     return lambda measure_text, available: return_value
 
