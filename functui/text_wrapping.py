@@ -171,14 +171,14 @@ def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group
     for t in span.text:
         if isinstance(t, str):
             lines = t.splitlines()
-            if len(lines) == 1:
+            if len(lines) <= 1:
                 _extend_line_with_segments(
                     out_lines[-1],
                     _split_by_spaces(t, span.rule, measure_text)
                 )
                 continue
-            elif len(lines) == 0:
-                return [[]]
+            # elif len(lines) == 0:
+            #     return [[]]
 
             lines_iter = iter(lines)
             last_elem = next(lines_iter)
