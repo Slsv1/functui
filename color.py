@@ -1,7 +1,7 @@
 from functui.common import *
 from functui.io.curses import wrapper, draw_result, get_input_event
 from functui.text_wrapping import adaptive_text, span
-from functui import Rect, layout_to_str, Color4
+from functui import Rect, layout_to_result, result_to_str, Color4
 from itertools import batched
 import curses
 
@@ -78,7 +78,9 @@ layout = vbox([
     title(text("Style Attributes")),
     display_char_style() | shrink,
 ]) | padding |shrink
-print(layout_to_str(layout, Rect(140, 40)))
+result = layout_to_result(Rect(140, 40), layout)
+if __name__ == "__main__":
+    print(result_to_str(result))
 # def main(stdscr):
 #     y, x = stdscr.getmaxyx()
 #     res = layout_to_result(Rect(x-1, y-1), layout)

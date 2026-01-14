@@ -333,14 +333,22 @@ class Color24:
 
     @property
     @cache
-    def hex(self):
-        return (1 << 24 | self.r << 16 | self.g << 8 | self.b)
+    def hex(self) -> int:
+        return (0 | self.r << 16 | self.g << 8 | self.b)
+
+    @property
+    @cache
+    def hex_str(self) -> str:
+        return f"#{self.hex:x}".upper()
 
 
-def rgb(r, g, b, /):
+def rgb(r: int, g: int, b: int, /):
     return Color24(r, g, b)
-# def hex(value, /):
-#     return Color24()
+
+
+def hex(value: int, /):
+    MASK = 0b11111111
+    return Color24((value >> 16) & MASK, (value >> 8) & MASK, value & MASK)
 
 Color = int | Color24
 

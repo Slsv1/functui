@@ -1,6 +1,6 @@
 from functui.common import text, border, vbox, _border_render, _text_render, _vbox_render
 from functui.text_wrapping import span, adaptive_text, _adaptive_text_render
-from functui.classes import layout_to_result, Rect, Style, Color
+from functui.classes import layout_to_result, Rect, StyleRule, Color4
 
 def text_cach_text():
     _text_render.cache_clear()
@@ -74,20 +74,20 @@ def test_cache_vbox():
 
 def test_cache_adaptive_text():
     _adaptive_text_render.cache_clear()
-    layout = adaptive_text("hej", span("mig", style=Style()))
+    layout = adaptive_text("hej", span("mig", rule=StyleRule()))
 
     layout_to_result(Rect(10, 10), layout)
     assert _adaptive_text_render.cache_info().hits == 0
     assert _adaptive_text_render.cache_info().misses == 1
     assert _adaptive_text_render.cache_info().currsize == 1
 
-    layout = adaptive_text("hej", span("mig", style=Style()))
+    layout = adaptive_text("hej", span("mig", rule=StyleRule()))
     layout_to_result(Rect(10, 10), layout)
     assert _adaptive_text_render.cache_info().hits == 1
     assert _adaptive_text_render.cache_info().misses == 1
     assert _adaptive_text_render.cache_info().currsize == 1
 
-    layout = adaptive_text("hej", span("mig", style=Style(fg=Color.BLACK)))
+    layout = adaptive_text("hej", span("mig", rule=StyleRule(fg=Color4.BLACK)))
     layout_to_result(Rect(10, 10), layout)
     assert _adaptive_text_render.cache_info().hits == 1
     assert _adaptive_text_render.cache_info().misses == 2
