@@ -77,6 +77,11 @@ layout = vbox([
     display_color_8() | shrink,
     title(text("Style Attributes")),
     display_char_style() | shrink,
+    title(text("Special Characters")),
+    vbox([
+        text("Need to be escaped in HTML: < > & \" \'"),
+        text("Wide Characters (will break border if assumed width of 1): 🥰, おはよう") | styled(border, rule_dim) | shrink,
+    ])
 ]) | padding |shrink
 result = layout_to_result(Rect(140, 40), layout)
 if __name__ == "__main__":

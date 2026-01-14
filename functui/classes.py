@@ -339,7 +339,7 @@ class Color24:
     @property
     @cache
     def hex_str(self) -> str:
-        return f"#{self.hex:x}".upper()
+        return f"#{self.hex:06x}"
 
 
 def rgb(r: int, g: int, b: int, /):

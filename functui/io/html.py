@@ -2,6 +2,13 @@ from ..classes import StyleAttr, ComputedStyle, ResultCreatedWith, Screen, Resul
 from ..color_data import xterm256_to_hex
 from typing import NamedTuple
 
+HTML_ESCAPES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+}
 class HTMLTags(NamedTuple):
     open: str
     closed: str
@@ -48,7 +55,6 @@ def style_to_tag(style: ComputedStyle) -> HTMLTags:
     )
 
 
-
 def result_to_html_str(result: Result):
     data = result.try_data(ResultCreatedWith)
     if data is None:
@@ -66,7 +72,10 @@ def result_to_html_str(result: Result):
                 curr_style = pixel.style
                 curr_tags = style_to_tag(curr_style)
                 out.append(curr_tags.open)
-            out.append(pixel.char)
+            if pixel.char in HTML_ESCAPES:
+                out.append(HTML_ESCAPES[pixel.char])
+            else:
+                out.append(pixel.char)
         out.append("\n")
 
     out = out[:-1] # -1 to remove the \n on the end
