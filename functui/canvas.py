@@ -181,7 +181,7 @@ def _plot_render(lines: tuple[PlotXY, ...], frame: Frame, box: Box):
         for x, part in enumerate(line):
             res.draw_custom_pixel(Pixel(
                 char=sector_to_braille(part.sector),
-                style=frame.default_style.combine(part.style)
+                style=frame.default_style.apply_rule(part.style),
             ), box.position + Coordinate(x, y))
         # res.draw_string_line(
         #     frame,

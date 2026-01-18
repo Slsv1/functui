@@ -1,5 +1,6 @@
 from functools import reduce, partial, lru_cache
-from enum import Enum, auto
+from enum import Enum, auto, IntFlag
+from types import MappingProxyType
 from typing import NamedTuple
 import re
 import math
@@ -139,6 +140,24 @@ def _hbar_render(char: str, frame: Frame, box: Box):
 # Border Elements
 #
 
+
+class WeightMap(NamedTuple):
+    top: int
+    bottom: int
+    left: int
+    right: int
+
+
+def overlay_weight_maps(*maps: WeightMap) -> WeightMap:
+    return WeightMap(*(max(dir) for dir in zip(*maps))) # pick highest weights along cardinal direction
+
+
+class GetIntersection(Protocol):
+    def __call__(self, weight_map: WeightMap. /) -> str | None:
+        ...
+def get_default_intersection(weight_map: WeightMap, /):
+    return INTERSECTION_MAP.get(weight_map, None)
+
 @dataclass(frozen=True, eq=True)
 class BorderStyle:
     line_v: str
@@ -148,6 +167,29 @@ class BorderStyle:
     corner_br: str
     corner_bl: str
 
+    weight_map: WeightMap
+    get_intersection: GetIntersection
+
+
+INTERSECTION_MAP = {
+    # 0 => no border
+    # 1 => regular
+    # 2 => thick
+    # 3 => double
+
+    # top,bot,lef,rig,
+    WeightMap(1, 1, 0, 1): "├",
+    WeightMap(1, 1, 0, 1): "┝",
+    WeightMap(2, 1, 0, 1): "┞",
+    WeightMap(1, 2, 0, 1): "┟",
+}
+
+# ┠ 	┡ 	┢ 	┣ 	┤ 	┥ 	┦ 	┧ 	┨ 	┩ 	┪ 	┫ 	┬ 	┭ 	┮ 	┯
+# ┰ 	┱ 	┲ 	┳ 	┴ 	┵ 	┶ 	┷ 	┸ 	┹ 	┺ 	┻ 	┼ 	┽ 	┾ 	┿
+# ╀ 	╁ 	╂ 	╃ 	╄ 	╅ 	╆ 	╇ 	╈ 	╉ 	╊ 	╋ 	╌ 	╍ 	╎ 	╏
+# ═ 	║ 	╒ 	╓ 	╔ 	╕ 	╖ 	╗ 	╘ 	╙ 	╚ 	╛ 	╜ 	╝ 	╞ 	╟
+# ╠ 	╡ 	╢ 	╣ 	╤ 	╥ 	╦ 	╧ 	╨ 	╩ 	╪ 	╫ 	╬ 	╭ 	╮ 	╯
+# ╰ 	╱ 	╲ 	╳ 	╴ 	╵ 	╶ 	╷ 	╸ 	╹ 	╺ 	╻ 	╼ 	╽ 	╾ 	╿
 BORDER_ROUNDED = BorderStyle(
     line_v="│",
     line_h="─",
@@ -192,6 +234,7 @@ def custom_border(style: BorderStyle) -> WrapperNode:
         )
     return out
 
+
 border = custom_border(style=BORDER_REGULAR)
 """Puts a border around a layout"""
 border_rounded = custom_border(style=BORDER_ROUNDED)
@@ -213,6 +256,51 @@ def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
     res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
     res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
     res.add_children_after([child.render(frame, box.resize(-1, -1, -1, -1))])
+    return res
+
+@dataclass
+class BorderConnection:
+    position: Coordinate
+    weight_map: WeightMap
+
+def _connecting_border_render(
+    weight_map: WeightMap,
+    style: BorderStyle,
+    child: Layout,
+    frame: Frame,
+    box: Box
+):
+    child_res = child.render(frame, box.resize(-1, -1, -1, -1))
+    res = Result()
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+    res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
+    res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
+    res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
+    res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
+
+    if connections := child_res.try_data():
+        for connection in connections:
+            # top
+            if connection.position.y == box.position.y:
+                if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.UP))):
+                    res.draw_pixel(frame, fill=intersection)
+
+                # if intersection := style.get_intersection(connection.weight_map | (weight_map & MASK_WEIGHT_TOP)):
+                #     res.draw_pixel(frame, fill=intersection)
+
+            elif connection.position.y == box.position.y + box.height - 1:
+                if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.DOWN))):
+                    res.draw_pixel(frame, fill=intersection)
+            ...
+
+
+
+
+
+    res.add_children_after([child_res])
     return res
 
 
@@ -776,4 +864,5 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
         elif start_at_pixel_int < i < end_at_pixel_int:
             res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
     return res
+
 

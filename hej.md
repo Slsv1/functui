@@ -1,13 +1,36 @@
-```py
-grid(
-    widths=const([4, 4, 4]),
-    heights=[max_height, *const([4, 4])],
-    items = [
-        GridItem(Box(...), border_top=rounded, border_bottom=rounded, text("hej"))
-        # box contains coordinate and width and hight of item
-    ]
-)
+
+## Features
+
+### GA
+- same frame mouse movements
+- text justification
+- windows support! (curses on windows?)
+- navigation simplification 
+- spread sheet like navigation
+
+### 0.1
+- plots
+- spread sheets?
+- color downgrading
+- transparent colors
+- async workflow
 
 
-# anotha idea
-```
+## Example code
+
+### GA
+- elm template
+- demo
+- capabilities test
+### 0.1
+- todo example
+
+
+## Documentation
+
+### GA
+- elm tutorial
+### 0.1
+
+
+

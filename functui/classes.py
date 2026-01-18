@@ -610,10 +610,10 @@ class Result:
         self._draw_commands.append(
             DrawPixel(Pixel(char=fill, style=frame.default_style), at)
         )
-    # def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
-    #     self._draw_commands.append(
-    #         DrawPixel(pixel, at)
-    #     )
+    def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
+        self._draw_commands.append(
+            DrawPixel(pixel, at)
+        )
     def draw_box(
         self,
         frame: Frame,
