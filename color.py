@@ -65,9 +65,9 @@ def display_color_8():
 
 def title(c: Layout):
     return static_box([
-        hbar(),
-        c | padding | bold | bg_fill | offset(x=1) | shrink,
-    ]) | custom_padding(top = 1, bottom = 1)
+        hbar,
+        c | bold | offset(x=1) | shrink,
+    ]) | custom_padding(top = 1, bottom = 0)
 
 
 

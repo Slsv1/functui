@@ -110,32 +110,6 @@ def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     return res
 
 
-def vbar(char: str = "|"):
-    """Vertical Bar"""
-    return Layout(
-        func=vbar,
-        min_size=min_size_constant(Rect(1, 1)),
-        render=partial(_vbar_render, char)
-    )
-@lru_cache(LRU_MAX_SIZE)
-def _vbar_render(char: str, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, char, Box(1, box.height, box.position))
-    return res
-
-def hbar(char: str = "-"):
-    """Horizonatal Bar"""
-    return Layout(
-        func=hbar,
-        min_size=min_size_constant(Rect(1, 1)),
-        render=partial(_hbar_render, char)
-    )
-
-@lru_cache(LRU_MAX_SIZE)
-def _hbar_render(char: str, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, char, Box(box.width, 1, box.position))
-    return res
 #
 # Border Elements
 #
@@ -153,7 +127,7 @@ def overlay_weight_maps(*maps: WeightMap) -> WeightMap:
 
 
 class GetIntersection(Protocol):
-    def __call__(self, weight_map: WeightMap. /) -> str | None:
+    def __call__(self, weight_map: WeightMap, /) -> str | None:
         ...
 def get_default_intersection(weight_map: WeightMap, /):
     return INTERSECTION_MAP.get(weight_map, None)
@@ -167,29 +141,80 @@ class BorderStyle:
     corner_br: str
     corner_bl: str
 
-    weight_map: WeightMap
-    get_intersection: GetIntersection
+    # weight_map: WeightMap
+    # get_intersection: GetIntersection
 
 
 INTERSECTION_MAP = {
-    # 0 => no border
-    # 1 => regular
-    # 2 => thick
-    # 3 => double
-
-    # top,bot,lef,rig,
     WeightMap(1, 1, 0, 1): "├",
-    WeightMap(1, 1, 0, 1): "┝",
-    WeightMap(2, 1, 0, 1): "┞",
-    WeightMap(1, 2, 0, 1): "┟",
+    WeightMap(2, 1, 0, 1): "┝",
+    WeightMap(1, 2, 0, 1): "┞",
+    WeightMap(2, 2, 0, 1): "┟",
+    WeightMap(1, 1, 0, 2): "┠",
+    WeightMap(2, 1, 0, 2): "┡",
+    WeightMap(1, 2, 0, 2): "┢",
+    WeightMap(2, 2, 0, 2): "┣",
+    WeightMap(3, 3, 0, 3): "╠",
+    WeightMap(3, 3, 0, 1): "╟",
+    WeightMap(1, 1, 0, 3): "╞",
+
+    WeightMap(1, 1, 1, 0): "┤",
+    WeightMap(2, 1, 1, 0): "┥",
+    WeightMap(1, 2, 1, 0): "┦",
+    WeightMap(2, 2, 1, 0): "┧",
+    WeightMap(1, 1, 2, 0): "┨",
+    WeightMap(2, 1, 2, 0): "┩",
+    WeightMap(1, 2, 2, 0): "┪",
+    WeightMap(2, 2, 2, 0): "┫",
+    WeightMap(3, 3, 3, 0): "╣",
+    WeightMap(3, 3, 1, 0): "╢",
+    WeightMap(1, 1, 3, 0): "╡",
+
+    WeightMap(0, 1, 1, 1): "┬",
+    WeightMap(0, 1, 2, 1): "┭",
+    WeightMap(0, 1, 1, 2): "┮",
+    WeightMap(0, 1, 2, 2): "┯",
+    WeightMap(0, 2, 1, 1): "┰",
+    WeightMap(0, 2, 2, 1): "┱",
+    WeightMap(0, 2, 1, 2): "┲",
+    WeightMap(0, 2, 2, 2): "┳",
+    WeightMap(0, 3, 3, 3): "╦",
+    WeightMap(0, 1, 3, 3): "╤",
+    WeightMap(0, 3, 1, 1): "╥",
+
+    WeightMap(1, 0, 1, 1): "┴",
+    WeightMap(1, 0, 2, 1): "┵",
+    WeightMap(1, 0, 1, 2): "┶",
+    WeightMap(1, 0, 2, 2): "┷",
+    WeightMap(2, 0, 1, 1): "┸",
+    WeightMap(2, 0, 2, 1): "┹",
+    WeightMap(2, 0, 1, 2): "┺",
+    WeightMap(2, 0, 2, 2): "┻",
+    WeightMap(3, 0, 3, 3): "╩",
+    WeightMap(3, 0, 1, 1): "╨",
+    WeightMap(1, 0, 3, 3): "╧",
+
+    WeightMap(1, 1, 1, 1): "┼",
+    WeightMap(2, 1, 1, 1): "┽",
+    WeightMap(1, 2, 1, 1): "┾",
+    WeightMap(2, 2, 1, 1): "┿",
+    WeightMap(1, 1, 2, 1): "╀",
+    WeightMap(2, 1, 2, 1): "╁",
+    WeightMap(1, 2, 2, 1): "╂",
+    WeightMap(2, 2, 2, 1): "╃",
+    WeightMap(1, 1, 1, 2): "╄",
+    WeightMap(2, 1, 1, 2): "╅",
+    WeightMap(1, 2, 1, 2): "╆",
+    WeightMap(2, 2, 1, 2): "╇",
+    WeightMap(1, 1, 2, 2): "╈",
+    WeightMap(2, 1, 2, 2): "╉",
+    WeightMap(1, 2, 2, 2): "╊",
+    WeightMap(2, 2, 2, 2): "╋",
+    WeightMap(3, 3, 3, 3): "╬",
+    WeightMap(3, 3, 1, 1): "╫",
+    WeightMap(1, 1, 3, 3): "╪",
 }
 
-# ┠ 	┡ 	┢ 	┣ 	┤ 	┥ 	┦ 	┧ 	┨ 	┩ 	┪ 	┫ 	┬ 	┭ 	┮ 	┯
-# ┰ 	┱ 	┲ 	┳ 	┴ 	┵ 	┶ 	┷ 	┸ 	┹ 	┺ 	┻ 	┼ 	┽ 	┾ 	┿
-# ╀ 	╁ 	╂ 	╃ 	╄ 	╅ 	╆ 	╇ 	╈ 	╉ 	╊ 	╋ 	╌ 	╍ 	╎ 	╏
-# ═ 	║ 	╒ 	╓ 	╔ 	╕ 	╖ 	╗ 	╘ 	╙ 	╚ 	╛ 	╜ 	╝ 	╞ 	╟
-# ╠ 	╡ 	╢ 	╣ 	╤ 	╥ 	╦ 	╧ 	╨ 	╩ 	╪ 	╫ 	╬ 	╭ 	╮ 	╯
-# ╰ 	╱ 	╲ 	╳ 	╴ 	╵ 	╶ 	╷ 	╸ 	╹ 	╺ 	╻ 	╼ 	╽ 	╾ 	╿
 BORDER_ROUNDED = BorderStyle(
     line_v="│",
     line_h="─",
@@ -224,6 +249,38 @@ BORDER_DOUBLE = BorderStyle(
     corner_bl="╚",
     corner_br="╝",
 )
+
+def vbar_custom(char: str = "|"):
+    """Vertical Bar"""
+    return Layout(
+        func=vbar_custom,
+        min_size=min_size_constant(Rect(1, 1)),
+        render=partial(_vbar_render, char)
+    )
+@lru_cache(LRU_MAX_SIZE)
+def _vbar_render(char: str, frame: Frame, box: Box):
+    res = Result()
+    res.draw_box(frame, char, Box(1, box.height, box.position))
+    return res
+def hbar_custom(char: str="-"):
+    """Horizonatal Bar"""
+    return Layout(
+        func=hbar_custom,
+        min_size=min_size_constant(Rect(1, 1)),
+        render=partial(_hbar_render, char)
+    )
+@lru_cache(LRU_MAX_SIZE)
+def _hbar_render(char: str, frame: Frame, box: Box):
+    res = Result()
+    res.draw_box(frame, char, Box(box.width, 1, box.position))
+    return res
+
+vbar = vbar_custom(BORDER_REGULAR.line_v)
+vbar_thick = vbar_custom(BORDER_THICK.line_v)
+vbar_double = vbar_custom(BORDER_DOUBLE.line_v)
+hbar = hbar_custom(BORDER_REGULAR.line_h)
+hbar_thick = hbar_custom(BORDER_THICK.line_h)
+hbar_double = hbar_custom(BORDER_DOUBLE.line_h)
 
 def custom_border(style: BorderStyle) -> WrapperNode:
     def out(child: Layout):
@@ -263,45 +320,45 @@ class BorderConnection:
     position: Coordinate
     weight_map: WeightMap
 
-def _connecting_border_render(
-    weight_map: WeightMap,
-    style: BorderStyle,
-    child: Layout,
-    frame: Frame,
-    box: Box
-):
-    child_res = child.render(frame, box.resize(-1, -1, -1, -1))
-    res = Result()
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
-    res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
-    res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
-    res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
-    res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
-
-    if connections := child_res.try_data():
-        for connection in connections:
-            # top
-            if connection.position.y == box.position.y:
-                if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.UP))):
-                    res.draw_pixel(frame, fill=intersection)
-
-                # if intersection := style.get_intersection(connection.weight_map | (weight_map & MASK_WEIGHT_TOP)):
-                #     res.draw_pixel(frame, fill=intersection)
-
-            elif connection.position.y == box.position.y + box.height - 1:
-                if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.DOWN))):
-                    res.draw_pixel(frame, fill=intersection)
-            ...
-
-
-
-
-
-    res.add_children_after([child_res])
-    return res
+# def _connecting_border_render(
+#     weight_map: WeightMap,
+#     style: BorderStyle,
+#     child: Layout,
+#     frame: Frame,
+#     box: Box
+# ):
+#     child_res = child.render(frame, box.resize(-1, -1, -1, -1))
+#     res = Result()
+#     res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
+#     res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
+#     res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
+#     res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+#     res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
+#     res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
+#     res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
+#     res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
+#
+#     if connections := child_res.try_data():
+#         for connection in connections:
+#             # top
+#             if connection.position.y == box.position.y:
+#                 if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.UP))):
+#                     res.draw_pixel(frame, fill=intersection)
+#
+#                 # if intersection := style.get_intersection(connection.weight_map | (weight_map & MASK_WEIGHT_TOP)):
+#                 #     res.draw_pixel(frame, fill=intersection)
+#
+#             elif connection.position.y == box.position.y + box.height - 1:
+#                 if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.DOWN))):
+#                     res.draw_pixel(frame, fill=intersection)
+#             ...
+#
+#
+#
+#
+#
+#     res.add_children_after([child_res])
+#     return res
 
 
 #
@@ -764,7 +821,7 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
     def out(child: Layout):
         return Layout(
             func=offset,
-            min_size=min_size_expand(child.min_size, coord.x, coord.y),
+            min_size=min_size_expand(child.min_size, x, y),
             render=partial(_offset_render, coord, child),
         )
     return out
@@ -772,7 +829,7 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
 
 @lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
-    return node.render(frame, box.offset_by(by))
+    return node.render(frame, box.offset_by(by).resize(left=-by.y, right=-by.x))
 
 
 def clamp_width(width: int):
