@@ -81,6 +81,7 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
         at_y += child_box.height
     return res
 
+
 def hbox_flex(children: Iterable[Flex | Layout]):
     """A container node that allows children to expand on the x axis.
 
@@ -156,4 +157,56 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
         child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))
         res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
         at_x += child_box.width
+    return res
+
+@dataclass
+class _FlexData:
+    available_space: int
+    flex_children: list[Flex]
+
+def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measure_text: MeasureTextFunc):
+    flex_by_lines = [_FlexData(available_space, [])]
+
+    for flex in filter(lambda c: c.basis, children):
+        child_min_width = flex.node.min_size(measure_text, Rect(available_space, 9999)).width
+
+        current_flex_data = flex_by_lines[-1]
+        if current_flex_data.available_space - child_min_width < 0:
+            flex_by_lines.append(_FlexData(available_space-child_min_width, [flex]))
+        else:
+            current_flex_data.available_space -= child_min_width
+            current_flex_data.flex_children.append(flex)
+    return flex_by_lines
+
+
+@lru_cache(LRU_MAX_SIZE)
+def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
+    #
+    # split by 'lines'
+    #
+    children_by_lines = _split_flex_by_lines_h(box.width, children, frame.measure_text)
+
+    reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).width for i in children if i.basis)
+    at_y = 0
+    res = Result()
+
+    for data in children_by_lines:
+        children = data.flex_children
+        available_width = data.available_space
+
+        total_grow = sum(i.grow for i in children)
+        total_shrink = sum(i.shrink for i in children)
+
+        space_rations = even_divide(available_width, total_grow if available_width >= 0 else total_shrink)
+        at_x = 0
+        for flex in children:
+            child_min_width = flex.node.min_size(frame.measure_text, box.rect).width if flex.basis else 0
+            child_box = Box(
+                width=child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_width >= 0 else flex.shrink)),
+                height=box.height, #.....................................................................
+            )
+            child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))
+            res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+            at_x += child_box.width
+        at_y += max()
     return res

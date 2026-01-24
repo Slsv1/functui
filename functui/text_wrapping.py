@@ -112,6 +112,7 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
     span = Span(string, rule=StyleRule())
     def min_size(measure_text, available: Rect):
         groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
+        # longest_word = max(i.length for i in chain.from_iterable((l for l in groups)))
         lines = list(
             chain.from_iterable(
                 wrap_line_default(line, available.width, measure_text) for line in groups
