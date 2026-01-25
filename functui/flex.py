@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import runtime_checkable
 from .classes import *
 
 @dataclass(frozen=True, eq=True)
@@ -168,12 +169,20 @@ def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measu
     flex_by_lines = [_FlexData(Rect(0, 0), [])]
 
 
-    for flex in filter(lambda c: c.basis, children):
+    for flex in children:
+        current_flex_data = flex_by_lines[-1]
+
+        if not flex.basis:
+            current_flex_data.flex_children.append(flex)
+            continue
+
         child_min_width, child_min_height = flex.node.min_size(measure_text, Rect(available_space, 9999))
 
-        current_flex_data = flex_by_lines[-1]
         if current_flex_data.bounding_rect.width + child_min_width > available_space:
-            flex_by_lines.append(_FlexData(Rect(available_space-child_min_width, child_min_height), [flex]))
+            flex_by_lines.append(_FlexData(
+                Rect(child_min_width, child_min_height),
+                [flex])
+            )
         else:
             current_flex_data.bounding_rect = Rect(
                 current_flex_data.bounding_rect.width + child_min_width,
@@ -232,7 +241,7 @@ def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
                 height=row_height,
             )
             child_box = child_box.offset_by(box.position + Coordinate(at_x, at_y))
-            res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+            res.add_children_after([flex.node.render(frame.shrink_to(child_box.intersect(box)), child_box)])
             at_x += child_box.width
         at_y += row_height
     return res

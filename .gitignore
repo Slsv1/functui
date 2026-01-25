@@ -5,6 +5,7 @@ node_modules
 package.json
 package-lock.json
 
+perf
 .venv
 run.prof
 _build
