@@ -12,9 +12,10 @@ import curses
 import sys
 from functui import *
 from functui.common import *
+from functui.flex import hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
-from functui.nav import default_nav_bindings
+from functui.nav import default_nav_bindings, interaction_area
 from functui.interactible import vbox_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
@@ -137,7 +138,7 @@ def update(input: InputEvent, res: Result, m: Model):
 #
 
 def button(id, nav: NavState):
-    return combine(styled(border, get_border_rule(nav, id)), nav.interaction_area(id))
+    return combine(styled(border, get_border_rule(nav, id)), interaction_area(id))
 
 def item(item, m: Model, id, nav: NavState):
     return adaptive_text(item.description)\
@@ -146,7 +147,7 @@ def item(item, m: Model, id, nav: NavState):
         | styled(border, get_border_rule(nav, id))\
         | clamp_height(5)\
         | (fg(Colors.was_active) if m.tasks[m.selected_task_index] is item else empty)\
-        | nav.interaction_area(id)
+        | interaction_area(id)
 
 
 def view(m: Model):
@@ -168,15 +169,15 @@ def view(m: Model):
             ) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
             vbox_flex([
                 (vbox_flex([
-                    adaptive_text(m.tasks[m.selected_task_index].description) | padding | no_flex,
+                    adaptive_text(m.tasks[m.selected_task_index].description) | padding,
                     nothing() | flex,
-                    text("delete") | center | fg(Color4.RED) | button(m.delete_button, nav) | no_flex,
-                    text("complete") | center | fg(Color4.GREEN) | button(m.complete_button, nav) | no_flex,
-                    text("edit") | center | button(m.edit_button, nav) | no_flex,
+                    text("delete") | center | fg(Color4.RED) | button(m.delete_button, nav),
+                    text("complete") | center | fg(Color4.GREEN) | button(m.complete_button, nav),
+                    text("edit") | center | button(m.edit_button, nav),
                 ]) if m.tasks else text("There are no tasks") | center) \
                 | border_with_title(text(" [Properties] ") | center | bold, border_thick)\
                 | flex,
-                text("New Task") | center | button(m.create_button, nav) | no_flex,
+                text("New Task") | center | button(m.create_button, nav),
             ]) | flex
         ]),
         text_widget

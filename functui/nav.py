@@ -124,14 +124,24 @@ class SetState(ResultData):
 def set_state(*new_state: tuple[InteractibleID, Any]):
     return SetState(new_state)
 
+# @dataclass(frozen=True, eq=True)
+# class NextInteractible(ResultData):
+#     next_id: InteractibleID
+#     def merge_children(self, child_data):
+#         return child_data
+#     @classmethod
+#     def create_dummy(cls):
+#         return cls(EMPTY_INTERACTIBLE)
+
 @dataclass(frozen=True, eq=True)
-class NextInteractible(ResultData):
-    next_id: InteractibleID
+class InteractionAreas(ResultData):
+    areas: dict[InteractibleID, Box]
     def merge_children(self, child_data):
-        return child_data
+        self.areas.update(child_data.areas)
+        return self
     @classmethod
     def create_dummy(cls):
-        return cls(EMPTY_INTERACTIBLE)
+        return cls({})
 
 @dataclass(frozen=True)
 class NavState:
@@ -200,6 +210,7 @@ class NavState:
             nav_data: list[InteractibleID] = field(default_factory=list),
             mouse_position: Coordinate | None = None,
     ):
+        mouse_position = mouse_position if mouse_position is not None else self.mouse_position
         # persistent state
         next_state = dict(self._persistent_state)
         if set_state := res.try_data(SetState):
@@ -223,9 +234,13 @@ class NavState:
                 next_active_id = self._last_active_or_hovered_id
             else:
                 next_active_id = nav_data[0]
-        elif next_inderactible := res.try_data(NextInteractible):
+        elif areas := res.try_data(InteractionAreas):
             # use mouse navigation instead
-            next_hovered_id = next_inderactible.next_id
+            for id, box in areas.areas.items():
+                if box.is_point_inside(mouse_position):
+                    next_hovered_id = id
+                    break
+
             if action == NavAction.SELECT_VIA_MOUSE:
                 next_active_id = EMPTY_INTERACTIBLE
         else:
@@ -250,7 +265,7 @@ class NavState:
                         next_persistent_selected_id[ancestor] = next_hovered_id
 
         return NavState(
-            mouse_position=mouse_position if mouse_position is not None else self.mouse_position,
+            mouse_position=mouse_position,
             action=action,
             last_action=self.action,
             _active_id=next_active_id,
@@ -259,27 +274,26 @@ class NavState:
             _persistent_state=MappingProxyType(next_state),
             _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
         )
-    def interaction_area(self, interactible_id: InteractibleID):
-        def _out(child: Layout):
-            return Layout(
-                func=self.interaction_area,
-                min_size=child.min_size,
-                render=partial(_render_read_box, interactible_id, self.mouse_position, child)
-            )
-        return _out
+
+def interaction_area(interactible_id: InteractibleID):
+    def _out(child: Layout):
+        return Layout(
+            func=interaction_area,
+            min_size=child.min_size,
+            render=partial(_render_interaction_area, interactible_id, child)
+        )
+    return _out
 
 
-def _render_read_box(
+def _render_interaction_area(
     interactible_id: InteractibleID,
-    mouse_position: Coordinate,
     child: Layout,
     frame: Frame,
     box: Box
 ) -> Result:
     res = Result()
     availabe_box = frame.view_box.intersect(box)
-    if availabe_box.is_point_inside(mouse_position):
-        res.set_data(NextInteractible(interactible_id))
+    res.set_data(InteractionAreas({interactible_id: availabe_box}))
     res.add_children_after([child.render(frame, box)])
     return res
 
