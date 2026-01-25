@@ -12,7 +12,7 @@ import curses
 import sys
 from functui import *
 from functui.common import *
-from functui.flex import hbox_flex, vbox_flex, flex
+from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
 from functui.nav import default_nav_bindings, interaction_area
@@ -50,6 +50,7 @@ class Model():
     create_button: InteractibleID = EMPTY_INTERACTIBLE
     edit_button: InteractibleID = EMPTY_INTERACTIBLE
     tasks_container: InteractibleID = EMPTY_INTERACTIBLE
+    text_container: InteractibleID = EMPTY_INTERACTIBLE
 
 def get_border_rule(nav: NavState, id: InteractibleID):
     return StyleRule(
@@ -124,6 +125,7 @@ def update(input: InputEvent, res: Result, m: Model):
         nav_data.append(m.complete_button)
         m.edit_button = info_container.child(2)
         nav_data.append(m.edit_button)
+        m.text_container = info_container.child(-1)
     else:
         m.complete_button = EMPTY_INTERACTIBLE
         m.delete_button = EMPTY_INTERACTIBLE
@@ -162,22 +164,29 @@ def view(m: Model):
 
     return static_box([
         hbox_flex([
+
             vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | v_scroll(
                 container_id=m.tasks_container,
                 nav=nav,
             ) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
+
             vbox_flex([
                 (vbox_flex([
-                    adaptive_text(m.tasks[m.selected_task_index].description) | padding,
+                    adaptive_text(m.tasks[m.selected_task_index].description)\
+                        | padding\
+                        | v_scroll(m.text_container, nav),
                     nothing() | flex,
+
                     text("delete") | center | fg(Color4.RED) | button(m.delete_button, nav),
                     text("complete") | center | fg(Color4.GREEN) | button(m.complete_button, nav),
                     text("edit") | center | button(m.edit_button, nav),
                 ]) if m.tasks else text("There are no tasks") | center) \
-                | border_with_title(text(" [Properties] ") | center | bold, border_thick)\
-                | flex,
+                    | border_with_title(text(" [Properties] ") | center | bold, border_thick)\
+                    | flex,
+
                 text("New Task") | center | button(m.create_button, nav),
             ]) | flex
+
         ]),
         text_widget
     ])

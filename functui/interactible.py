@@ -59,13 +59,15 @@ def _v_scroll_render(
         # a.append(text("selected_at_local:" + str(selected_at_y)))
         # a.append(text("selected_at_global:" + str(active_box)))
 
-        if not (start <= selected_at_y < end):
-            a.append(text("NOT_INCLUDED"))
-            if active_box.reverse:
-                # aproach form below
+        if active_box.reverse:
+            # aproach form below
+
+            if not (start <= selected_at_y < end):
                 scroll_dy += (selected_at_y)
-            else:
-                # aproach from above
+        else:
+
+            # aproach from above
+            if not (start <= (selected_at_y + active_box.box.height) < end):
                 scroll_dy += (selected_at_y - box.height + active_box.box.height)
 
     scroll_dy = clamp(scroll_dy,

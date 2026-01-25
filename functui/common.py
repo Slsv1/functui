@@ -760,10 +760,11 @@ def clamp_width(width: int):
         return Layout(
             func=clamp_width,
             min_size=lambda mtf, r: child.min_size(mtf, r.clamp_width(width)).clamp_width(width),
-            # here we have to sadly wrap in a partial
-            render=partial(lambda frame, box: child.render(frame, box.using_rect(box.rect.clamp_width(width))))
+            render=partial(_clamp_width_render, width, child),
         )
     return out
+def _clamp_width_render(width, child, frame, box):
+    return child.render(frame, box.using_rect(box.rect.clamp_width(width)))
 
 def clamp_height(height: int):
     """Limit height of a child layout"""
@@ -771,10 +772,11 @@ def clamp_height(height: int):
         return Layout(
             func=clamp_height,
             min_size=lambda mtf, r: child.min_size(mtf, r.clamp_height(height)).clamp_height(height),
-            render=partial(lambda frame, box: child.render(frame, box.using_rect(box.rect.clamp_height(height))))
+            render=partial(_clamp_height_render, height, child)
         )
     return out
-
+def _clamp_height_render(height, child, frame, box):
+    return child.render(frame, box.using_rect(box.rect.clamp_height(height)))
 
 
 

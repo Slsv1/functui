@@ -171,6 +171,7 @@ def char_style_to_attr(style: StyleAttr) -> int:
         out |= curses.A_DIM
     return out
 
+@cache
 def color_to_curses(clr: Color):
     if isinstance(clr, int):
         return int(clr)

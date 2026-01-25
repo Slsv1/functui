@@ -247,6 +247,8 @@ class NavState:
                 if box_data.visible_box.is_point_inside(mouse_position):
                     next_hovered_id = id
                     break
+            else:
+                next_hovered_id = EMPTY_INTERACTIBLE
 
             if action == NavAction.SELECT_VIA_MOUSE:
                 next_active_id = EMPTY_INTERACTIBLE

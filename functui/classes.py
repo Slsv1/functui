@@ -8,7 +8,7 @@ import wcwidth
 # utilities
 #
 
-LRU_MAX_SIZE = 0
+LRU_MAX_SIZE = 128
 
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
