@@ -581,14 +581,14 @@ def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
 
         at_y += child_box.height
         
-        # dont do commands for boxes out of bounds who are above
-        if at_y < 0:
-            continue
+        # # dont do commands for boxes out of bounds who are above
+        # if at_y < 0:
+        #     continue
         res.add_children_after([
                 node.render(frame.shrink_to(child_box.intersect(box)), child_box)
         ])
-        if at_y > box.height:
-            break
+        # if at_y > box.height:
+        #     break
 
     return res
 
