@@ -85,6 +85,7 @@ class InteractibleID:
             else:
                 break
         return self.__class__(tuple(out))
+
     def ancestors(self) -> list[Self]:
         out = []
         for part in self.data:
@@ -133,9 +134,13 @@ def set_state(*new_state: tuple[InteractibleID, Any]):
 #     def create_dummy(cls):
 #         return cls(EMPTY_INTERACTIBLE)
 
+class BoxData(NamedTuple):
+    visible_box: Box
+    actual_box: Box
+
 @dataclass(frozen=True, eq=True)
 class InteractionAreas(ResultData):
-    areas: dict[InteractibleID, Box]
+    areas: dict[InteractibleID, BoxData]
     def merge_children(self, child_data):
         self.areas.update(child_data.areas)
         return self
@@ -148,6 +153,7 @@ class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
     action: NavAction | None = None
     last_action: NavAction | None = None
+    areas: MappingProxyType[InteractibleID, BoxData] = MappingProxyType({})
     _active_id: InteractibleID = EMPTY_INTERACTIBLE
     _hovered_id: InteractibleID = EMPTY_INTERACTIBLE
     _last_active_or_hovered_id: InteractibleID = EMPTY_INTERACTIBLE
@@ -158,7 +164,7 @@ class NavState:
 
 
     @property
-    def selected_id(self):
+    def active_id(self):
         return self._active_id
     #
     # persistent state
@@ -187,14 +193,10 @@ class NavState:
         return False
     def get_scrolling_difference(self):
         if self.action == NavAction.SCROLL_UP:
-            if self.last_action == NavAction.SCROLL_UP:
-                return -2
-            return -1
+            return -3
 
         if self.action == NavAction.SCROLL_DOWN:
-            if self.last_action == NavAction.SCROLL_DOWN:
-                return 2
-            return 1
+            return 3
 
         return 0
 
@@ -218,6 +220,11 @@ class NavState:
                 next_state[(key, state.__class__)] = state
 
         # reactivity
+        areas_result = res.try_data(InteractionAreas)
+        if areas_result is None:
+            areas = MappingProxyType({})
+        else:
+            areas = MappingProxyType(areas_result.areas)
 
         next_active_id = self._active_id
         next_hovered_id = self._hovered_id
@@ -234,17 +241,15 @@ class NavState:
                 next_active_id = self._last_active_or_hovered_id
             else:
                 next_active_id = nav_data[0]
-        elif areas := res.try_data(InteractionAreas):
+        else:
             # use mouse navigation instead
-            for id, box in areas.areas.items():
-                if box.is_point_inside(mouse_position):
+            for id, box_data in areas.items():
+                if box_data.visible_box.is_point_inside(mouse_position):
                     next_hovered_id = id
                     break
 
             if action == NavAction.SELECT_VIA_MOUSE:
                 next_active_id = EMPTY_INTERACTIBLE
-        else:
-            next_hovered_id = EMPTY_INTERACTIBLE
 
         # update persistent selected ids and last
 
@@ -268,6 +273,7 @@ class NavState:
             mouse_position=mouse_position,
             action=action,
             last_action=self.action,
+            areas=areas,
             _active_id=next_active_id,
             _hovered_id=next_hovered_id,
             _last_active_or_hovered_id=next_last_active_or_hovered_id,
@@ -293,7 +299,7 @@ def _render_interaction_area(
 ) -> Result:
     res = Result()
     availabe_box = frame.view_box.intersect(box)
-    res.set_data(InteractionAreas({interactible_id: availabe_box}))
+    res.set_data(InteractionAreas({interactible_id: BoxData(availabe_box, box)}))
     res.add_children_after([child.render(frame, box)])
     return res
 

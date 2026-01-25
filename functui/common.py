@@ -30,7 +30,6 @@ from .classes import *
 # ]
 
 
-LRU_MAX_SIZE = 128
 #
 # Element Utils
 #
@@ -576,7 +575,7 @@ def vbox(children: Iterable[Layout], at_y: int=0):
 def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
     res=Result()
     for node in children:
-        child_min_size = node.min_size(frame.measure_text, box.rect)
+        child_min_size = node.min_size(frame.measure_text, Rect(box.width, 9999))
         child_box = Box(box.width, child_min_size.height).offset_by(box.position + Coordinate(0, at_y))
 
         at_y += child_box.height
@@ -752,7 +751,7 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
 
 @lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
-    return node.render(frame, box.offset_by(by).resize(left=-by.y, right=-by.x))
+    return node.render(frame, box.offset_by(by).resize(top=-by.y, right=-by.x))
 
 
 def clamp_width(width: int):

@@ -4,120 +4,79 @@ from .classes import *
 from .common import *
 from typing import NamedTuple
 
-# class _VboxRenderParams(NamedTuple):
-#     child_nodes: list[Node]
-#     at_y: int
-#     start: float
-#     showing: float
-#     state: NavState
-#     key: InteractibleID
+class _NewActiveBox(NamedTuple):
+    box: Box
+    reverse: bool = False
 
-# def no_scrollbar(p: _VboxRenderParams):
-#     return vbox([
-#
-#     ])
+def v_scroll(container_id: InteractibleID, nav: NavState):
+    def _v_scroll(child: Layout):
+        at_y: int | None = nav.try_state(container_id, int)
+
+        if at_y is None:
+            at_y = 0
+
+        # find active box
+        active_box = None
+        if (_active_box := nav.areas.get(nav.active_id, None)) is not None\
+            and nav.action in KEYBOARD_NAV_ACTION\
+            and nav.active_id.data[:len(container_id.data)] == container_id.data:
+            # ^^^^^^^^ if active_id is a child of container_id
+            active_box = _NewActiveBox(_active_box.actual_box, nav.action == NavAction.NAV_UP)
 
 
-UNLIMITED_SPACE = 2 ** 16
-def vbox_scroll(
-        nav: NavState,
-        key: InteractibleID,
-        children: Iterable[tuple[InteractibleID, Layout]],
-        # scroll_bar_key: InteractibleID = EMPTY_INTERACTIBLE,
-        # render=lambda,
-        # scroll_bar: Callable[[_VboxRenderParams], Node] = lambda start, showing, state, key: nothing()# (fg(Color.CYAN) if state.is_active(key) else empty)** v_scroll_bar(start, showing),
-    ):
+        at_y += nav.get_scrolling_difference()
 
-    child_nodes = []
-    selected_index = None
-
-    for i, (id, node) in enumerate(children):
-        child_nodes.append(node)
-        if nav.is_active(id):
-            selected_index = i
-    # we need a custom node here so that we can get the available_height
-
-    return Layout(
-        func=vbox_scroll,
-        min_size=min_size_vertical([i.min_size for i in child_nodes]),
-        render=partial(
-            _vbox_scroll_render,
-            key,
-            tuple(child_nodes),
-            selected_index,
-            nav.action,
-            nav.get_scrolling_difference(),
-            nav.try_state(key, int),
+        return Layout(
+            func=v_scroll,
+            min_size=child.min_size,
+            render=partial(
+                _v_scroll_render,
+                at_y,
+                active_box,
+                container_id,
+                child,
+            )
         )
-    )
-def _vbox_scroll_render(
-        key: InteractibleID,
-        child_nodes: tuple[Layout],
-        selected_index: int | None,
-        action: NavAction | None,
-        scrolling_difference: int,
-        last_at_y: int | None,
-        frame: Frame, 
-        box: Box
+    return _v_scroll
+
+def _v_scroll_render(
+    scroll_dy: int,
+    active_box: _NewActiveBox | None,
+    container_id: InteractibleID,
+    child: Layout,
+    frame: Frame, 
+    box: Box
 ):
-    available_height = box.height
-    content_height = vbox(child_nodes)\
-        .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-    # decide at_y
+    # move to selected if selected out of bounds
+    a = []
+    if active_box is not None:
+        selected_at_y = active_box.box.position.y - box.position.y # to local space
+        start = 0 # including
+        end = box.height # excluding
+        # a.append(text(str(start)))
+        # a.append(text(str(end)))
+        # a.append(text("scroll_dy:" + str(scroll_dy)))
+        # a.append(text("selected_at_local:" + str(selected_at_y)))
+        # a.append(text("selected_at_global:" + str(active_box)))
 
-    if selected_index is not None and action in KEYBOARD_NAV_ACTION:
-        direction_down = True if action == NavAction.NAV_DOWN else False
-        # selected at y is at what y coordinate the selected child starts
-        # desired at y is where the at_y var needs to be so that the childs end is included at the bottom of the box
-        selected_at_y_end = vbox(child_nodes[:selected_index+1])\
-            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-        desired_at_y_end = selected_at_y_end-available_height if (selected_at_y_end-available_height) > 0 else 0
-        # pick beggining
-        desired_at_y_beggining = vbox(child_nodes[:selected_index])\
-            .min_size(frame.measure_text, Rect(box.width-1, UNLIMITED_SPACE)).height
-        desired_at_y = desired_at_y_end if direction_down else desired_at_y_beggining
+        if not (start <= selected_at_y < end):
+            a.append(text("NOT_INCLUDED"))
+            if active_box.reverse:
+                # aproach form below
+                scroll_dy += (selected_at_y)
+            else:
+                # aproach from above
+                scroll_dy += (selected_at_y - box.height + active_box.box.height)
 
+    scroll_dy = clamp(scroll_dy,
+        0,
+        child.min_size(frame.measure_text, Rect(box.width, 9999)).height - box.height
+    )
 
-        if (last_at_y is not None) and (last_at_y < desired_at_y_beggining) and (selected_at_y_end <= (last_at_y + box.height)):
-            at_y = last_at_y
-        else:
-            at_y = desired_at_y
-
-    elif last_at_y is not None:
-        at_y = last_at_y
-    else:
-        at_y = 0
-
-    # scroll events
-    if action in SCROLL_ACTION:
-        match action:
-            case NavAction.PAGE_UP:
-                at_y -= (available_height -1)
-            case NavAction.PAGE_DOWN:
-                at_y += (available_height - 1)
-            case _:
-                at_y += scrolling_difference
-        at_y = clamp(at_y, 0, content_height - available_height)
-
-
-    # render
-
-    if content_height != 0:
-        percent_available = available_height / content_height
-        percent_progress = at_y/content_height
-    else:
-        percent_available = 1
-        percent_progress = 0
-
-    layout = vbox(child_nodes, at_y = -at_y)
-    # layout = hbox_flex([
-    #     flex ** vbox(child_nodes, -at_y),
-        # no_flex ** state.interaction_area(scroll_bar_key)\
-        #     ** scroll_bar(percent_progress, percent_available, state, scroll_bar_key)
-            #   ** (fg(Color.CYAN) if state.is_active(scroll_bar_key) else fg(Color.RED))\
-            # (v_scroll_bar(percent_progress, percent_available))
-    # ])
     res = Result()
-    res.set_data(set_state((key, at_y)))
-    res.add_children_after([layout.render(frame, box)])
+    res.set_data(set_state((container_id, scroll_dy)))
+    # a.append(text("final:" + str(scroll_dy)))
+    modified_child = vbox([child,], at_y=-scroll_dy)
+    res.add_children_after([modified_child.render(frame, box)])
     return res
+

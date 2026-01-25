@@ -16,7 +16,7 @@ from functui.flex import hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
 from functui.nav import default_nav_bindings, interaction_area
-from functui.interactible import vbox_scroll
+from functui.interactible import v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -162,10 +162,9 @@ def view(m: Model):
 
     return static_box([
         hbox_flex([
-            vbox_scroll(
+            vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | v_scroll(
+                container_id=m.tasks_container,
                 nav=nav,
-                key=m.tasks_container,
-                children=[(id, item(task,m, id, nav)) for id, task in zip(m.tasks_ids, m.tasks)],
             ) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
             vbox_flex([
                 (vbox_flex([
