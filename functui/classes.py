@@ -54,8 +54,7 @@ class Coordinate:
     def __sub__(self, other):
         return Coordinate(self.x - other.x, self.y - other.y)
 
-@dataclass(frozen=True, eq=True)
-class Rect:
+class Rect(NamedTuple):
     """A simple immutable rectangle defined by width and height.
 
     Attributes:
@@ -86,6 +85,7 @@ class Rect:
         """Returns a rectangle representing the maximum dimensions of this and another.
 
         Effectively selects the largest width and height between the two rectangles.
+        This method is commutative.
 
         Args:
             other: The rectangle to compare against.
@@ -102,6 +102,7 @@ class Rect:
         """Returns a rectangle clamped so its dimensions do not exceed another rectangle.
 
         Effectively selects the minimum width and height between the two rectangles.
+        This method is commutative.
 
         Args:
             other: The rectangle whose dimensions act as an upper bound.
@@ -207,6 +208,7 @@ class Box:
 
         If the boxes do not overlap, the resulting width or height may be zero
         or negative, depending on the input.
+        This method is commutative.
 
         Args:
             other: The box to intersect with.
@@ -241,6 +243,8 @@ class Box:
 
     def union(self, other: Self) -> Self:
         """Returns the smallest box that fully contains both this box and another.
+
+        This method is commutative.
 
         Args:
             other: The box to union with.

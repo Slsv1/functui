@@ -82,7 +82,7 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     return res
 
 
-def hbox_flex(children: Iterable[Flex | Layout]):
+def hbox_flex(processed_children: Iterable[Flex | Layout]):
     """A container node that allows children to expand on the x axis.
 
     Modeled of the CSS flexbox layout model. By default acts as a regular :obj:`~functui.common.xbox`.
@@ -132,11 +132,11 @@ def hbox_flex(children: Iterable[Flex | Layout]):
             └──────────────────────────────────────┘
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
+    processed_children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in processed_children)
     return Layout(
         func=hbox_flex,
-        min_size=min_size_horizontal([i.node.min_size for i in children]),
-        render=partial(_hbox_flex_render, children)
+        min_size=min_size_horizontal([i.node.min_size for i in processed_children]),
+        render=partial(_hbox_flex_render, processed_children)
     )
 @lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
@@ -161,38 +161,64 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
 
 @dataclass
 class _FlexData:
-    available_space: int
+    bounding_rect: Rect
     flex_children: list[Flex]
 
 def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measure_text: MeasureTextFunc):
-    flex_by_lines = [_FlexData(available_space, [])]
+    flex_by_lines = [_FlexData(Rect(0, 0), [])]
+
 
     for flex in filter(lambda c: c.basis, children):
-        child_min_width = flex.node.min_size(measure_text, Rect(available_space, 9999)).width
+        child_min_width, child_min_height = flex.node.min_size(measure_text, Rect(available_space, 9999))
 
         current_flex_data = flex_by_lines[-1]
-        if current_flex_data.available_space - child_min_width < 0:
-            flex_by_lines.append(_FlexData(available_space-child_min_width, [flex]))
+        if current_flex_data.bounding_rect.width + child_min_width > available_space:
+            flex_by_lines.append(_FlexData(Rect(available_space-child_min_width, child_min_height), [flex]))
         else:
-            current_flex_data.available_space -= child_min_width
+            current_flex_data.bounding_rect = Rect(
+                current_flex_data.bounding_rect.width + child_min_width,
+                max(current_flex_data.bounding_rect.height, child_min_height)
+            )
             current_flex_data.flex_children.append(flex)
     return flex_by_lines
 
+def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
+    """A container node that allows children to expand on the y axis.
+
+    Modeled of the CSS flexbox layout model. By default acts as a regular :obj:`~functui.common.vbox`.
+    If a child with the :obj:`flex` node as a parent is added, its height will be equal to the unused space on the y axis.
+    If multiple childred with the :obj:`flex` node are added, the remaing space will be devided equaly among them.
+    To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
+
+    """
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
+    def min_size(measure_text: MeasureTextFunc, from_rect: Rect):
+        lines = _split_flex_by_lines_h(from_rect.width, children, measure_text)
+
+        return Rect(
+            width=max(i.bounding_rect.width for i in lines),
+            height=sum(i.bounding_rect.height for i in lines),
+        )
+    return Layout(
+        func=hbox_flex_wrap,
+        min_size=min_size,
+        render=partial(_hbox_flex_wrap_render, children)
+    )
 
 @lru_cache(LRU_MAX_SIZE)
-def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
+def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
     #
     # split by 'lines'
     #
     children_by_lines = _split_flex_by_lines_h(box.width, children, frame.measure_text)
 
-    reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).width for i in children if i.basis)
     at_y = 0
     res = Result()
 
     for data in children_by_lines:
         children = data.flex_children
-        available_width = data.available_space
+        available_width = box.width - data.bounding_rect.width
+        row_height = data.bounding_rect.height
 
         total_grow = sum(i.grow for i in children)
         total_shrink = sum(i.shrink for i in children)
@@ -200,13 +226,13 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
         space_rations = even_divide(available_width, total_grow if available_width >= 0 else total_shrink)
         at_x = 0
         for flex in children:
-            child_min_width = flex.node.min_size(frame.measure_text, box.rect).width if flex.basis else 0
+            child_min_width, child_min_height = flex.node.min_size(frame.measure_text, box.rect) if flex.basis else Rect(0, 0)
             child_box = Box(
                 width=child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_width >= 0 else flex.shrink)),
-                height=box.height, #.....................................................................
+                height=row_height,
             )
-            child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))
+            child_box = child_box.offset_by(box.position + Coordinate(at_x, at_y))
             res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
             at_x += child_box.width
-        at_y += max()
+        at_y += row_height
     return res
