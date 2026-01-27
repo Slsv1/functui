@@ -237,10 +237,11 @@ class NavState:
                 if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
                     next_active_id = result.next_id
             # otherwise, use start from where we left off
-            elif self._last_active_or_hovered_id != EMPTY_INTERACTIBLE:
+            elif self._last_active_or_hovered_id != EMPTY_INTERACTIBLE and self._last_active_or_hovered_id in nav_data:
                 next_active_id = self._last_active_or_hovered_id
             else:
                 next_active_id = nav_data[0]
+
         else:
             # use mouse navigation instead
             for id, box_data in areas.items():

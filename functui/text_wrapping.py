@@ -1,6 +1,7 @@
 from functools import reduce, partial, lru_cache, cache
 from enum import Enum, auto
-from typing import NamedTuple, Protocol
+from typing import NamedTuple, Iterable, Self, Callable
+from dataclasses import dataclass
 from itertools import chain
 import re
 import math

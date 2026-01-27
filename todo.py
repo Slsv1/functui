@@ -12,6 +12,7 @@ import curses
 import sys
 from functui import *
 from functui.common import *
+from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
@@ -21,6 +22,7 @@ from functui.io.curses import wrapper, get_input_event, draw_result # type: igno
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
+from typing import Iterable
 
 
 #

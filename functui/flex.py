@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import runtime_checkable
+from functools import lru_cache, partial
+from typing import runtime_checkable, Callable, Iterable
 from .classes import *
 
 @dataclass(frozen=True, eq=True)

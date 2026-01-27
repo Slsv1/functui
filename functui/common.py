@@ -1,33 +1,83 @@
 from functools import reduce, partial, lru_cache
 from enum import Enum, auto, IntFlag
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, Protocol, Any, Iterable
+from dataclasses import dataclass, field
 import re
 import math
 
 from .classes import *
 
-# __all__ = [
-#     "combine",
-#     "nothing",
-#     "empty",
-#     "LOREM",
-#
-#     "text",
-#     "Justify",
-#     "adaptive_text",
-#     "vbar",
-#     "hbar",
-#
-#     "border",
-#     "add_style",
-#     "no_style",
-#     "fg",
-#     "bg",
-#     "bold",
-#     "italic",
-#     "underlined",
-# ]
+__all__ = [
+    'BORDER_DOUBLE',
+    'BORDER_REGULAR',
+    'BORDER_ROUNDED',
+    'BORDER_THICK',
+    'BorderStyle',
+    'LOREM',
+
+    # util
+    'combine',
+
+    # containers
+    'hbox',
+    'vbox',
+    'static_box',
+
+    # size manipulations
+    'center',
+    'clamp',
+    'clamp_height',
+    'clamp_width',
+    'offset',
+    'padding',
+    'custom_padding',
+    'push_rule',
+    'shrink',
+    'shrink_x',
+    'shrink_y',
+
+    # styling
+    'underline',
+    'italic',
+    'dim',
+    'bold',
+    'strike_through',
+
+    'styled',
+
+    'fg',
+    'bg',
+    'bg_char',
+    'bg_fill',
+
+    'empty',
+
+    # content
+    'h_guage',
+    'text',
+    'v_scroll_bar',
+    'nothing',
+
+    # bars
+    'vbar',
+    'vbar_custom',
+    'vbar_double',
+    'vbar_thick',
+    'hbar',
+    'hbar_custom',
+    'hbar_double',
+    'hbar_thick',
+
+    # borders
+    'border',
+    'border_double',
+    'border_rounded',
+    'border_thick',
+    'border_with_title',
+    'custom_border',
+]
+
 
 
 #
@@ -121,14 +171,14 @@ class WeightMap(NamedTuple):
     right: int
 
 
-def overlay_weight_maps(*maps: WeightMap) -> WeightMap:
+def _overlay_weight_maps(*maps: WeightMap) -> WeightMap:
     return WeightMap(*(max(dir) for dir in zip(*maps))) # pick highest weights along cardinal direction
 
 
-class GetIntersection(Protocol):
+class _GetIntersection(Protocol):
     def __call__(self, weight_map: WeightMap, /) -> str | None:
         ...
-def get_default_intersection(weight_map: WeightMap, /):
+def _get_default_intersection(weight_map: WeightMap, /):
     return INTERSECTION_MAP.get(weight_map, None)
 
 @dataclass(frozen=True, eq=True)
@@ -845,5 +895,4 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -
         elif start_at_pixel_int < i < end_at_pixel_int:
             res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
     return res
-
 
