@@ -7,3 +7,4 @@ User Guide
 
    introduction
    glossary
+   io

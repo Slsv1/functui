@@ -28,7 +28,15 @@ Containers
    functui.common.static_box
    functui.flex.vbox_flex
    functui.flex.hbox_flex
+   functui.flex.hbox_flex_wrap
 
+
+Interactive
+-----------
+
+.. autosummary::
+   functui.nav.interaction_are
+   functui.interactive.v_scroll
 
 Borders and Separators
 ----------------------
@@ -71,7 +79,7 @@ Styling
    functui.common.bg_fill
    functui.common.styled
    functui.common.bold
-   functui.common.underlined
+   functui.common.underline
    functui.common.strike_through
    functui.common.reverse
    functui.common.italic
