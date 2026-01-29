@@ -15,8 +15,7 @@ from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex, hbox_flex_wrap
 from functui.textfield import create_text_input_event, default_text_input_bindings, TextInput, start_text_input
 from functui.text_wrapping import adaptive_text
-from functui.nav import default_nav_bindings, interaction_area, NavState, InteractibleID, EMPTY_INTERACTIBLE, ROOT_HORIZONTAL, Direction
-from functui.interactible import v_scroll
+from functui.nav import default_nav_bindings, interaction_area, NavState, InteractibleID, EMPTY_INTERACTIBLE, ROOT_HORIZONTAL, Direction, v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -209,4 +208,3 @@ def main(stdscr: curses.window):
         if key.key_event == 'ctrl+c':
             break
         update(key, res, m)
-wrapper(main)

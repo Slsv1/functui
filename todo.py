@@ -16,8 +16,7 @@ from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
-from functui.nav import default_nav_bindings, interaction_area
-from functui.interactible import v_scroll
+from functui.nav import default_nav_bindings, interaction_area, v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
 from enum import Enum, auto
