@@ -56,7 +56,7 @@ class Model():
 def get_border_rule(nav: NavState, id: InteractibleID):
     return StyleRule(
         fg=Colors.active if nav.is_hover(id) else None,
-        bg=Colors.active if nav.is_active(id) else None
+        bg=Colors.active if nav.is_active(id) or nav.is_held_down(id) else None
     )
 
 tasks = [

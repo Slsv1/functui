@@ -28,7 +28,8 @@ __all__ = [
 
 class NavAction(Enum):
     SELECT_VIA_KEYBOARD = auto()
-    SELECT_VIA_MOUSE = auto()
+    SELECT_VIA_MOUSE_START = auto()
+    SELECT_VIA_MOUSE_END = auto()
     PAGE_DOWN = auto()
     PAGE_UP = auto()
     SCROLL_UP = auto()
@@ -171,13 +172,23 @@ class InteractionAreas(ResultData):
 @dataclass(frozen=True)
 class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
+
     action: NavAction | None = None
     last_action: NavAction | None = None
+
     areas: MappingProxyType[InteractibleID, BoxData] = MappingProxyType({})
+    """All areas that were marked by an :obj:`interaction_area` wrapper node."""
     _active_id: InteractibleID = EMPTY_INTERACTIBLE
+    """Interactible that is active through keyboard navigation."""
     _hovered_id: InteractibleID = EMPTY_INTERACTIBLE
+    """Interactible that the mouse is hovering over."""
+    _held_down: InteractibleID = EMPTY_INTERACTIBLE
+    _just_held_down: InteractibleID = EMPTY_INTERACTIBLE
+
     _last_active_or_hovered_id: InteractibleID = EMPTY_INTERACTIBLE
+
     _persistent_state: MappingProxyType[tuple[InteractibleID, Any], Any] = MappingProxyType({}) # a MappingProxyType is used here as an immutable dict
+
     _persistent_selected_id: MappingProxyType[InteractibleID, InteractibleID] = MappingProxyType({})
     """if any interactible id part declares it self as persistent,
     then it's last selected child will be saved here"""
@@ -185,6 +196,10 @@ class NavState:
 
     @property
     def active_id(self):
+        """The interactible that is active through keyboard navigation.
+
+        Returns:
+            :obj:`EMPTY_INTERACTIBLE` if no interactible is active"""
         return self._active_id
     #
     # persistent state
@@ -195,17 +210,46 @@ class NavState:
     # state management
     #
     def is_active(self, key: InteractibleID) -> bool:
+        """Whether an interactible or one of its descendants is active via keyboard navigation"""
         if self._active_id == EMPTY_INTERACTIBLE:
             return False
         return key.data == self._active_id.data[: len(key.data)]
+
     def is_hover(self, key: InteractibleID) -> bool:
+        """Whether the mouse is hovering above an interactible or one of its descendants.
+
+        Note:
+            Only one interactible at a time can be hovered, so if there is an
+            overlap between interactible areas, only one of them will return
+            true."""
         if self._hovered_id == EMPTY_INTERACTIBLE:
             return False
         return key.data == self._hovered_id.data[: len(key.data)]
 
     def is_selected(self, key: InteractibleID) -> bool:
+        """Whether an interactible was selected by keyboard or mouse.
+
+        This condition if often triggered by pressing enter while an
+        interactible is active through keyboard navigation, or by releasing left click on an interactible with a mouse.
+
+        More specifically, this returns whether an interactible is active and
+        :obj:`~NavAction.SELECT_VIA_KEYBOARD` was triggered OR an interactible
+        is hovered and :obj:`~NavAction.SELECT_VIA_MOUSE_END` was triggered
+        """
         # prioritise keyboard navigation over hover
-        return (self.is_active(key) and self.action == NavAction.SELECT_VIA_KEYBOARD) or (self.is_hover(key) and self.action == NavAction.SELECT_VIA_MOUSE)
+        if (self.is_active(key) and self.action == NavAction.SELECT_VIA_KEYBOARD):
+            return True
+        if self._just_held_down == EMPTY_INTERACTIBLE:
+            return False
+        return (key.data == self._just_held_down.data[: len(key.data)])
+
+    def is_held_down(self, key: InteractibleID) -> bool:
+        """Whether :obj:`~NavAction.SELECT_VIA_MOUSE_START` was triggered while hovering over interactive or its descendant, but before :obj:`~NavAction.SELECT_VIA_MOUSE_END` is triggered."""
+        if self._held_down == EMPTY_INTERACTIBLE:
+            return False
+        return (key.data == self._held_down.data[: len(key.data)])
+
+
     def was_selected_or_active(self, key: InteractibleID) -> bool:
         for id in self._persistent_selected_id.values():
             if key.data == id.data[:len(key.data)]:
@@ -220,10 +264,6 @@ class NavState:
 
         return 0
 
-    # while True:
-    #    res = render() (print)
-    #    input()
-    #    step()
 
     def update(
             self,
@@ -239,7 +279,8 @@ class NavState:
             for key, state in set_state.new_state:
                 next_state[(key, state.__class__)] = state
 
-        # reactivity
+        # keyboard navigation and mouse reactivity
+
         areas_result = res.try_data(InteractionAreas)
         if areas_result is None:
             areas = MappingProxyType({})
@@ -271,10 +312,13 @@ class NavState:
             else:
                 next_hovered_id = EMPTY_INTERACTIBLE
 
-            if action == NavAction.SELECT_VIA_MOUSE:
+            # stop navigation by keyboard if we are using mouse
+            if action == NavAction.SELECT_VIA_MOUSE_END:
                 next_active_id = EMPTY_INTERACTIBLE
 
-        # update persistent selected ids and last
+
+
+        # update persistent selected ids
 
         next_persistent_selected_id = dict(self._persistent_selected_id)
         next_last_active_or_hovered_id = self._last_active_or_hovered_id
@@ -287,10 +331,21 @@ class NavState:
         elif next_hovered_id != EMPTY_INTERACTIBLE:
             next_last_active_or_hovered_id = next_hovered_id
 
-            if action == NavAction.SELECT_VIA_MOUSE:
+            if action == NavAction.SELECT_VIA_MOUSE_END and next_hovered_id == self._held_down:
                 for ancestor in next_hovered_id.ancestors():
                     if ancestor.persistent:
                         next_persistent_selected_id[ancestor] = next_hovered_id
+        # held down
+        next_just_held_down = EMPTY_INTERACTIBLE
+        next_held_down = self._held_down
+        if action == NavAction.SELECT_VIA_MOUSE_START:
+            next_held_down = next_hovered_id
+        elif next_hovered_id != next_held_down:
+            next_held_down = EMPTY_INTERACTIBLE
+        elif action == NavAction.SELECT_VIA_MOUSE_END:
+            next_just_held_down = next_held_down
+            next_held_down = EMPTY_INTERACTIBLE
+
 
         return NavState(
             mouse_position=mouse_position,
@@ -299,6 +354,8 @@ class NavState:
             areas=areas,
             _active_id=next_active_id,
             _hovered_id=next_hovered_id,
+            _held_down=next_held_down,
+            _just_held_down=next_just_held_down,
             _last_active_or_hovered_id=next_last_active_or_hovered_id,
             _persistent_state=MappingProxyType(next_state),
             _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
@@ -480,7 +537,8 @@ default_nav_bindings = {
 
     "enter": NavAction.SELECT_VIA_KEYBOARD,
     " ": NavAction.SELECT_VIA_KEYBOARD,
-    "left mouse": NavAction.SELECT_VIA_MOUSE,
+    "left mouse": NavAction.SELECT_VIA_MOUSE_START,
+    "left mouse released": NavAction.SELECT_VIA_MOUSE_END,
 
     "page up": NavAction.PAGE_UP,
     "ctrl+u": NavAction.PAGE_UP,
