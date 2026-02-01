@@ -16,7 +16,7 @@ from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.text_wrapping import adaptive_text
-from functui.nav import default_nav_bindings, interaction_area, v_scroll
+from functui.nav import default_nav_bindings, h_resizable_split, interaction_area, v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -164,14 +164,15 @@ def view(m: Model):
             | center
 
     return static_box([
-        hbox_flex([
-
-            vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | v_scroll(
+        h_resizable_split(
+            ROOT_HORIZONTAL.child(12323),
+            nav,
+            left=vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | v_scroll(
                 container_id=m.tasks_container,
                 nav=nav,
-            ) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
+            ) | border_with_title(text(" [Items] ") | bold | center, border_thick),
 
-            vbox_flex([
+            right=vbox_flex([
                 (vbox_flex([
                     adaptive_text(m.tasks[m.selected_task_index].description)\
                         | padding\
@@ -186,9 +187,9 @@ def view(m: Model):
                     | flex,
 
                 text("New Task") | center | button(m.create_button, nav),
-            ]) | flex
+            ]),
 
-        ]),
+        ),
         text_widget
     ])
 

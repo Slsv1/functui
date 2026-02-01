@@ -4,8 +4,8 @@ from typing import Self, Literal, Iterable, Any, NamedTuple
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial
-from .classes import Coordinate, Result, ResultData, Layout, Frame, Box, Rect, clamp
-from .common import vbox, offset
+from .classes import Coordinate, Result, ResultData, Layout, Frame, Box, Rect, clamp, min_size_horizontal
+from .common import vbox, offset, vbar
 
 __all__ = [
     "NavAction",
@@ -158,6 +158,10 @@ def set_state(*new_state: tuple[InteractibleID, Any]):
 class BoxData(NamedTuple):
     visible_box: Box
     actual_box: Box
+    dragable: bool
+class _HoveredData(NamedTuple):
+    id: InteractibleID
+    is_dragable: bool
 
 @dataclass(frozen=True, eq=True)
 class InteractionAreas(ResultData):
@@ -172,6 +176,7 @@ class InteractionAreas(ResultData):
 @dataclass(frozen=True)
 class NavState:
     mouse_position: Coordinate = Coordinate(-1, -1)
+    last_mouse_position: Coordinate = Coordinate(-1, -1)
 
     action: NavAction | None = None
     last_action: NavAction | None = None
@@ -180,9 +185,10 @@ class NavState:
     """All areas that were marked by an :obj:`interaction_area` wrapper node."""
     _active_id: InteractibleID = EMPTY_INTERACTIBLE
     """Interactible that is active through keyboard navigation."""
-    _hovered_id: InteractibleID = EMPTY_INTERACTIBLE
+    _hovered_data: _HoveredData = _HoveredData(EMPTY_INTERACTIBLE, False)
     """Interactible that the mouse is hovering over."""
     _held_down: InteractibleID = EMPTY_INTERACTIBLE
+    _held_down_is_being_dragged: bool = False
     _just_held_down: InteractibleID = EMPTY_INTERACTIBLE
 
     _last_active_or_hovered_id: InteractibleID = EMPTY_INTERACTIBLE
@@ -222,9 +228,9 @@ class NavState:
             Only one interactible at a time can be hovered, so if there is an
             overlap between interactible areas, only one of them will return
             true."""
-        if self._hovered_id == EMPTY_INTERACTIBLE:
+        if self._hovered_data.id == EMPTY_INTERACTIBLE:
             return False
-        return key.data == self._hovered_id.data[: len(key.data)]
+        return key.data == self._hovered_data.id.data[: len(key.data)]
 
     def is_selected(self, key: InteractibleID) -> bool:
         """Whether an interactible was selected by keyboard or mouse.
@@ -263,7 +269,8 @@ class NavState:
             return 3
 
         return 0
-
+    def get_mouse_drag_difference(self) -> Coordinate:
+        return self.mouse_position - self.last_mouse_position
 
     def update(
             self,
@@ -288,7 +295,7 @@ class NavState:
             areas = MappingProxyType(areas_result.areas)
 
         next_active_id = self._active_id
-        next_hovered_id = self._hovered_id
+        next_hovered_data = self._hovered_data
         if action in (NavAction.NAV_DOWN, NavAction.NAV_LEFT, NavAction.NAV_UP, NavAction.NAV_RIGHT) and len(nav_data):
             # handle keyboard nav and its edge cases
 
@@ -307,10 +314,10 @@ class NavState:
             # use mouse navigation instead
             for id, box_data in areas.items():
                 if box_data.visible_box.is_point_inside(mouse_position):
-                    next_hovered_id = id
+                    next_hovered_data = _HoveredData(id, box_data.dragable)
                     break
             else:
-                next_hovered_id = EMPTY_INTERACTIBLE
+                next_hovered_data = _HoveredData(EMPTY_INTERACTIBLE, False)
 
             # stop navigation by keyboard if we are using mouse
             if action == NavAction.SELECT_VIA_MOUSE_END:
@@ -328,45 +335,49 @@ class NavState:
             for ancestor in next_active_id.ancestors():
                 if ancestor.persistent:
                     next_persistent_selected_id[ancestor] = next_active_id
-        elif next_hovered_id != EMPTY_INTERACTIBLE:
-            next_last_active_or_hovered_id = next_hovered_id
+        elif next_hovered_data != EMPTY_INTERACTIBLE:
+            next_last_active_or_hovered_id = next_hovered_data.id
 
-            if action == NavAction.SELECT_VIA_MOUSE_END and next_hovered_id == self._held_down:
-                for ancestor in next_hovered_id.ancestors():
+            if action == NavAction.SELECT_VIA_MOUSE_END and next_hovered_data.id == self._held_down:
+                for ancestor in next_hovered_data.id.ancestors():
                     if ancestor.persistent:
-                        next_persistent_selected_id[ancestor] = next_hovered_id
+                        next_persistent_selected_id[ancestor] = next_hovered_data.id
         # held down
         next_just_held_down = EMPTY_INTERACTIBLE
+        next_held_down_is_being_dragged = self._held_down_is_being_dragged
         next_held_down = self._held_down
         if action == NavAction.SELECT_VIA_MOUSE_START:
-            next_held_down = next_hovered_id
-        elif next_hovered_id != next_held_down:
+            next_held_down = next_hovered_data.id
+            next_held_down_is_being_dragged = next_hovered_data.is_dragable
+        elif next_hovered_data.id != self._held_down and not self._held_down_is_being_dragged:
             next_held_down = EMPTY_INTERACTIBLE
         elif action == NavAction.SELECT_VIA_MOUSE_END:
-            next_just_held_down = next_held_down
+            next_just_held_down = self._held_down
             next_held_down = EMPTY_INTERACTIBLE
 
 
         return NavState(
             mouse_position=mouse_position,
+            last_mouse_position=self.mouse_position,
             action=action,
             last_action=self.action,
             areas=areas,
             _active_id=next_active_id,
-            _hovered_id=next_hovered_id,
+            _hovered_data=next_hovered_data,
             _held_down=next_held_down,
+            _held_down_is_being_dragged=next_held_down_is_being_dragged,
             _just_held_down=next_just_held_down,
             _last_active_or_hovered_id=next_last_active_or_hovered_id,
             _persistent_state=MappingProxyType(next_state),
             _persistent_selected_id=MappingProxyType(next_persistent_selected_id),
         )
 
-def interaction_area(interactible_id: InteractibleID):
+def interaction_area(interactible_id: InteractibleID, dragable=False):
     def _out(child: Layout):
         return Layout(
             func=interaction_area,
             min_size=child.min_size,
-            render=partial(_render_interaction_area, interactible_id, child)
+            render=partial(_render_interaction_area, interactible_id, child, dragable)
         )
     return _out
 
@@ -374,12 +385,13 @@ def interaction_area(interactible_id: InteractibleID):
 def _render_interaction_area(
     interactible_id: InteractibleID,
     child: Layout,
+    dragable: bool,
     frame: Frame,
     box: Box
 ) -> Result:
     res = Result()
     availabe_box = frame.view_box.intersect(box)
-    res.set_data(InteractionAreas({interactible_id: BoxData(availabe_box, box)}))
+    res.set_data(InteractionAreas({interactible_id: BoxData(availabe_box, box, dragable)}))
     res.add_children_after([child.render(frame, box)])
     return res
 
@@ -627,3 +639,69 @@ def _v_scroll_render(
     modified_child = vbox([child,], at_y=-scroll_dy)
     res.add_children_after([modified_child.render(frame, box)])
     return res
+
+@dataclass(frozen=True, eq=True)
+class ResizableSplitData:
+    at: int
+
+def h_resizable_split(interactible_id: InteractibleID, nav: NavState, left: Layout, right: Layout, sep: Layout = vbar) -> Layout:
+    split_data = nav.try_state(interactible_id, ResizableSplitData)
+    if split_data is not None:
+        split_at = split_data.at
+    else:
+        split_at = 20
+    if nav.is_held_down(interactible_id):
+        split_at += nav.get_mouse_drag_difference().x
+
+    return Layout(
+        func=h_resizable_split,
+        min_size=min_size_horizontal([left.min_size, right.min_size, sep.min_size]),
+        render=partial(
+            _h_resizable_split_render,
+            interactible_id,
+            left,
+            right,
+            sep | interaction_area(interactible_id, dragable=True),
+            split_at,
+        )
+    )
+
+def _h_resizable_split_render(
+        interactible_id: InteractibleID,
+        left: Layout,
+        right: Layout,
+        sep: Layout,
+        split_at: int,
+        frame: Frame,
+        box: Box
+) -> Result:
+    split_rect = sep.min_size(frame.measure_text, box.rect)
+
+    split_at = clamp(split_at, 0, box.width-1-split_rect.width)
+
+    left_box = Box(
+        split_at,
+        box.height,
+        box.position,
+    )
+    right_box = Box(
+        box.width-split_at-split_rect.width,
+        box.height,
+        box.position + Coordinate(split_at + split_rect.width, 0)
+    )
+    split_box = Box(
+        split_rect.width,
+        box.height,
+        box.position + Coordinate(split_at, 0)
+    )
+
+    res = Result()
+    res.set_data(set_state((interactible_id, ResizableSplitData(split_at))))
+
+    res.add_children_after([
+        left.render(frame.shrink_to(left_box), left_box),
+        sep.render(frame.shrink_to(split_box), split_box),
+        right.render(frame.shrink_to(right_box), right_box),
+    ])
+    return res
+
