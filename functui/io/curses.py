@@ -76,7 +76,7 @@ _curses_int_to_standard_key_name = {
 }
 
 
-def key_code_to_str(key: int | str):
+def _key_code_to_str(key: int | str):
     if isinstance(key, str):
         try:
             ret = _curses_int_to_standard_key_name[ord(key)]
@@ -88,7 +88,7 @@ def key_code_to_str(key: int | str):
     except:
         return "unknown"
 
-def mouse_button_to_str(mouse_button: int) -> str:
+def _mouse_button_to_str(mouse_button: int) -> str:
     out = []
     if mouse_button & curses.BUTTON_CTRL:
         out.append("ctrl")
@@ -138,7 +138,7 @@ def get_input_event(stdscr: curses.window) -> InputEvent:
         try:
             stdscr.nodelay(True)
             second_key = stdscr.get_wch()
-            return InputEvent(key_event="+".join(["alt", key_code_to_str(second_key)]))
+            return InputEvent(key_event="+".join(["alt", _key_code_to_str(second_key)]))
         except curses.error:
             return InputEvent(key_event="escape")
         finally:
@@ -147,15 +147,15 @@ def get_input_event(stdscr: curses.window) -> InputEvent:
         try:
             _, x, y, _, state = curses.getmouse()
             return InputEvent(
-                mouse_button_event=mouse_button_to_str(state),
+                mouse_button_event=_mouse_button_to_str(state),
                 mouse_position_event=Coordinate(x, y),
             )
         except curses.error:
             pass
-    return InputEvent(key_event=key_code_to_str(key))
+    return InputEvent(key_event=_key_code_to_str(key))
 
 @cache
-def char_style_to_attr(style: StyleAttr) -> int:
+def _char_style_to_attr(style: StyleAttr) -> int:
     out = 0
     if style & StyleAttr.BOLD:
         out |= curses.A_BOLD
@@ -172,11 +172,11 @@ def char_style_to_attr(style: StyleAttr) -> int:
     return out
 
 @cache
-def color_to_curses(clr: Color):
+def _color_to_curses(clr: Color):
     if isinstance(clr, int):
         return int(clr)
     else:
-        raise NotImplemented
+        return clr.to_nearest_8bit()
     # match clr:
     #
     #     case Color.BLACK:
@@ -200,19 +200,19 @@ def color_to_curses(clr: Color):
     #     return 0
     return out
 
-pair_cache: dict[tuple[int, int], int] = {
+_pair_cache: dict[tuple[int, int], int] = {
     (-1, -1): 0 #curses alwayst initializes color pair 0 to be (-1 -1)
 }
-def init_pair_from_style(i: int, style: ComputedStyle):
+def _init_pair_from_style(i: int, style: ComputedStyle):
     curr_fg, curr_bg = curses.pair_content(i)
-    new_fg = color_to_curses(style.fg) if style.fg else curr_fg
-    new_bg = color_to_curses(style.bg) if style.bg else curr_bg
+    new_fg = _color_to_curses(style.fg) if style.fg else curr_fg
+    new_bg = _color_to_curses(style.bg) if style.bg else curr_bg
     try:
-        return pair_cache[(new_fg, new_bg)]
+        return _pair_cache[(new_fg, new_bg)]
     except KeyError:
-        new_pair_number = len(pair_cache) + 1
+        new_pair_number = len(_pair_cache) + 1
         curses.init_pair(new_pair_number, new_fg, new_bg)
-        pair_cache[(new_fg, new_bg)] = new_pair_number
+        _pair_cache[(new_fg, new_bg)] = new_pair_number
         return new_pair_number
     return i
 
@@ -224,30 +224,30 @@ def draw_result(result: Result, stdscr: curses.window):
     pair_number = 1
     for command in result.get_commands():
         if isinstance(command, DrawPixel):
-            pair_number = init_pair_from_style(pair_number, command.pixel.style)
+            pair_number = _init_pair_from_style(pair_number, command.pixel.style)
             stdscr.addch(
                 command.at.y,
                 command.at.x,
                 command.pixel.char,
-                char_style_to_attr(command.pixel.style.attrs) | curses.color_pair(pair_number)
+                _char_style_to_attr(command.pixel.style.attrs) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawStringLine):
-            pair_number = init_pair_from_style(pair_number, command.string[0].style)
+            pair_number = _init_pair_from_style(pair_number, command.string[0].style)
             stdscr.addstr(
                 command.at.y,
                 command.at.x,
                 "".join([i.char for i in command.string if i.char_type != CharType.WIDE_TAIL]),
-                char_style_to_attr(command.string[0].style.attrs) | curses.color_pair(pair_number)
+                _char_style_to_attr(command.string[0].style.attrs) | curses.color_pair(pair_number)
             )
         elif isinstance(command, DrawBox):
-            pair_number = init_pair_from_style(pair_number, command.fill.style)
+            pair_number = _init_pair_from_style(pair_number, command.fill.style)
             s = [command.box.width * command.fill.char for _ in range(command.box.height)]
             for dy, line in enumerate(s):
                 stdscr.addstr(
                     command.box.position.y + dy,
                     command.box.position.x,
                     line,
-                    char_style_to_attr(command.fill.style.attrs) | curses.color_pair(pair_number)
+                    _char_style_to_attr(command.fill.style.attrs) | curses.color_pair(pair_number)
                 )
 
 

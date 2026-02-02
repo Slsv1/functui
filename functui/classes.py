@@ -3,6 +3,8 @@ from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias, NamedTupl
 from enum import Enum, Flag, auto, IntEnum
 from abc import ABC, abstractmethod
 from functools import cached_property, partial, cache
+
+from .color_data import HEX_TO_XTERM256_DEFINED_COLORS
 import wcwidth
 #
 # utilities
@@ -352,10 +354,19 @@ class Color4(IntEnum):
         GREEN:
         YELLOW:
         BLUE:
-        MAGENT:
+        MAGENTA:
         CYAN:
         WHITE:
-        RESET: Dont display any color."""
+        RESET: Dont display any color.
+        BRIGHT_BLACK;
+        BRIGHT_RED:
+        BRIGHT_GREEN:
+        BRIGHT_YELLOW:
+        BRIGGT_BLUE:
+        BRIGHT_MAGENTA:
+        BRIGHT_CYAN:
+        BRIGHT_WHITE:
+    """
     BLACK = 0
     RED = 1
     GREEN = 2
@@ -387,11 +398,18 @@ class Color24:
     @cache
     def hex(self) -> int:
         return (0 | self.r << 16 | self.g << 8 | self.b)
+    @cache
+    def to_nearest_8bit(self) -> int:
+        distance_to_color = {_color_distance_fast(hex(k), self): v for k, v in HEX_TO_XTERM256_DEFINED_COLORS.items()}
+        return distance_to_color[min(distance_to_color.keys())]
 
     @property
     @cache
     def hex_str(self) -> str:
         return f"#{self.hex:06x}"
+
+def _color_distance_fast(a: Color24, b: Color24) -> int:
+    return (a.r - b.r)**2 + (a.g - b.g)**2 + (a.b - b.b)**2
 
 
 def rgb(r: int, g: int, b: int, /):

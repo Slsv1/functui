@@ -35,7 +35,7 @@ class Task():
 
 class Colors(SimpleNamespace):
     was_active = Color4.CYAN
-    active = Color4.BLUE
+    active = Color24(50, 100, 200)
     done = Color4.GREEN
 
 @dataclass

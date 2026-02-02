@@ -1,4 +1,4 @@
-XTERM256_TO_HEX = {
+COLOR4_TO_HEX = {
     0   :0x000000,
     1   :0x800000,
     2   :0x008000,
@@ -16,7 +16,8 @@ XTERM256_TO_HEX = {
     13  :0xff00ff,
     14  :0x00ffff,
     15  :0xffffff,
-
+}
+XTERM256_DEFINED_COLORS_TO_HEX = {
     16  :0x000000,
     17  :0x00005f,
     18  :0x000087,
@@ -259,6 +260,9 @@ XTERM256_TO_HEX = {
     254 :0xe4e4e4,
     255 :0xeeeeee,
 }
+XTERM256_TO_HEX = {**COLOR4_TO_HEX, **XTERM256_DEFINED_COLORS_TO_HEX}
+
+HEX_TO_XTERM256_DEFINED_COLORS = {k: v for v, k in XTERM256_DEFINED_COLORS_TO_HEX.items()}
 
 def xterm256_to_hex(color: int) -> int:
     return XTERM256_TO_HEX[color]

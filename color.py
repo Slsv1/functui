@@ -1,4 +1,5 @@
 from functui.common import *
+from functui.classes import *
 from functui.io.curses import wrapper, draw_result, get_input_event
 from functui.text_wrapping import adaptive_text, span
 from functui import Rect, layout_to_result, result_to_str, Color4
