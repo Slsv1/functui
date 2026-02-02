@@ -35,8 +35,8 @@ Interactive
 -----------
 
 .. autosummary::
-   functui.nav.interaction_are
-   functui.interactive.v_scroll
+   functui.nav.interaction_area
+   functui.nav.v_scroll
 
 Borders and Separators
 ----------------------
@@ -44,7 +44,13 @@ Borders and Separators
 .. autosummary::
 
     functui.common.vbar
+    functui.common.vbar_custom
+    functui.common.vbar_double
+    functui.common.vbar_thick
     functui.common.hbar
+    functui.common.hbar_custom
+    functui.common.hbar_double
+    functui.common.hbar_thick
     functui.common.border
     functui.common.border_with_title
     functui.common.border_rounded
@@ -64,6 +70,8 @@ Sizing and Constraints
    functui.common.shrink_y
    functui.common.clamp_width
    functui.common.clamp_height
+   functui.common.min_width
+   functui.common.min_height
    functui.flex.flex
    functui.flex.flex_custom
 

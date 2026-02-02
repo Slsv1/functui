@@ -84,7 +84,7 @@ layout = vbox([
         text("Wide Characters (will break border if assumed width of 1): 🥰, おはよう") | styled(border, rule_dim) | shrink,
     ])
 ]) | padding |shrink
-result = layout_to_result(Rect(140, 40), layout)
+result = layout_to_result(layout, Rect(140, 40))
 if __name__ == "__main__":
     print(result_to_str(result))
 # def main(stdscr):

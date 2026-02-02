@@ -328,15 +328,15 @@ class Box:
             and self.position.y <= point.y < (self.position.y + self.height) 
 
 class StyleAttr(Flag):
-    """Flags representing different syles
+    """Flags representing different syles.
 
     Attributes:
         BOLD
         REVERSE
         ITALIC
         UNDERLINE
-        STRIKE_THROUGH
-        DIM
+        STRIKE_THROUGH: Is not suported by the curses renderer.
+        DIM: Will be interpreted as thinner font weight by the html renderer.
     """
     BOLD = auto()
     REVERSE = auto()
@@ -390,6 +390,13 @@ class Color4(IntEnum):
 
 @dataclass(frozen=True, eq=True)
 class Color24:
+    """Represent a 24 bit color.
+
+    Attributes:
+        r: Red value, an integer from 0 to 255 inclusive.
+        g: Green value, an integer from 0 to 255 inclusive.
+        b: Blue value, an integer from 0 to 255 inclusive.
+    """
     r: int
     g: int
     b: int
@@ -397,6 +404,7 @@ class Color24:
     @property
     @cache
     def hex(self) -> int:
+        """Convert to an integer represeting this colors hexadecimal value."""
         return (0 | self.r << 16 | self.g << 8 | self.b)
     @cache
     def to_nearest_8bit(self) -> int:
@@ -413,10 +421,12 @@ def _color_distance_fast(a: Color24, b: Color24) -> int:
 
 
 def rgb(r: int, g: int, b: int, /):
+    """Create a new :obj:`Color24` from rgb parameters."""
     return Color24(r, g, b)
 
 
 def hex(value: int, /):
+    """Create a new :obj:`Color24` from a hexodecimal integer."""
     MASK = 0b11111111
     return Color24((value >> 16) & MASK, (value >> 8) & MASK, value & MASK)
 
@@ -530,7 +540,7 @@ class DrawBox:
 @dataclass(frozen=True, eq=True)
 class DrawStringLine:
     string: tuple[Pixel]
-    """All pixels are assumed to contain the same style"""
+    """All pixels are assumed to contain the same style."""
     at: Coordinate
 
 DrawCommand: TypeAlias = DrawPixel | DrawBox | DrawStringLine
@@ -819,7 +829,7 @@ class ResultCreatedWith(ResultData):
     def create_dummy(cls):
         raise RuntimeError("Result should not be merged with with this data")
 
-def layout_to_result(dimensions: Rect, layout: Layout, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
+def layout_to_result(layout: Layout, dimensions: Rect, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
     result = layout.render(
         Frame(
             screen_rect=dimensions,
@@ -918,5 +928,6 @@ class Screen:
 
 class InputEvent(NamedTuple):
     key_event: str | None = None
-    mouse_button_event: str | None = None
+    """Represents both key and mouse events"""
     mouse_position_event: Coordinate | None = None
+    """Is present when mouse position was changed"""

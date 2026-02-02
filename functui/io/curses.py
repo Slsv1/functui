@@ -147,7 +147,7 @@ def get_input_event(stdscr: curses.window) -> InputEvent:
         try:
             _, x, y, _, state = curses.getmouse()
             return InputEvent(
-                mouse_button_event=_mouse_button_to_str(state),
+                key_event=_mouse_button_to_str(state),
                 mouse_position_event=Coordinate(x, y),
             )
         except curses.error:

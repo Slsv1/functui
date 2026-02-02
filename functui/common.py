@@ -36,6 +36,8 @@ __all__ = [
     'shrink',
     'shrink_x',
     'shrink_y',
+    'min_width',
+    'min_height',
 
     # styling
     'underline',
@@ -827,6 +829,25 @@ def clamp_height(height: int):
     return out
 def _clamp_height_render(height, child, frame, box):
     return child.render(frame, box.using_rect(box.rect.clamp_height(height)))
+
+def min_width(value: int):
+    """Set a minimum width."""
+    def _min_width(child: Layout):
+        return Layout(
+            func=min_width,
+            min_size=lambda mtf, r: child.min_size(mtf, r).union(Rect(value, 0)),
+            render=child.render
+        )
+    return _min_width
+def min_height(value: int):
+    """Set a minimum width."""
+    def _min_height(child: Layout):
+        return Layout(
+            func=min_height,
+            min_size=lambda mtf, r: child.min_size(mtf, r).union(Rect(0, value)),
+            render=child.render
+        )
+    return _min_height
 
 
 

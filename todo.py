@@ -75,10 +75,9 @@ def update(input: InputEvent, res: Result, m: Model):
         if event := create_text_input_event(input.key_event):
             m.current_text_input = m.current_text_input.update(event)
     else:
-        event = input.key_event if input.key_event is not None else input.mouse_button_event
         action = None
-        if event in default_nav_bindings:
-            action = default_nav_bindings[event]
+        if input.key_event in default_nav_bindings:
+            action = default_nav_bindings[input.key_event]
 
         m.nav = m.nav.update(res, action, m.nav_data, input.mouse_position_event)
 
@@ -207,7 +206,7 @@ m = Model(
 def main(stdscr: curses.window):
     while True:
         y, x = stdscr.getmaxyx()
-        res = layout_to_result(Rect(x-1, y-1), view(m))
+        res = layout_to_result(view(m), Rect(x-1, y-1))
         stdscr.erase()
         draw_result(res, stdscr)
         # stdscr.refresh()
