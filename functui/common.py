@@ -45,6 +45,7 @@ __all__ = [
     'dim',
     'bold',
     'strike_through',
+    'reverse',
 
     'styled',
 
@@ -185,6 +186,7 @@ def _get_default_intersection(weight_map: WeightMap, /):
 
 @dataclass(frozen=True, eq=True)
 class BorderStyle:
+    """Data structure that represents a border, may be used in :obj:`border_custom`."""
     line_v: str
     line_h: str
     corner_tl: str
@@ -302,7 +304,7 @@ BORDER_DOUBLE = BorderStyle(
 )
 
 def vbar_custom(char: str = "|"):
-    """Vertical Bar"""
+    """Vertical bar build with a custom character."""
     return Layout(
         func=vbar_custom,
         min_size=min_size_constant(Rect(1, 1)),
@@ -314,7 +316,7 @@ def _vbar_render(char: str, frame: Frame, box: Box):
     res.draw_box(frame, char, Box(1, box.height, box.position))
     return res
 def hbar_custom(char: str="-"):
-    """Horizonatal Bar"""
+    """Horizonatal bar build with a custom character."""
     return Layout(
         func=hbar_custom,
         min_size=min_size_constant(Rect(1, 1)),
@@ -327,30 +329,37 @@ def _hbar_render(char: str, frame: Frame, box: Box):
     return res
 
 vbar = vbar_custom(BORDER_REGULAR.line_v)
+"""Vertical bar."""
 vbar_thick = vbar_custom(BORDER_THICK.line_v)
+"""A thick vertical bar."""
 vbar_double = vbar_custom(BORDER_DOUBLE.line_v)
+"""A double vertical bar."""
 hbar = hbar_custom(BORDER_REGULAR.line_h)
+"""Horizontal bar."""
 hbar_thick = hbar_custom(BORDER_THICK.line_h)
+"""A thick horizontal bar."""
 hbar_double = hbar_custom(BORDER_DOUBLE.line_h)
+"""A double horizontal bar."""
 
 def custom_border(style: BorderStyle) -> WrapperNode:
-    def out(child: Layout):
+    """Puts a border around a layout in a custom style."""
+    def _custom_border(child: Layout):
         return Layout(
             func=custom_border,
             min_size=min_size_expand(child.min_size, 2, 2),
             render=partial(_border_render, style, child),
         )
-    return out
+    return _custom_border
 
 
 border = custom_border(style=BORDER_REGULAR)
-"""Puts a border around a layout"""
+"""Puts a border around a layout."""
 border_rounded = custom_border(style=BORDER_ROUNDED)
-"""Puts a rounded border around a layout"""
+"""Puts a rounded border around a layout."""
 border_thick = custom_border(style=BORDER_THICK)
-"""Puts a thick border around a layout"""
+"""Puts a thick border around a layout."""
 border_double = custom_border(style=BORDER_DOUBLE)
-"""Puts a double border around a layout"""
+"""Puts a double border around a layout."""
 
 @lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
@@ -444,7 +453,8 @@ def _push_rule_render(child: Layout, rule: StyleRule, frame: Frame, box: Box):
         frame.with_style(frame.default_style.apply_rule(rule)),
         box
     )
-def push_rule(rule: StyleRule):
+def push_rule(rule: StyleRule) -> WrapperNode:
+    """Use style rule for this wrapper node's descendants unless overriden."""
     return partial(_push_rule, rule)
 
 def _force_style(style: ComputedStyle, child: Layout):
@@ -467,7 +477,7 @@ def bold(node: Layout):
     """
     return _push_rule(rule_bold, node)
 
-def reversed(node: Layout):
+def reverse(node: Layout):
     """Style all descendants as reverse.
 
     See Also:
@@ -549,14 +559,14 @@ def styled(node: WrapperNode, rule: StyleRule) -> WrapperNode:
         style: Style to assign to the wrapper node
 
     """
-    def out(child: Layout):
+    def _styled(child: Layout):
         composed_child = node(child)
         return Layout(
             func=styled,
             min_size=composed_child.min_size,
             render=partial(_styled_render, child, node, rule)
         )
-    return out
+    return _styled
 
 def _styled_render(child: Layout, node: WrapperNode, rule: StyleRule, frame, box):
     return _push_rule(rule, node(
@@ -807,7 +817,7 @@ def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
 
 
 def clamp_width(width: int):
-    """Limit width of a child layout"""
+    """Limit width of a child layout."""
     def out(child: Layout):
         return Layout(
             func=clamp_width,
@@ -819,7 +829,7 @@ def _clamp_width_render(width, child, frame, box):
     return child.render(frame, box.using_rect(box.rect.clamp_width(width)))
 
 def clamp_height(height: int):
-    """Limit height of a child layout"""
+    """Limit height of a child layout."""
     def out(child: Layout):
         return Layout(
             func=clamp_height,
@@ -840,7 +850,7 @@ def min_width(value: int):
         )
     return _min_width
 def min_height(value: int):
-    """Set a minimum width."""
+    """Set a minimum height."""
     def _min_height(child: Layout):
         return Layout(
             func=min_height,

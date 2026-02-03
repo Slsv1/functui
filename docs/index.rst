@@ -52,9 +52,20 @@ functui documentation
     </pre>
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents
 
-   user_guide/index
+   user_guide/introduction
+   user_guide/io
+   user_guide/nodes
+   user_guide/glossary
 
-   reference/index
+.. toctree::
+   :maxdepth: 1
+   :caption: Other stuff
+
+   reference/classes
+   reference/common
+   reference/flex
+   reference/text_wrapping
+   reference/nav

@@ -1,3 +1,4 @@
+"""Tools to make layouts responsive to keyboard and mouse input"""
 import curses
 from enum import Enum, auto
 from typing import Self, Literal, Iterable, Any, NamedTuple
@@ -27,6 +28,24 @@ __all__ = [
 ]
 
 class NavAction(Enum):
+    """An action that is meant to be sent to :obj:`NavData.update`.
+
+    Attributes:
+        SELECT_VIA_KEYBOARD:
+        SELECT_VIA_MOUSE_START:
+            For example, if user presses down left click.
+        SELECT_VIA_MOUSE_END:
+            For example, if user releases left click.
+        PAGE_DOWN:
+        PAGE_UP:
+        SCROLL_UP:
+        SCROLL_DOWN:
+        NAV_UP:
+        NAV_RIGHT:
+        NAV_DOWN:
+        NAV_LEFT:
+
+    """
     SELECT_VIA_KEYBOARD = auto()
     SELECT_VIA_MOUSE_START = auto()
     SELECT_VIA_MOUSE_END = auto()
@@ -46,6 +65,11 @@ type ScrollAction = Literal[NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SC
 SCROLL_ACTION = [NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, NavAction.SCROLL_UP]
 
 class Direction(Enum):
+    """Used to specify navigation direction for a container defined by a :obj:`InteractibleID`.
+
+    Attributes:
+        VERTICAL:
+        HORIZONTAL:"""
     VERTICAL = auto()
     HORIZONTAL = auto()
 
@@ -58,21 +82,48 @@ class InteractibleIDPart:
 
 @dataclass(frozen=True, eq=True)
 class InteractibleID:
+    """Used to create keyboard navigable tree. May be used either as a container or an item.
+
+    If an id is created with the :obj:`InteractibleID.child` method (which is
+    the preffered way of creating new InteractibleID's), the parent
+    will be saved in the child as an :obj:`InteractibleIDPart` part."""
     data: tuple[InteractibleIDPart, ...]
-    """every intercatible id stores its own part at the end of the data tuple, and its ancestors part before it"""
-    def child(self, local_id: int, direction: None | Direction = None, persistent: bool = False, first_child_default: bool=False) -> Self:
+    """Every intercatible id stores its own part at the end of the data tuple, and its ancestors parts before it."""
+    def child(self, local_id: int, direction: None | Direction = None, persistent: bool = False) -> Self:
+        """Create a new InteractibleID with specified attributes.
+
+        The newly created child will remeber this ID as its parent.
+        (as well as all of this ID's ancestors if there are any)
+
+        Args:
+            local_id:
+                Child's local id relative to its parent
+                (the InteractibleID on which this method is being called on).
+                Used to distinguish this child from other children of same parent.
+            direction:
+                If child is used as a container, navigate it's children
+                by specified direction. If no direction is provided, it will be
+                inherited from child's parent.
+                (the InteractibleID on which this method is being called on).
+            persistent:
+                If child is used as a container, remember which child
+                was active and make it active insted of just the first elemnt
+                if this container becomes active again.
+
+        """
+
         if len(self.data):
             return self.__class__((*self.data, InteractibleIDPart(
                 direction=self.data[-1].direction if direction is None else direction,
                 local_id=local_id,
                 persistent=persistent,
-                first_child_default=first_child_default
+                first_child_default=False
             )))
         return self.__class__((*self.data, InteractibleIDPart(
             direction=direction if direction is not None else Direction.VERTICAL,
             local_id=local_id,
             persistent=persistent,
-            first_child_default=first_child_default
+            first_child_default=False
         )))
 
     @property
@@ -93,9 +144,11 @@ class InteractibleID:
     @property
     def parent(self):
         """may error"""
+        # may error?
         return InteractibleID(self.data[:-1])
 
-    def mutual_parent(self, b: Self) -> Self:
+    def mutual_ancestor(self, b: Self) -> Self:
+        """Get the closest ID to which both self, and a are descendants."""
         # enumerate to retain order and not earase duplicates
         # BUG this will error if a is longer than b AND the last part of the shorter one matches the longer one
         # technicaly this should not happend but it can i guess
@@ -129,7 +182,9 @@ class InteractibleID:
     #     )
 
 ROOT_VERTICAL = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=0, persistent=False, first_child_default=False),))
+"""A Root for a keyboard navigation tree who's children are navigated vertically."""
 ROOT_HORIZONTAL = InteractibleID((InteractibleIDPart(direction=Direction.HORIZONTAL, local_id=0, persistent=False, first_child_default=False),))
+"""A Root for a keyboard navigation tree who's children are navigated horizontaly."""
 EMPTY_INTERACTIBLE = InteractibleID(())
 # EMPTY_INTERACTIBLE = InteractibleID((InteractibleIDPart(direction=Direction.VERTICAL, local_id=-1, persistent=False, first_child_default=False),))
 
@@ -175,6 +230,7 @@ class InteractionAreas(ResultData):
 
 @dataclass(frozen=True)
 class NavState:
+    """A data structure storing and managing keyboard navigation and mouse data."""
     mouse_position: Coordinate = Coordinate(-1, -1)
     last_mouse_position: Coordinate = Coordinate(-1, -1)
 
@@ -279,6 +335,18 @@ class NavState:
             nav_data: list[InteractibleID] = field(default_factory=list),
             mouse_position: Coordinate | None = None,
     ):
+        """Create a new NavState based on data and user input.
+
+        Args:
+            res: Result created from a :obj:`~functui.classes.Layout` being renedered.
+            action: User input parsed as an action.
+            nav_data:
+                The keyboard navigation tree that is used to perform keyboard
+                navigation based on the action. InteractibleID's must be defined in order.
+            mouse_position: Mouse position.
+        Returns:
+            A new NavState with keyboard navigation and mouse interactivity performed.
+        """
         mouse_position = mouse_position if mouse_position is not None else self.mouse_position
         # persistent state
         next_state = dict(self._persistent_state)
@@ -373,6 +441,14 @@ class NavState:
         )
 
 def interaction_area(interactible_id: InteractibleID, dragable=False):
+    """A wrapper node that marks its child layout as interactive.
+
+    Meant to be used along with :obj:`NavData`.
+
+    This wrapper node also retrieves at which size and position child layout was rendered at.
+    This allows mouse hover detection, and in a scrollable container, automatically
+    scrolling to a child that became active through keyboard navigation.
+    """
     def _out(child: Layout):
         return Layout(
             func=interaction_area,
@@ -504,7 +580,7 @@ def _navigate_by_keyboard(
     if next_index is not None:
         next_id = nav_data[next_index]
         current_id = nav_data[current_index]
-        shared_parent = next_id.mutual_parent(current_id)
+        shared_parent = next_id.mutual_ancestor(current_id)
 
         next_parent = next_id.parent
         current_parent = current_id.parent
@@ -567,6 +643,7 @@ class _NewActiveBox(NamedTuple):
     reverse: bool = False
 
 def v_scroll(container_id: InteractibleID, nav: NavState):
+    """Allow vertical scrolling if child does not fit into available space."""
     def _v_scroll(child: Layout):
         at_y: int | None = nav.try_state(container_id, int)
 
