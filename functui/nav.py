@@ -487,7 +487,7 @@ def _try_find_nearest(nav_data: tuple[InteractibleID, ...], current_index: int, 
         # if next index parent is a different direction then inputed,
         # in this case just keep advancing index untill either end of nav_data or direction matches and nav_depth is same or less than original
 
-        if nav_data[next_index].mutual_parent(original_id).direction != direction:
+        if nav_data[next_index].mutual_ancestor(original_id).direction != direction:
             next_index = advance(next_index)
             continue
         # if skipped_ids and nav_data[next_index].depth > original_depth: # if depth exceeds original depth then continue

@@ -5,14 +5,20 @@ from dataclasses import dataclass
 
 from functools import cache
 def default_color_to_fg_ansi(color: Color):
-    if color == -1:
-        return f"\033[39m"
-    return f"\033[38:5:{color}m"
+    if isinstance(color, int):
+        if color == -1:
+            return f"\033[39m"
+        return f"\033[38:5:{color}m"
+    else:
+        return f"\033[38;2;{color.r};{color.g};{color.b}m"
 
 def default_color_to_bg_ansi(color: Color):
-    if color == -1:
-        return f"\033[49m"
-    return f"\033[48:5:{color}m"
+    if isinstance(color, int):
+        if color == -1:
+            return f"\033[49m"
+        return f"\033[48:5:{color}m"
+    else:
+        return f"\033[48;2;{color.r};{color.g};{color.b}m"
 
 @cache
 def style_to_ansi(style: StyleAttr):

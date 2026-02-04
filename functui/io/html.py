@@ -1,4 +1,4 @@
-from ..classes import StyleAttr, ComputedStyle, ResultCreatedWith, Screen, Result, Color4, Color24, hex
+from ..classes import Layout, Rect, StyleAttr, ComputedStyle, ResultCreatedWith, Screen, Result, Color4, Color24, hex, layout_to_result
 from ..color_data import xterm256_to_hex
 from typing import NamedTuple
 
@@ -81,3 +81,6 @@ def result_to_html_str(result: Result):
     out = out[:-1] # -1 to remove the \n on the end
     out.append(curr_tags.closed)
     return f"<pre style=\"font-family:monospace\">\n{"".join(out)}\n</pre>"
+
+def layout_to_html_str(layout: Layout, dimensions: Rect):
+    return result_to_html_str(layout_to_result(layout, dimensions))

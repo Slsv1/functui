@@ -1,6 +1,7 @@
 from functui.common import *
 from functui.classes import *
 from functui.io.curses import wrapper, draw_result, get_input_event
+from functui.io.html import result_to_html_str
 from functui.text_wrapping import adaptive_text, span
 from functui import Rect, layout_to_result, result_to_str, Color4
 from itertools import batched
@@ -84,9 +85,14 @@ layout = vbox([
         text("Wide Characters (will break border if assumed width of 1): 🥰, おはよう") | styled(border, rule_dim) | shrink,
     ])
 ]) | padding |shrink
+
+layout = vbox([
+    display_color_8() | shrink,
+])
 result = layout_to_result(layout, Rect(140, 40))
 if __name__ == "__main__":
-    print(result_to_str(result))
+    print(result_to_html_str(result))
+
 # def main(stdscr):
 #     y, x = stdscr.getmaxyx()
 #     res = layout_to_result(Rect(x-1, y-1), layout)

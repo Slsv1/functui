@@ -5,13 +5,13 @@ from functui.classes import layout_to_result, Rect, StyleRule, Color4
 def text_cach_text():
     _text_render.cache_clear()
     layout = text("hej")
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _text_render.cache_info().hits == 0
     assert _text_render.cache_info().misses == 1
     assert _text_render.cache_info().currsize == 1
 
     layout = text("hej")
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _text_render.cache_info().hits == 1
     assert _text_render.cache_info().misses == 1
     assert _text_render.cache_info().currsize == 1
@@ -21,7 +21,7 @@ def test_basic_cache():
     _text_render.cache_clear()
     layout = text("hej") | border
 
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _border_render.cache_info().hits == 0
     assert _border_render.cache_info().misses == 1
     assert _border_render.cache_info().currsize == 1
@@ -31,7 +31,7 @@ def test_basic_cache():
 
     layout = text("hej") | border
     print(_border_render.cache_parameters())
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _border_render.cache_info().hits == 1
     assert _border_render.cache_info().misses == 1
     assert _border_render.cache_info().currsize == 1
@@ -45,7 +45,7 @@ def test_cache_vbox():
     _vbox_render.cache_clear()
 
     layout = vbox([text("hej"), text("hej")])
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _vbox_render.cache_info().hits == 0
     assert _vbox_render.cache_info().misses == 1
     assert _vbox_render.cache_info().currsize == 1
@@ -54,7 +54,7 @@ def test_cache_vbox():
     assert _text_render.cache_info().currsize == 2
 
     layout = vbox([text("hej"), text("hej")])
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _vbox_render.cache_info().hits == 1
     assert _vbox_render.cache_info().misses == 1
     assert _vbox_render.cache_info().currsize == 1
@@ -64,7 +64,7 @@ def test_cache_vbox():
 
     # slightly different layout
     layout = vbox([text("hej"), text("foo")])
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _vbox_render.cache_info().hits == 1
     assert _vbox_render.cache_info().misses == 2
     assert _vbox_render.cache_info().currsize == 2
@@ -76,19 +76,19 @@ def test_cache_adaptive_text():
     _adaptive_text_render.cache_clear()
     layout = adaptive_text("hej", span("mig", rule=StyleRule()))
 
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _adaptive_text_render.cache_info().hits == 0
     assert _adaptive_text_render.cache_info().misses == 1
     assert _adaptive_text_render.cache_info().currsize == 1
 
     layout = adaptive_text("hej", span("mig", rule=StyleRule()))
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _adaptive_text_render.cache_info().hits == 1
     assert _adaptive_text_render.cache_info().misses == 1
     assert _adaptive_text_render.cache_info().currsize == 1
 
     layout = adaptive_text("hej", span("mig", rule=StyleRule(fg=Color4.BLACK)))
-    layout_to_result(Rect(10, 10), layout)
+    layout_to_result(layout, Rect(10, 10))
     assert _adaptive_text_render.cache_info().hits == 1
     assert _adaptive_text_render.cache_info().misses == 2
     assert _adaptive_text_render.cache_info().currsize == 2
