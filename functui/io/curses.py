@@ -218,9 +218,10 @@ def _init_pair_from_style(i: int, style: ComputedStyle):
 
 
 def draw_result(result: Result, stdscr: curses.window):
+    stdscr.erase()
     data = result.try_data(ResultCreatedWith)
     if data is None:
-        raise AssertionError("bahh")
+        raise AssertionError("Result must have a ResultCreatedWith data.")
     pair_number = 1
     for command in result.get_commands():
         if isinstance(command, DrawPixel):

@@ -23,7 +23,6 @@ from enum import Enum, auto
 from types import SimpleNamespace
 from typing import Iterable
 
-
 #
 # Data
 #

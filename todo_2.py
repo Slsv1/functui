@@ -208,3 +208,4 @@ def main(stdscr: curses.window):
         if key.key_event == 'ctrl+c':
             break
         update(key, res, m)
+wrapper(main)

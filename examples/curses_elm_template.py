@@ -6,13 +6,16 @@ from functui.io.curses import get_input_event, draw_result, wrapper
 import curses
 from dataclasses import dataclass
 
+
 @dataclass
 class Model():
     nav: NavState
-    button_1: InteractibleID
-    button_2: InteractibleID
+
+    # Add more attributes to contain all of your persistent state.
+
 
 def update(input: InputEvent, res: Result, m: Model):
+    # update NavState for keyboard and mouse interactivity.
     action = None
     if input.key_event in default_nav_bindings:
         action = default_nav_bindings[input.key_event]
@@ -20,41 +23,39 @@ def update(input: InputEvent, res: Result, m: Model):
     m.nav = m.nav.update(
         res=res,
         action=action, 
-        nav_data=[m.button_1, m.button_2],
+        nav_data=[],
         mouse_position=input.mouse_position_event
     )
 
-# If you want ui elements to be reusable, put them into a function.
-def selectable_element(nav: NavState, id: InteractibleID, string: str):
-    return text(string) | styled(
-        border,
-        (rule_fg(Color4.BLUE) if m.nav.is_hover(id) else StyleRule()) | (rule_bg(Color4.BLUE) if m.nav.is_active(id) else StyleRule())
-    ) | interaction_area(id)
+    # Put your update code here.
+
+    # Create your keyboard navigation tree here.
+
 
 def view(m: Model):
+    # Layout rendering code here.
     layout = vbox([
-        selectable_element(m.nav, m.button_1, "Hello"),
-        selectable_element(m.nav, m.button_2, "World"),
-    ]) | border
+        text("Hello World!") | border,
+        text("Press ctrl+c to exit.") | fg(Color4.CYAN) | border,
+    ])
     return layout
 
-root = ROOT_VERTICAL
 
-# for interactible ids that never change it is possible to define them when model is first created.
 m = Model(
     nav = NavState(),
-    button_1 = root.child(0),
-    button_2 = root.child(1),
 )
+
+
 def main(stdscr: curses.window):
     while True:
         y, x = stdscr.getmaxyx()
-        res = layout_to_result(Rect(x-1, y-1), view(m))
-        stdscr.erase()
+        res = layout_to_result(view(m), Rect(x, y))
         draw_result(res, stdscr)
 
         key: InputEvent = get_input_event(stdscr)
         if key.key_event == 'ctrl+c':
-            break
+            break # exit program
         update(key, res, m)
-wrapper(main)
+
+if __name__ == "__main__":
+    wrapper(main)
