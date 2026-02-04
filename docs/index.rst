@@ -53,7 +53,7 @@ functui documentation
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents
+   :caption: User Guide
 
    user_guide/introduction
    user_guide/styling
@@ -63,7 +63,7 @@ functui documentation
 
 .. toctree::
    :maxdepth: 1
-   :caption: Other stuff
+   :caption: Reference
 
    reference/classes
    reference/common

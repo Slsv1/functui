@@ -1,10 +1,23 @@
-from functui import Rect, layout_to_str, rule_fg, rgb
+from functui.classes import *
 from functui.common import *
 
-from functui.io.html import layout_to_html_str
-style_rule = rule_fg(rgb(0, 255, 255))
+style_rule = rule_fg(Color4.RED) | rule_bold | rule_italic
 
-layout = text("This text is not styled.\nBut the border around it is.")\
-    | styled(border, style_rule)
+# much less visual noise when defining styles inline
+layout = text("foo") | styled(border, rule_fg(Color4.RED))
 
-print(layout_to_html_str(layout, Rect(30, 4)))
+
+style_rule = StyleRule(
+    fg=Color4.RED,
+    bg=rgb(10, 134, 231),
+    add_attrs=StyleAttr.ITALIC | StyleAttr.BOLD
+    # StyleAttr is an flag which means you
+    # can use | to combine muliple attributes.
+)
+
+not_italic = StyleRule(
+    remove_attrs=StyleAttr.ITALIC
+)
+
+
+

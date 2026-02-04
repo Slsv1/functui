@@ -449,8 +449,8 @@ class StyleRule:
 
     def __or__(self, rule: Self):
         return StyleRule(
-            add_attrs=(self.add_attrs | rule.add_attrs),
-            remove_attrs=(self.add_attrs | rule.remove_attrs),
+            add_attrs=(self.add_attrs | rule.add_attrs) & ~rule.remove_attrs,
+            remove_attrs=(self.remove_attrs),
             fg=self.fg if rule.fg is None else rule.fg,
             bg=self.bg if rule.bg is None else rule.bg,
         )
