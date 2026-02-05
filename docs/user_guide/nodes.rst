@@ -9,7 +9,9 @@ Text
 .. autosummary::
 
    functui.common.text
-   functui.text_wrapping.adaptive_text
+   functui.rich_text.adaptive_text
+   functui.rich_text.rich_text
+
 
 Containers
 ----------

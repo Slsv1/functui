@@ -101,6 +101,44 @@ TextWrapFunc = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[Iter
 """takes in a line. If line is too long it will be wrapped. New line characters have no effect on the outcome"""
 
 
+def rich_text(*string: Span | str):
+    """A data node for text that can be styled.
+
+    Args:
+        *string:
+            The text content. Parts of content can be wrapped in a :obj:`span` for styling.
+    """
+    span = Span(string, rule=StyleRule())
+    def min_size(measure_text, available: Rect):
+        groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
+        return Rect(
+            max((sum(group.length for group in line) for line in groups), default=0),
+            len(groups)
+        )
+    return Layout(
+        func=rich_text,
+        min_size=min_size,
+        render=partial(_rich_text_render, span),
+    )
+
+@lru_cache(LRU_MAX_SIZE)
+def _rich_text_render(span: Span, frame: Frame, box: Box):
+    if box.width <= 4:
+        return Result()
+
+    lines = _span_to_lines(span, frame.measure_text)
+    res = Result()
+
+    for dy, line in enumerate(lines):
+        if dy == box.height:
+            break
+        dx = 0
+        for segment in chain.from_iterable(g.segments for g in line):
+            res.draw_string_line(
+                frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)
+            )
+            dx += frame.measure_text(segment.text)
+    return res
 
 def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = "-"):
     """A data node for text that can be wrapped and styled.

@@ -7,7 +7,7 @@ from functui.io.html import result_to_html_str
 from functui.canvas import plot, PlotXY
 from itertools import batched
 
-from functui.text_wrapping import adaptive_text
+from functui.rich_text import adaptive_text
 import math
 
 

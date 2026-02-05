@@ -54,8 +54,9 @@ def render_ansi(screen: Screen) -> str:
                 new_style =  style_changes & pixel.style.attrs
                 removed_style = bool(style_changes & curr_style)
                 curr_style = pixel.style.attrs
+                # apparantly ANSI_RESET_STYLES also resets color, so we need to set it back.
                 line_str.extend(
-                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style.attrs)]\
+                    [ANSI_RESET_STYLES, style_to_ansi(pixel.style.attrs), default_color_to_fg_ansi(curr_fg), default_color_to_bg_ansi(curr_bg)]\
                     if removed_style\
                     else [style_to_ansi(new_style)]
                 )

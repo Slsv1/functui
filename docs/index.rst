@@ -42,13 +42,6 @@ functui documentation
     │                                                 ││                                                 │
     │                                                 ││                                                 │
     └─────────────────────────────────────────────────┘└─────────────────────────────────────────────────┘
-    ┌Braille Ploting─────────────────────────────────────────────────────────────────────────────────────┐
-    │⠀<span style="color:#ff0000">⢀⠔⠒⢢</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢠⠒⠒⡄</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡔⠒⢢</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢠⠒⠒⡄</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡠⠒⠢⡀</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢀⠔⠑⢄</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡠⠒⠢⡀</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢀⠔⠒⢢</span>⠀⠀⠀⠀⠀⠀⠀│
-    │<span style="color:#ff0000">⢀⠎</span>⠀⠀⠀<span style="color:#ff0000">⢣</span>⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡠⠃</span>⠀⠀<span style="color:#ff0000">⠈⡆</span>⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡎</span>⠀⠀⠀<span style="color:#ff0000">⠣⡀</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢠⠃</span>⠀⠀<span style="color:#ff0000">⠈⡆</span>⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡔⠁</span>⠀⠀<span style="color:#ff0000">⠑⡄</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢀⠎</span>⠀⠀<span style="color:#ff0000">⠈⢆</span>⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⡔⠁</span>⠀⠀<span style="color:#ff0000">⠑⡄</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢀⠎</span>⠀⠀⠀<span style="color:#ff0000">⢣</span>⠀⠀⠀⠀⠀⠀│
-    │<span style="color:#ff0000">⠎</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⢇</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⢠⠃</span>⠀⠀⠀⠀<span style="color:#ff0000">⠘⡄</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⡜</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⢣</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⢀⠇</span>⠀⠀⠀⠀<span style="color:#ff0000">⠈⡆</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⡔⠁</span>⠀⠀⠀⠀<span style="color:#ff0000">⠱⡀</span>⠀⠀⠀⠀<span style="color:#ff0000">⢀⠇</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⢇</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⡰⠁</span>⠀⠀⠀⠀<span style="color:#ff0000">⠱⡀</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⡎</span>⠀⠀⠀⠀⠀<span style="color:#ff0000">⢇</span>⠀⠀⠀⠀⠀│
-    │⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢇</span>⠀⠀⠀<span style="color:#ff0000">⢀⠇</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠑⡄</span>⠀⠀⠀<span style="color:#ff0000">⡔⠁</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢇</span>⠀⠀⠀<span style="color:#ff0000">⢀⠇</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠘⡄</span>⠀⠀⠀<span style="color:#ff0000">⡰⠁</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠣⡀</span>⠀⠀⠀<span style="color:#ff0000">⡎</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠈⡆</span>⠀⠀⠀<span style="color:#ff0000">⡠⠃</span>⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠣⡀</span>⠀⠀⠀<span style="color:#ff0000">⡎</span>⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⢇</span>⠀⠀⠀⠀│
-    │⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠣⣀⡠⠃</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠘⢄⣀⠜</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠣⣀⡠⠃</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠘⢄⣀⡰⠁</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠱⣀⣀⠎</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠈⢆⣀⡰⠁</span>⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠱⣀⣀⠎</span>⠀⠀⠀⠀⠀⠀⠀⠀⠀<span style="color:#ff0000">⠣⣀⡠⠂</span>│
-    └────────────────────────────────────────────────────────────────────────────────────────────────────┘
     </pre>
 
 .. toctree::
@@ -68,5 +61,5 @@ functui documentation
    reference/classes
    reference/common
    reference/flex
-   reference/text_wrapping
+   reference/rich_text
    reference/nav

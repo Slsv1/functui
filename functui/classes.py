@@ -385,8 +385,8 @@ class Color4(IntEnum):
         MAGENTA:
         CYAN:
         WHITE:
-        RESET: Dont display any color.
-        BRIGHT_BLACK;
+        RESET: Use terminal's default foreground or background color.
+        BRIGHT_BLACK:
         BRIGHT_RED:
         BRIGHT_GREEN:
         BRIGHT_YELLOW:
