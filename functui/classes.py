@@ -252,13 +252,39 @@ class Box:
             width=rect.width,
             position=self.position
         )
+    @classmethod
+    def from_rect(cls, rect: Rect, position: Coordinate):
+        """Create a box with a rect as constructor.
+
+        Args:
+            rect: The rectangle whose width and height should be applied.
+            position: Box's position.
+
+        Returns:
+            A new box with updated width and height, unchanged position.
+        """
+        return cls(
+            height=rect.height,
+            width=rect.width,
+            position=position
+        )
+    def is_overlaping(self, other: Self) -> bool:
+        """Wrather this box overlaps another box.
+
+
+        Args:
+            other: The box to text overlap with.
+
+        Returns:
+            Weather there is an overlap or not.
+        """
+        return (self.position.x <= other.position.x + other.width and self.position.x + self.width >= other.position.x)\
+            and (self.position.y <= other.position.y + other.height and self.position.y + self.height >= other.position.y)
 
     def intersect(self, other: Self) -> Self:
         """Returns the intersection region between this box and another.
 
-        If the boxes do not overlap, the resulting width or height may be zero
-        or negative, depending on the input.
-        This method is commutative.
+        If the boxes do not overlap, return a new box with width and height set to 0 and same position.
 
         Args:
             other: The box to intersect with.
@@ -266,6 +292,8 @@ class Box:
         Returns:
             A new box representing the overlap region.
         """
+        if not self.is_overlaping(other):
+            return self.using_rect(Rect(0, 0))
         x1 = max(self.position.x, other.position.x)
         x2 = min(self.position.x+self.width, other.position.x+other.width)
         y1 = max(self.position.y, other.position.y)

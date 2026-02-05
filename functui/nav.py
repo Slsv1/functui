@@ -754,7 +754,7 @@ def _h_resizable_split_render(
 ) -> Result:
     split_rect = sep.min_size(frame.measure_text, box.rect)
 
-    split_at = clamp(split_at, 0, box.width-1-split_rect.width)
+    split_at = clamp(split_at, 0, box.width-split_rect.width)
 
     left_box = Box(
         split_at,
