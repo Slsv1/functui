@@ -7,7 +7,6 @@ Api Reference
    :caption: Classes
    :maxdepth: 3
 
-   nodes
    classes
 
 

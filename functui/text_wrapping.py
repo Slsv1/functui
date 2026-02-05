@@ -10,6 +10,8 @@ import math
 from .classes import *
 
 
+# This is a mess, but if it works, dont fix it.
+
 class Justify(Enum):
     """Text Justification.
 
@@ -37,6 +39,7 @@ class Segment(NamedTuple):
 
 @dataclass(frozen=True, eq=True)
 class Group:
+    """Represents a connected span of text, like a word or a space."""
     segments: tuple[Segment, ...]
     is_space: bool
     @property
@@ -133,6 +136,9 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
 
 @lru_cache(LRU_MAX_SIZE)
 def _adaptive_text_render(span: Span, justify: Justify, frame: Frame, box: Box):
+    if box.width <= 4:
+        return Result()
+
     groups = _span_to_lines(span, frame.measure_text)
     res = Result()
     lines = list(
@@ -167,6 +173,7 @@ def _append_segment_to_line(line: list[Group], seg: Segment):
 def _extend_line_with_segments(line: list[Group], segments: list[Segment]):
     for s in segments:
         _append_segment_to_line(line, s)
+
 @cache
 def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group]]:
     out_lines = [[]]
@@ -228,6 +235,9 @@ def _wrap_word(
     measure_text: MeasureTextFunc
 ):
     prefix, left_over = group.split(max_width - continuation_str_width, measure_text)
+    # if nothing fits
+    if len(prefix.segments) == 0:
+        return # dont even try
     segments = (*prefix.segments, Segment(
         continuation_str, 
         prefix.segments[-1].rule,
@@ -268,7 +278,8 @@ def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: Measu
                     continuation_str,
                     measure_text
                 )
-                curr_len = out[-1][-1].length
+                
+                curr_len = out[-1][-1].length if len(out[-1]) else 0
                 continue
             # start new line, if it does not start with space
             out.append([] if group.is_space else [group])

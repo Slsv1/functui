@@ -127,8 +127,8 @@ class Rect(NamedTuple):
         Returns: A new rectangle with altered size.
         """
         return self.__class__(
-            width=self.width + width,
-            height=self.height + height,
+            width=max(self.width + width, 0),
+            height=max(self.height + height, 0),
         )
 
     def union(self, other: Self) -> Self:
@@ -271,8 +271,8 @@ class Box:
         y1 = max(self.position.y, other.position.y)
         y2 = min(self.position.y+self.height, other.position.y+other.height)
         return self.__class__(
-            height=y2-y1,
-            width=x2-x1,
+            height=max(y2-y1, 0),
+            width=max(x2-x1, 0),
             position=Coordinate(x1, y1),
         )
 
@@ -307,8 +307,8 @@ class Box:
         y1 = min(self.position.y, other.position.y)
         y2 = max(self.position.y+self.height, other.position.y+other.height)
         return self.__class__(
-            height=y2-y1,
-            width=x2-x1,
+            height=max(y2-y1, 0),
+            width=max(x2-x1, 0),
             position=Coordinate(x1, y1),
         )
 
@@ -324,8 +324,8 @@ class Box:
         Returns:
             True if the point lies inside the box, else False.
         """
-        return self.position.x <= point.x < (self.position.x + self.width)\
-            and self.position.y <= point.y < (self.position.y + self.height) 
+        return (self.position.x <= point.x < (self.position.x + self.width))\
+            and (self.position.y <= point.y < (self.position.y + self.height)) 
 
 class StyleAttr(Flag):
     """Flags representing different syles.
@@ -711,12 +711,14 @@ class Result:
         at: Coordinate = Coordinate(0, 0)
     ):
         bounds = frame.view_box
+        if frame.view_box.width == 0 or frame.view_box.height == 0:
+            return
         #       content
         #         #---#
         #         |   |
         #         #---#
         #       content
-        if at.y < bounds.position.y or at.y >= bounds.position.y + bounds.height:
+        if (at.y < bounds.position.y) or (at.y >= bounds.position.y + bounds.height):
             return
 
         content_len = frame.measure_text(content)
@@ -724,7 +726,7 @@ class Result:
         #         #---#
         # content |   | content
         #         #---#
-        if at.x +content_len < bounds.position.x or at.x >= outer_x_bound:
+        if (at.x +content_len < bounds.position.x) or (at.x >= outer_x_bound):
             return
 
         # find initial x offset
@@ -762,7 +764,7 @@ class Result:
                     style=frame.default_style
                 ))
         self._draw_commands.append(DrawStringLine(
-            tuple(out), at
+            tuple(out), at + Coordinate(required_offset if required_offset > 0 else 0, 0)
         ))
     def get_commands(self): return tuple(self._draw_commands)
 

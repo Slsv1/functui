@@ -1,5 +1,5 @@
-Core Classes and Functions
-==========================
+``functui.classes``
+===================
 
 
 .. automodule:: functui.classes

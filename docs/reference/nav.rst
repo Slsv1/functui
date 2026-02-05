@@ -1,5 +1,5 @@
-Nav
-===
+``functui.nav``
+===============
 
 
 .. automodule:: functui.nav
