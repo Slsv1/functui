@@ -615,7 +615,7 @@ def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
         res.add_children_after([child.render(frame.shrink_to(box), box)])
     return res
 
-def vbox(children: Iterable[Layout], at_y: int=0):
+def vbox(children: Iterable[Layout], at_y: int=0, reverse: bool=False):
     """A container node that arranges its chilren verticaly.
 
     Children will be shrunk to their minimum size along the y axis.
@@ -626,7 +626,10 @@ def vbox(children: Iterable[Layout], at_y: int=0):
             Y coordinate to start rendering children at.
             Usefull for implementing scrolling.
     """
-    children = tuple(children)
+    if reverse:
+        children = tuple(reversed(list(children)))
+    else:
+        children = tuple(children)
     return Layout(
         func=vbox,
         min_size=min_size_vertical([i.min_size for i in children]),

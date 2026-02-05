@@ -190,8 +190,8 @@ Expected output:
     </pre>
 
 
-Styled
-~~~~~~
+``styled``
+~~~~~~~~~~
 
 Notice how these wrapper nodes style all of their descendants with the specified style.
 If you want to style only certain wrapper nodes (for example a border), you can use :obj:`~functui.common.styled` to wrap nodes you want to style.
@@ -220,3 +220,47 @@ Expected output:
     └────────────────────────────┘</span>
     </pre>
 
+Rich Text
+---------
+
+Sometimes there may be a need for multiple styles in the same paragraph. This can be done with the :obj:`~functui.rich_text.rich_text` node or :obj:`~functui.rich_text.adaptive_text` if you also want that paragraph to be responsive to screen size changes. To style only a part of the paragraph, wrap that part in a :obj:`~functui.rich_text.span` and specify a :obj:`~functui.classes.style_rule`.
+
+.. code-block:: py
+
+    from functui.classes import *
+    from functui.common import *
+    from functui.rich_text import adaptive_text, rich_text, span
+    from functui.io.ansi import layout_to_str
+
+
+    layout = adaptive_text(
+        "Some of this ",
+        span("text", rule=rule_fg(Color4.BRIGHT_RED)),
+        " will be ",
+        span("styled. ", rule=rule_italic),
+        span(
+            "Also, it is possible to ",
+            span("nest",rule=rule_fg(Color4.BRIGHT_BLACK) | rule_bold),
+            " spans!",
+            rule=rule_bg(Color4.BLUE)
+        )
+    ) | border
+
+    print(layout_to_str(layout, Rect(20, 10)))
+
+Expected Output:
+
+.. raw:: html
+
+    <pre style="font-family:monospace">
+    ┌──────────────────┐
+    │Some of this <span style="color:#ff0000">text</span> │
+    │will be <i>styled. </i>  │
+    │<span style="background-color:#000080">Also, it is </span>      │
+    │<span style="background-color:#000080">possible to </span><b><span style="color:#808080; background-color:#000080">nest</b></span><span style="background-color:#000080"> </span> │
+    │<span style="background-color:#000080">spans!</span>            │
+    │                  │
+    │                  │
+    │                  │
+    └──────────────────┘
+    </pre>

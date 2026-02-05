@@ -53,6 +53,7 @@ functui documentation
    user_guide/io
    user_guide/nodes
    user_guide/glossary
+   user_guide/keycodes
 
 .. toctree::
    :maxdepth: 1
