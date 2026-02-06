@@ -1,9 +1,9 @@
 Styling
 =======
 
-Styling in the terminal has historically been quite difficult. Due to terminals being very old, there have been added multiple ways of styling, without the ability to remove legacy styling options due to backwards compatability.
+Styling in the terminal has historically been quite confusing. Due to terminals being very old, there have been added multiple ways of styling, without the ability to remove legacy styling options due to backwards compatability.
 
-3 Color Systems
+3 Color Formats
 ---------------
 
 4 bit color
@@ -21,7 +21,7 @@ One consequence of terminal history is that there are three ways of doing colors
     <span style="color:#ffffff; background-color:#800080">MAGENTA</span> <span style="color:#000000; background-color:#ff00ff">BRIGHT_MAGENTA</span>   
     <span style="color:#ffffff; background-color:#008080">CYAN   </span> <span style="color:#000000; background-color:#00ffff">BRIGHT_CYAN   </span>   
     <span style="color:#ffffff; background-color:#c0c0c0">WHITE  </span> <span style="color:#000000; background-color:#ffffff">BRIGHT_WHITE  </span>   
-    <span style="color:#ffffff">RESET  </span>
+    RESET
     </pre>
 
 

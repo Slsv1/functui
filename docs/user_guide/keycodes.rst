@@ -80,8 +80,7 @@ Available ``ctrl+`` combinations
 - ``ctrl+x``
 - ``ctrl+y``
 - ``ctrl+z``
-- ``escape``
-- ``ctrl+\\``
+- ``ctrl+\``
 - ``ctrl+]``
 - ``ctrl+^``
 - ``ctrl+_``
@@ -89,9 +88,9 @@ Available ``ctrl+`` combinations
 Missing ``ctrl+`` combinations
 ------------------------------
 
-- ``ctrl + i`` missing due to being same as ``tab``
-- ``ctrl + j`` missing due to being same as ``enter``
-- ``ctrl + m`` missing due to being same as ``enter``
+- ``ctrl+i`` missing due to being same as ``tab``
+- ``ctrl+j`` missing due to being same as ``enter``
+- ``ctrl+m`` missing due to being same as ``enter``
 
 Unknown
 -------

@@ -21,7 +21,7 @@ __all__ = [
     "EMPTY_INTERACTIBLE",
 
     "NavState",
-    "default_nav_bindings",
+    "DEFAULT_NAV_BINDINGS",
 
     "interaction_area",
     "v_scroll",
@@ -330,9 +330,9 @@ class NavState:
 
     def update(
             self,
-            res: Result,
+            res: Result | None = None,
             action: NavAction | None = None,
-            nav_data: list[InteractibleID] = field(default_factory=list),
+            nav_tree: list[InteractibleID] | None = None,
             mouse_position: Coordinate | None = None,
     ):
         """Create a new NavState based on data and user input.
@@ -347,6 +347,10 @@ class NavState:
         Returns:
             A new NavState with keyboard navigation and mouse interactivity performed.
         """
+        if res is None:
+            res = Result()
+        if nav_tree is None:
+            nav_tree = []
         mouse_position = mouse_position if mouse_position is not None else self.mouse_position
         # persistent state
         next_state = dict(self._persistent_state)
@@ -364,19 +368,19 @@ class NavState:
 
         next_active_id = self._active_id
         next_hovered_data = self._hovered_data
-        if action in (NavAction.NAV_DOWN, NavAction.NAV_LEFT, NavAction.NAV_UP, NavAction.NAV_RIGHT) and len(nav_data):
+        if action in (NavAction.NAV_DOWN, NavAction.NAV_LEFT, NavAction.NAV_UP, NavAction.NAV_RIGHT) and len(nav_tree):
             # handle keyboard nav and its edge cases
 
             # there is already an active id
-            if self._active_id in nav_data and self._active_id != EMPTY_INTERACTIBLE:
-                selected_index = nav_data.index(self._active_id)
-                if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_data), action):
+            if self._active_id in nav_tree and self._active_id != EMPTY_INTERACTIBLE:
+                selected_index = nav_tree.index(self._active_id)
+                if result := _navigate_by_keyboard(self._persistent_selected_id, selected_index, tuple(nav_tree), action):
                     next_active_id = result.next_id
             # otherwise, use start from where we left off
-            elif self._last_active_or_hovered_id != EMPTY_INTERACTIBLE and self._last_active_or_hovered_id in nav_data:
+            elif self._last_active_or_hovered_id != EMPTY_INTERACTIBLE and self._last_active_or_hovered_id in nav_tree:
                 next_active_id = self._last_active_or_hovered_id
             else:
-                next_active_id = nav_data[0]
+                next_active_id = nav_tree[0]
 
         else:
             # use mouse navigation instead
@@ -613,7 +617,7 @@ def debug_nav_data_str(state: NavState, nav_data: Iterable[InteractibleID], pers
     return "\n".join(out)
 
 
-default_nav_bindings = {
+DEFAULT_NAV_BINDINGS = {
     "h": NavAction.NAV_LEFT,
     "left": NavAction.NAV_LEFT,
     "j": NavAction.NAV_DOWN,

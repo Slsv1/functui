@@ -7,6 +7,7 @@ Text
 ----
 
 .. autosummary::
+   :signatures: none
 
    functui.common.text
    functui.rich_text.adaptive_text
@@ -17,6 +18,7 @@ Containers
 ----------
 
 .. autosummary::
+   :signatures: none
 
    functui.common.vbox
    functui.common.hbox
@@ -30,6 +32,7 @@ Interactive
 -----------
 
 .. autosummary::
+   :signatures: none
 
    functui.nav.interaction_area
    functui.nav.v_scroll
@@ -38,6 +41,7 @@ Borders and Separators
 ----------------------
 
 .. autosummary::
+   :signatures: none
 
    functui.common.vbar
    functui.common.vbar_custom
@@ -57,6 +61,7 @@ Sizing and Constraints
 ----------------------
 
 .. autosummary::
+   :signatures: none
 
    functui.common.center
    functui.common.custom_padding
@@ -76,6 +81,7 @@ Styling
 -------
 
 .. autosummary::
+   :signatures: none
 
    functui.common.fg
    functui.common.bg
@@ -92,6 +98,7 @@ Utility
 -------
 
 .. autosummary::
+   :signatures: none
 
    functui.common.combine
    functui.common.empty
