@@ -67,10 +67,12 @@ __all__ = [
     'vbar_custom',
     'vbar_double',
     'vbar_thick',
+    'vbar_ascii',
     'hbar',
     'hbar_custom',
     'hbar_double',
     'hbar_thick',
+    'hbar_ascii',
 
     # borders
     'border',
@@ -78,6 +80,7 @@ __all__ = [
     'border_rounded',
     'border_thick',
     'border_with_title',
+    'border_ascii',
     'custom_border',
 ]
 
@@ -302,6 +305,14 @@ BORDER_DOUBLE = BorderStyle(
     corner_bl="╚",
     corner_br="╝",
 )
+BORDER_ASCII = BorderStyle(
+    line_v="|",
+    line_h="-",
+    corner_tl="+",
+    corner_tr="+",
+    corner_bl="+",
+    corner_br="+",
+)
 
 def vbar_custom(char: str = "|"):
     """Vertical bar build with a custom character."""
@@ -334,12 +345,16 @@ vbar_thick = vbar_custom(BORDER_THICK.line_v)
 """A thick vertical bar."""
 vbar_double = vbar_custom(BORDER_DOUBLE.line_v)
 """A double vertical bar."""
+vbar_ascii = vbar_custom(BORDER_ASCII.line_v)
+"""An ascii vertical bar."""
 hbar = hbar_custom(BORDER_REGULAR.line_h)
 """Horizontal bar."""
 hbar_thick = hbar_custom(BORDER_THICK.line_h)
 """A thick horizontal bar."""
 hbar_double = hbar_custom(BORDER_DOUBLE.line_h)
 """A double horizontal bar."""
+hbar_ascii = hbar_custom(BORDER_REGULAR.line_h)
+"""An ascii horizontal bar."""
 
 def custom_border(style: BorderStyle) -> WrapperNode:
     """Puts a border around a layout in a custom style."""
@@ -360,6 +375,8 @@ border_thick = custom_border(style=BORDER_THICK)
 """Puts a thick border around a layout."""
 border_double = custom_border(style=BORDER_DOUBLE)
 """Puts a double border around a layout."""
+border_ascii = custom_border(style=BORDER_ASCII)
+"""Puts a border consisting of ascii characters around a layout."""
 
 @lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):

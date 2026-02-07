@@ -15,7 +15,7 @@ from functui.common import *
 from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
-from functui.rich_text import adaptive_text
+from functui.rich_text import Justify, adaptive_text
 from functui.nav import DEFAULT_NAV_BINDINGS, h_resizable_split, interaction_area, v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass

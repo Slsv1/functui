@@ -3,6 +3,10 @@ IO
 
 Functui has multiple modules of doing input and output.
 
+.. seealso::
+    
+    Generaly input functions will return an :obj:`~functui.classes.InputEvent` which stores the input in a special string format. That format is specified in :ref:`keycode-specification`.
+
 
 :obj:`functui.io.ansi`
 ----------------------

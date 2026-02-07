@@ -157,7 +157,7 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
         # longest_word = max(i.length for i in chain.from_iterable((l for l in groups)))
         lines = list(
             chain.from_iterable(
-                wrap_line_default(line, available.width, measure_text) for line in groups
+                wrap_line_default(line, available.width, measure_text, soft_hyphen) for line in groups
             )
         )
         return Rect(
@@ -167,27 +167,31 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
     return Layout(
         func=adaptive_text,
         min_size=min_size,
-        render=partial(_adaptive_text_render, span, justify),
+        render=partial(_adaptive_text_render, span, justify, soft_hyphen),
     )
 
 
 
 @lru_cache(LRU_MAX_SIZE)
-def _adaptive_text_render(span: Span, justify: Justify, frame: Frame, box: Box):
-    if box.width <= 4:
+def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame: Frame, box: Box):
+    if box.width <= 1:
         return Result()
 
     groups = _span_to_lines(span, frame.measure_text)
     res = Result()
     lines = list(
         chain.from_iterable(
-            wrap_line_default(line, box.width, frame.measure_text) for line in groups
+            wrap_line_default(line, box.width, frame.measure_text, soft_hyphen) for line in groups
         )
     )
     for dy, line in enumerate(lines):
         if dy == box.height:
             break
         dx = 0
+        if justify == Justify.RIGHT:
+            dx = box.width - sum(i.length for i in line)
+        elif justify == Justify.CENTER:
+            dx = (box.width - sum(i.length for i in line)) // 2
         for segment in chain.from_iterable(g.segments for g in line):
             res.draw_string_line(
                 frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)

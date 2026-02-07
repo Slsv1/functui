@@ -51,15 +51,18 @@ Borders and Separators
    functui.common.vbar_custom
    functui.common.vbar_double
    functui.common.vbar_thick
+   functui.common.vbar_ascii
    functui.common.hbar
    functui.common.hbar_custom
    functui.common.hbar_double
    functui.common.hbar_thick
+   functui.common.hbar_ascii
    functui.common.border
    functui.common.border_with_title
    functui.common.border_rounded
    functui.common.border_thick
    functui.common.border_double
+   functui.common.border_ascii
 
 Sizing and Constraints
 ----------------------

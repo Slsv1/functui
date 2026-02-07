@@ -3,6 +3,14 @@ from functools import lru_cache, partial
 from typing import runtime_checkable, Callable, Iterable
 from .classes import *
 
+__all__ = [
+    "flex",
+    "flex_custom",
+    "vbox_flex",
+    "hbox_flex",
+    "hbox_flex_wrap"
+]
+
 @dataclass(frozen=True, eq=True)
 class Flex:
     """Extra data to mark layouts as flexible for flex containers
@@ -42,6 +50,12 @@ def flex(node: Layout) -> Flex:
         This node is only usefull with flex containers (:obj:`vbox_flex` and :obj:`hbox_flex`).
     """
     return flex_custom(1, 1, False)(node)
+
+# def _ration_size(available: int, children: Iterable[Flex], main_axis_horizontal=False):
+#     # reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).height for i in children if i.basis)
+#     total_grow = sum(i.grow for i in children)
+#     total_shrink = sum(i.shrink for i in children)
+
 
 
 def vbox_flex(children: Iterable[Flex | Layout]) -> Layout:
