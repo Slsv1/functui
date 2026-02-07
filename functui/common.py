@@ -314,6 +314,11 @@ BORDER_ASCII = BorderStyle(
     corner_br="+",
 )
 
+#┏━
+#
+#
+#
+
 def vbar_custom(char: str = "|"):
     """Vertical bar build with a custom character."""
     return Layout(

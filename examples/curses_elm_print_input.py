@@ -1,7 +1,7 @@
 from functui.classes import *
 from functui.common import *
 from functui.flex import hbox_flex, flex
-from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, default_nav_bindings, interaction_area
+from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, DEFAULT_NAV_BINDINGS, interaction_area
 from functui.io.curses import get_input_event, draw_result, wrapper
 
 import curses
@@ -18,13 +18,13 @@ class Model():
 
 def update(input: InputEvent, res: Result, m: Model):
     action = None
-    if input.key_event in default_nav_bindings:
-        action = default_nav_bindings[input.key_event]
+    if input.key_event in DEFAULT_NAV_BINDINGS:
+        action = DEFAULT_NAV_BINDINGS[input.key_event]
 
     m.nav = m.nav.update(
         res=res,
         action=action, 
-        nav_data=[],
+        nav_tree=[],
         mouse_position=input.mouse_position_event
     )
 

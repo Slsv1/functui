@@ -6,6 +6,10 @@ String Key Codes Specification
 Function io modules convert key input into a string format for convinient use that is often contained within :obj:`functui.classes.InputEvent` objects.
 This format however is quite limited due to terminals and their `historical reasons <https://catern.com/posts/terminal_quirks.html>`__.
 
+.. seealso::
+
+   :ref:`example_curses_elm_print_input`
+
 
 Recognised non Printable Keys
 -----------------------------

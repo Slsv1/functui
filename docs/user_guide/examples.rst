@@ -36,7 +36,14 @@ Template for ELM projects using curses IO
 
 .. _example_multiple_interactibles:
 
-Multiple interactibles with ELM and Curses
+Multiple interactibles with ELM and curses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. literalinclude:: ../../examples/curses_elm_multiple_interactibles.py
+
+.. _example_curses_elm_print_input:
+
+Print Input Event with ELM and curses
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. literalinclude:: ../../examples/curses_elm_print_input.py

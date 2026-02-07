@@ -115,7 +115,7 @@ def _mouse_button_to_str(mouse_button: int) -> str:
     elif mouse_button & curses.BUTTON5_PRESSED:
         out.append("mouse wheel down")
     else:
-        out.append("unknown")
+        out.append(f"unknown {mouse_button}")
     return "+".join(out)
 
 def wrapper(func: Callable[[curses.window], Any]):
@@ -162,7 +162,7 @@ def get_input_event(stdscr: curses.window) -> InputEvent:
         try:
             _, x, y, _, state = curses.getmouse()
             return InputEvent(
-                key_event=_mouse_button_to_str(state),
+                key_event=_mouse_button_to_str(state) if not (state & (1<<28)) else None,
                 mouse_position_event=Coordinate(x, y),
             )
         except curses.error:
