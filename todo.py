@@ -16,7 +16,7 @@ from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.rich_text import adaptive_text
-from functui.nav import default_nav_bindings, h_resizable_split, interaction_area, v_scroll
+from functui.nav import DEFAULT_NAV_BINDINGS, h_resizable_split, interaction_area, v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -43,7 +43,7 @@ class Model():
     tasks: list[Task]
     selected_task_index: int
     tasks_ids: Iterable[InteractibleID]
-    nav_data: list[InteractibleID]
+    nav_tree: list[InteractibleID]
     current_text_input: TextInput | None = None
     delete_button: InteractibleID = EMPTY_INTERACTIBLE
     complete_button: InteractibleID = EMPTY_INTERACTIBLE
@@ -70,40 +70,6 @@ tasks = [
 #
 
 def update(input: InputEvent, res: Result, m: Model):
-    if m.current_text_input is not None:
-        if event := create_text_input_event(input.key_event):
-            m.current_text_input = m.current_text_input.update(event)
-    else:
-        action = None
-        if input.key_event in default_nav_bindings:
-            action = default_nav_bindings[input.key_event]
-
-        m.nav = m.nav.update(res, action, m.nav_data, input.mouse_position_event)
-
-    for index, task_id in enumerate(m.tasks_ids):
-        if m.nav.is_selected(task_id):
-            m.selected_task_index = index
-
-    if len(m.tasks):
-        if m.nav.is_selected(m.delete_button):
-            del m.tasks[m.selected_task_index]
-            m.selected_task_index = 0
-
-
-        if m.nav.is_selected(m.complete_button):
-            task = m.tasks[m.selected_task_index]
-            m.tasks[m.selected_task_index] = Task(task.description, True)
-
-        if m.nav.is_selected(m.edit_button):
-            task = m.tasks[m.selected_task_index]
-            if m.current_text_input is None:
-                m.current_text_input = start_text_input(task.description)
-            elif m.current_text_input.submited:
-                m.tasks[m.selected_task_index] = Task(m.current_text_input.value, task.done)
-                m.current_text_input = None
-    if m.nav.is_selected(m.create_button):
-        m.tasks.append(Task("New Task", False))
-
     # Keyboard navigation
 
     nav_data = []
@@ -132,7 +98,42 @@ def update(input: InputEvent, res: Result, m: Model):
 
     m.create_button = side_container.child(1)
     nav_data.append(m.create_button)
-    m.nav_data = nav_data
+    m.nav_tree = nav_data
+
+    if m.current_text_input is not None:
+        if event := create_text_input_event(input.key_event):
+            m.current_text_input = m.current_text_input.update(event)
+    else:
+        action = None
+        if input.key_event in DEFAULT_NAV_BINDINGS:
+            action = DEFAULT_NAV_BINDINGS[input.key_event]
+
+        m.nav = m.nav.update(res, action, m.nav_tree, input.mouse_position_event)
+
+    for index, task_id in enumerate(m.tasks_ids):
+        if m.nav.is_selected(task_id):
+            m.selected_task_index = index
+
+    if len(m.tasks):
+        if m.nav.is_selected(m.delete_button):
+            del m.tasks[m.selected_task_index]
+            m.selected_task_index = 0
+
+
+        if m.nav.is_selected(m.complete_button):
+            task = m.tasks[m.selected_task_index]
+            m.tasks[m.selected_task_index] = Task(task.description, True)
+
+        if m.nav.is_selected(m.edit_button):
+            task = m.tasks[m.selected_task_index]
+            if m.current_text_input is None:
+                m.current_text_input = start_text_input(task.description)
+            elif m.current_text_input.submited:
+                m.tasks[m.selected_task_index] = Task(m.current_text_input.value, task.done)
+                m.current_text_input = None
+    if m.nav.is_selected(m.create_button):
+        m.tasks.append(Task("New Task", False))
+
 
 #
 # Visual
@@ -200,7 +201,7 @@ m = Model(
     tasks=tasks,
     selected_task_index=1,
     tasks_ids=[],
-    nav_data=[],
+    nav_tree=[],
 )
 def main(stdscr: curses.window):
     while True:

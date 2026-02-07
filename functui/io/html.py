@@ -1,3 +1,4 @@
+"""Functions to convert layouts to html."""
 from ..classes import Layout, Rect, StyleAttr, ComputedStyle, ResultCreatedWith, Screen, Result, Color4, Color24, hex, layout_to_result
 from ..color_data import xterm256_to_hex
 from typing import NamedTuple
@@ -56,6 +57,10 @@ def style_to_tag(style: ComputedStyle) -> HTMLTags:
 
 
 def result_to_html_str(result: Result):
+    """Convert a result to an html string.
+
+    Returns:
+        Html representations of the result wrapped in a ``<pre>`` tag."""
     data = result.try_data(ResultCreatedWith)
     if data is None:
         raise AssertionError("Result has no ResultCreatedWith data. If possible please use get_result() function to get a result.")
@@ -83,4 +88,10 @@ def result_to_html_str(result: Result):
     return f"<pre style=\"font-family:monospace\">\n{"".join(out)}\n</pre>"
 
 def layout_to_html_str(layout: Layout, dimensions: Rect):
+    """Convert a layout to an html string.
+
+    A shorthand for ``result_to_html_str(layout_to_result(...))``.
+
+    Returns:
+        Html representations of the result wrapped in a ``<pre>`` tag."""
     return result_to_html_str(layout_to_result(layout, dimensions))

@@ -37,6 +37,10 @@ Interactive
    functui.nav.interaction_area
    functui.nav.v_scroll
 
+.. seealso::
+
+   :doc:`nav`
+
 Borders and Separators
 ----------------------
 
@@ -93,6 +97,11 @@ Styling
    functui.common.strike_through
    functui.common.reverse
    functui.common.italic
+
+
+.. seealso::
+
+   :doc:`styling`
 
 Utility
 -------

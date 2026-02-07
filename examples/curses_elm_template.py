@@ -23,7 +23,7 @@ def update(input: InputEvent, res: Result, m: Model):
     m.nav = m.nav.update(
         res=res,
         action=action, 
-        nav_data=[],
+        nav_tree=[],
         mouse_position=input.mouse_position_event
     )
 

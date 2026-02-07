@@ -3,8 +3,15 @@ Styling
 
 Styling in the terminal has historically been quite confusing. Due to terminals being very old, there have been added multiple ways of styling, without the ability to remove legacy styling options due to backwards compatability.
 
+
+.. seealso::
+
+    A list for all styling nodes can be found here: :doc:`nodes`.
+
 3 Color Formats
 ---------------
+
+.. _color4:
 
 4 bit color
 ~~~~~~~~~~~
@@ -29,6 +36,7 @@ One consequence of terminal history is that there are three ways of doing colors
 
     ``Color4`` has a ``RESET`` attribute. It represents your terminal's default foreground or backround color.
 
+.. _color8:
 
 XTERM-256
 ~~~~~~~~~
@@ -66,10 +74,16 @@ Another widely supported color format is XTERM-256 (8 bit colors) This format is
 
    Colors represented by integers 0 through 15 are exactly the same colors as in :obj:`~functui.classes.Color4` enum (except ``RESET``). That enum is actually an :obj:`~enum.IntEnum` which means that it's members are treated as integers. (``RESET`` member is represented as -1)
 
+.. _color24:
+
 True Color
 ~~~~~~~~~~
 
-Lastly, there is true color (24 bit or rgb color). This color format can be accessed either via :obj:`~functui.classes.rgb` or :obj:`~functui.classes.hex` functuion that create a :obj:`~functui.classes.Color24` object that actully stores the color. This is the color format that the support is somewhat lacking. Most notably, the curses renderer does not support it.
+Lastly, there is true color (24 bit or rgb color). This color format can be accessed either via :func:`~functui.classes.rgb` or :func:`~functui.classes.hex` functions that create a :obj:`~functui.classes.Color24` object that stores the color. This is the color format that the support is somewhat lacking. Most notably, the curses renderer does not support it.
+
+.. seealso::
+
+   Different renderers are discussed in :doc:`io`.
 
 
 

@@ -447,7 +447,7 @@ class NavState:
 def interaction_area(interactible_id: InteractibleID, dragable=False):
     """A wrapper node that marks its child layout as interactive.
 
-    Meant to be used along with :obj:`NavData`.
+    Meant to be used along with :obj:`NavState`.
 
     This wrapper node also retrieves at which size and position child layout was rendered at.
     This allows mouse hover detection, and in a scrollable container, automatically
@@ -640,6 +640,7 @@ DEFAULT_NAV_BINDINGS = {
     "mouse wheel down": NavAction.SCROLL_DOWN,
     "mouse wheel up": NavAction.SCROLL_UP
 }
+"""A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
 
 
 class _NewActiveBox(NamedTuple):

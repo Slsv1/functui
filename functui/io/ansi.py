@@ -1,3 +1,4 @@
+"""Functions to convert layouts to styled strings that can be rendered in a terminal."""
 from ..classes import *
 from typing import Callable, Iterable
 from dataclasses import dataclass
@@ -40,7 +41,7 @@ def style_to_ansi(style: StyleAttr):
 
 ANSI_RESET_STYLES = "\033[0m"
 
-def render_ansi(screen: Screen) -> str:
+def _render_ansi(screen: Screen) -> str:
     out = []
     lines = screen.split_by_lines()
     curr_style = StyleAttr(0)
@@ -76,13 +77,18 @@ def _ansi_go_up(y):
     return f"\033[{y}A"
 
 def result_to_str(result: Result) -> str:
+    """Convert a result to a string with ansi escapecodes that can be displayed in a terminal."""
     data = result.try_data(ResultCreatedWith)
     if data is None:
         raise AssertionError("Result has no ResultCreatedWith data. If possible please use get_result() function to get a result.")
     screen = Screen(data.screen_size.width, data.screen_size.height)
     screen.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
-    return render_ansi(screen) # 30 %
+    return _render_ansi(screen) # 30 %
 
 def layout_to_str(layout: Layout, dimensions: Rect) -> str:
+    """Convert a layout to a string with ansi escapecodes that can be displayed in a terminal.
+
+    This is a shorthand for ``result_to_str(layout_to_result(...)))``.
+    """
     return result_to_str(layout_to_result(dimensions=dimensions, layout=layout))
 

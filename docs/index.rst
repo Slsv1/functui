@@ -51,11 +51,9 @@ functui documentation
    user_guide/introduction
    user_guide/styling
    user_guide/elm
-   user_guide/nav
    user_guide/io
-   user_guide/nodes
-   user_guide/glossary
-   user_guide/keycodes
+   user_guide/nav
+
 
 .. toctree::
    :maxdepth: 1
@@ -66,3 +64,15 @@ functui documentation
    reference/flex
    reference/rich_text
    reference/nav
+   reference/iocurses
+   reference/ioansi
+   reference/iohtml
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Appendix
+
+   user_guide/nodes
+   user_guide/glossary
+   keycodes
+   user_guide/examples

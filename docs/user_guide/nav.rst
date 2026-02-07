@@ -1,12 +1,21 @@
 Keyboard and Mouse
 ==================
 
-Functui has the :obj:`functui.nav` module which provides :obj:`functui.nav.NavState` component and multiple nodes to allow for interactivity.
+.. important::
 
-``NavState``
-------------
+    This page assumes that you have already a way to get a :obj:`~functui.classes.InputEvent`. If that's not the case, check out :doc:`io`.
 
-The NavState class is an immutable representation of all state related to keyboard navigation and mouse interactivity. Usually an app needs only one ``NavState`` instance. A ``NavState`` object has an :obj:`~functui.nav.NavState.update` method that needs to be call every time user has submitted some input. (For example a key press or a mouse position change). The ``update`` method returns a new ``NavState`` object that represents the updated state based on input.
+
+.. seealso::
+
+    :ref:`examples_elm`
+
+Functui has the :obj:`functui.nav` module which provides the :obj:`~functui.nav.NavState` class and multiple nodes to allow interactivity.
+
+:obj:`~functui.nav.NavState`
+----------------------------
+
+The NavState class is an immutable representation of all state related to keyboard navigation and mouse interactivity. Usually an app needs only one ``NavState`` instance. A ``NavState`` object has an :meth:`~functui.nav.NavState.update` method that needs to be call every time user has submitted some input. (For example a key press or a mouse position change). The ``update()`` method returns a new ``NavState`` object that represents the updated state based on input.
 
 The whole signature of an update method is as follows:
 
@@ -40,11 +49,15 @@ This is essantially just the user input, but converted to a :obj:`~functui.nav.N
 ``res``
 ~~~~~~~
 
-The result produced from rendering a :obj:`functui.classes.Layout`. ``NavState`` needs the result in order to know where on the screen certain nodes were rendered. This data is used to check if the mouse position is inside any (for example) buttons or scrollable areas. More on this topic will follow, but in short you use :obj:`functui.nav.interactible_are` to mark nodes as interactible.
+The result produced from rendering a :obj:`~functui.classes.Layout`. ``NavState`` needs the result in order to know where on the screen certain nodes were rendered. This data is used to check if the mouse position is inside any (for example) buttons or scrollable areas. More on this topic will follow, but in short you use :func:`~functui.nav.interactible_area` to mark nodes as interactible.
+
+.. seealso::
+
+   :func:`~functui.classes.layout_to_result`
 
 ``nav_data``
 ~~~~~~~~~~~~
-The keyboard navigation tree. More on this topic later.
+The keyboard navigation tree. This is described in the next section.
 
 Keyboard Navigation
 -------------------
@@ -121,11 +134,50 @@ You can also nest containers and specify their navigation direction.
 
 Mouse Detection
 ---------------
+
 Mouse detection can be performed with an :obj:`~functui.nav.interactive_area` wrapper node.
 
 To detect if mouse is hovering over an interactible use :meth:`~functui.nav.NavState.is_hover` method.
 
 Unlike keyboard navigation, selection is split into two stages. :meth:`~functui.nav.NavState.is_held_down` method returns ``True`` while left click held down. When left click is relased :meth:`~functui.nav.NavState.is_selected` returns true. This behaviour is usefull for implementing buttons that get highlighted when you hold left click and have ability to be canceled if you move your mouse away.
 
+
+
+NavData and The Elm Architecture
+--------------------------------
+
+To allow for keyboard and mouse interactivity with the elm architecture set :obj:`~functui.nav.NavAction` as an attribute in your model. 
+
+.. code-block:: py
+
+    @dataclass
+    class Model:
+         nav: NavData
+         ...
+
+
+Then in the update function update ``NavData`` before doing any other logic. This is so that you can use methods like :meth:`~functui.nav.NavAction.is_selected` and not be a frame behind.
+
+.. code-block:: py
+    
+    def update(input: InputEvent, res: Result, m: Model):
+        action = None
+        if input.key_event in default_nav_bindings:
+            action = default_nav_bindings[input.key_event]
+
+        m.nav = m.nav.update(
+            res=res,
+            action=action, 
+            nav_tree=[...],
+            mouse_position=input.mouse_position_event
+        )
+
+        # Put your update code here
+
+        # for example, if a button is pressed do something
+        if m.nav.is_selected(...):
+            ...
+
+Below follows a template you can copy for elm applications using the (recommended) curses renderer.
 
 .. literalinclude:: ../../examples/curses_elm_template.py

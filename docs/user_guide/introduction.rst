@@ -38,10 +38,10 @@ Nodes are often called with the pipe `|` syntax. The example layout is identical
     layout = bg_char(".")(center(border(text("Welcome to the functui introduction"))))
 
 
-border and center are wrapper nodes. A node returns a :class:`~functui.classes.Layout` which can be expanded on by wrapper nodes. 
+:func:`~functui.common.border` and :func:`~functui.common.center` are wrapper nodes. A node returns a :class:`~functui.classes.Layout` which can be expanded on by wrapper nodes. 
 In the above example the text node returned a layout that got 'piped' into the border node.
 The border node expanded the layout (by adding a border) and then returned a new layout.
-But wrapper nodes have more functionality apart from adding visuals.
+But wrapper nodes have more functionality apart from adding visuals, they also limit their children's size.
 
 .. important::
 
@@ -80,20 +80,17 @@ Expected output:
 
 Rendering
 ---------
-To render a layout you can simply use the :func:`~functui.renderansi.layout_to_str`
+To render a layout you can simply use the :func:`~functui.io.ansi.layout_to_str`
 function with a :class:`~functui.classes.Rect` to specifiy dimensions.
 
-.. tip::
+.. seealso::
 
-    If you want the layout to take up the whole terminal, you
-    can get the terminals dimensions by using :func:`os.get_terminal_size`
+    All different output formats can be found in :doc:`io`.
 
 Containers
 ----------
 
-While rendering text with a border is fun, it is not very usefull by itself.
-Functui provides multiple container nodes.
-A simple container node is a :func:`~functui.common.vbox`.
+While rendering text with a border is fun, it is not very usefull for creating layouts unless you have containers than can manage the position and size of multiple children. A simple container node is a :func:`~functui.common.vbox`.
 
 .. testcode::
 
@@ -128,8 +125,8 @@ meaning that you can put wrapper nodes around them
 (As we did with the border around the 'buz' text node).
 We also used a :func:`~functui.common.hbar` node to create a horizonal rule.
 
-Even move, containers are themselves nodes,
-meaning that you can nest containers inside eachother!
+Continuing on this trend of everything being nodes, containers are nodes themselved,
+meaning that you can nest containers inside eachother.
 
 .. testcode::
 
@@ -160,4 +157,19 @@ meaning that you can nest containers inside eachother!
     As you may have noticed, the separator between bar, and buz nodes was created manualy.
     To do this automatically use :func:`~functui.classes.intersperse`.
 
+Summary
+-------
+- **Node** - A function that returns a :obj:`~functui.classes.Layout`.
+- **Wrapper Node** - A function that 'decorates' other layouts as well as manages their size. For example, a :func:`~functui.common.border`
+- ``|`` - Operator used for structuring layouts without needing to write a lot of parentheses.
+- **Container Node** - A wrapper node than manages the position and size of multiple children. For example, a :func:`~functui.common.vbox`.
+
+What Now?
+---------
+
+If you want to just experiment and see what kind of layouts this library can create, check out the :doc:`nodes`.
+
+If you look to add interactive elements (like keyboard and mouse interactions) start with looking at :doc:`elm`.
+
+And of course don't forget about the examples available on GitHub in the ``/examples`` folder or :doc:`here in the docs <examples>`!
 

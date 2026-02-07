@@ -860,6 +860,11 @@ class ResultCreatedWith(ResultData):
         raise RuntimeError("Result should not be merged with with this data")
 
 def layout_to_result(layout: Layout, dimensions: Rect, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
+    """Converts a layout to a result that can be converted to desired output type.
+
+    See Also:
+        To see what to do with the result, read :doc:`../user_guide/io`.
+    """
     result = layout.render(
         Frame(
             screen_rect=dimensions,

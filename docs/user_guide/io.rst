@@ -1,55 +1,89 @@
 IO
 ==
 
-Functui has multiple ways of doing input and output.
-
-.. list-table::
-  :width: 100 %
-  :widths: 1 2 2 3 3
-  :header-rows: 1
-  :stub-columns: 1
-
-  * - IO type
-
-    - Input
-
-    - Output
-
-    - Pros
-    
-    - Cons (and quirks)
-
-  * - ANSI
-
-    - No, but possible to handle it yourself.
-
-    - Yes, through :obj:`~functui.io.ansi.result_to_str`
-
-    - Uses ANSI escape codes to render, which virtually all terminals support. True color is supported.
-
-    - Is not very performant right now
-
-  * - Curses
-
-    - Yes, through :obj:`~functui.io.curses.get_input_event`
-
-    - Yes, through :obj:`~functui.io.curses.draw_result`
-
-    - A standard for tuis. Depends on python stdlib curses module (no extra dependencies).
-
-    - No Truecolor support (only 8 bit color). Strikethrough style attribute not supported. Python does not have curses in its stdlib on windows.
-
-  * - HTML
-
-    - No
-
-    - Yes, through :obj:`~functui.io.html.result_to_html_str`
-
-    - Usefull to create html for tui like visuals on the web
-
-    - Dim style attribute is rendered
+Functui has multiple modules of doing input and output.
 
 
+:obj:`functui.io.ansi`
+----------------------
+
+Recommended if you need functui just for rendering.
 
 
+Input - ⚠️
+~~~~~~~~~~
+
+For very simple projects you may use python's build in :func:`input`.
+Otherwise, there is no build in way to get a :obj:`functui.classes.InputEvent` with this io method.
+
+
+Output - ✅
+~~~~~~~~~~~
+
+Renders a layout as a string with ansi escape codes which are supported by virtually all terminals. Then you can simply just use the :func:`print` function to display that string.
+
+Quirks
+~~~~~~
+
+- Output performance is not very good right now.
+
+
+.. seealso::
+    :func:`~functui.io.ansi.layout_to_str` and :func:`~functui.io.ansi.result_to_str` for output. And :ref:`example_ansi_elm_counter_app` example.
+
+----
+
+:obj:`functui.io.curses`
+------------------------
+
+Recommended for interactive applications (keyboard and mouse).
+Uses the build in curses module.
+
+
+Input - ✅
+~~~~~~~~~~
+
+Full mouse and keyboard support.
+
+
+Output - ✅
+~~~~~~~~~~~
+
+Displays the layout in a curses window.
+
+
+Quirks
+~~~~~~
+
+- Does not support :ref:`color24` (rgb colors)
+
+- Only 256 unique foreground and background combinations may be used at a time.
+
+- :obj:`~functui.classes.StyleAttr.STRIKE_THROUGH` style is not supported
+
+.. seealso::
+    :func:`~functui.io.curses.wrapper`, :func:`~functui.io.curses.get_input_event`, :func:`~functui.io.curses.draw_result` and :ref:`example_curses_elm_template` example.
+
+----
+
+:obj:`functui.io.html`
+----------------------
+
+Input - ❌
+~~~~~~~~~~
+
+No input support.
+
+
+Output - ✅
+~~~~~~~~~~~
+
+Wraps the layout in a ``<pre>`` tag.
+
+
+Quirks
+~~~~~~
+
+- :obj:`~functui.classes.StyleAttr.DIM` is not supported.
+To display functui layouts on the web.
 

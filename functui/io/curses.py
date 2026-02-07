@@ -1,3 +1,4 @@
+"""Functions for input and output with the curses module."""
 import curses
 import sys
 from typing import NamedTuple, Any, Callable
@@ -118,6 +119,12 @@ def _mouse_button_to_str(mouse_button: int) -> str:
     return "+".join(out)
 
 def wrapper(func: Callable[[curses.window], Any]):
+    """Wrap your applications main function to start execution.
+
+    An additional wrapper around :func:`curses.wrapper`
+    that allows for mouse event detection and using
+    a terminals default background and foreground colors.
+    """
     try:
         def wrapped_func(stdscr):
             curses.curs_set(0)
@@ -133,6 +140,14 @@ def wrapper(func: Callable[[curses.window], Any]):
 
 
 def get_input_event(stdscr: curses.window) -> InputEvent:
+    """Block untill an input event is sent, and return it in a standardized format.
+
+    Args:
+        stdscr: (curses.window)
+            A window that you can get by wrapping your main function in a :func:`wrapper`.
+    Returns:
+        InputEvent
+    """
     key = stdscr.get_wch()
     if key == 27: # esc, maybe alt
         try:
@@ -218,6 +233,10 @@ def _init_pair_from_style(i: int, style: ComputedStyle):
 
 
 def draw_result(result: Result, stdscr: curses.window):
+    """Display the result in a curses window.
+
+    You can get the curses window by wrapping your main function in a
+    :func:`wrapper`."""
     stdscr.erase()
     data = result.try_data(ResultCreatedWith)
     if data is None:

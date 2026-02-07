@@ -4,7 +4,6 @@ from functui.common import *
 from functui.classes import *
 from functui.io.ansi import result_to_str
 from functui.io.html import result_to_html_str
-from functui.canvas import plot, PlotXY
 from itertools import batched
 
 from functui.rich_text import adaptive_text
@@ -75,9 +74,6 @@ layout = vbox_flex([
             [(text("flex") | custom_padding(1, 1, 1, 1) | styled(border, rule_fg(i+0)) | flex_custom(1, basis=True)) for i in range(10)]
         )| border_with_title(text("Flexible and Wrappable Containers")) | flex,
     ]) | flex,
-    plot(
-        PlotXY(x=range(100), y=tuple([math.sin(i/2)+1 for i in range(100)]),style=rule_fg(Color4.BRIGHT_RED))
-    ) | min_height(5) | border_with_title(text("Braille Ploting"))
 ])
 
 result = layout_to_result(layout, Rect(102, 45))
