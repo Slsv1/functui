@@ -188,9 +188,6 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
     else:
         stdout.write("\x1b[?2004l") # reset bracketed paste mode, xterm.
 
-    # if not features.alternate_screen:
-    #     stdout.write("\x1b[?1049l") # Alt screen
-
     stdout.flush()
 
 class TerminalIO(ABC):
@@ -205,22 +202,19 @@ class WindowsTerminalIO(TerminalIO):
         callback: Callable,
         features: TerminalFeatures = APPLICATION_MODE_FEATURES
     ):
+        # windows specific code
         kernel32 = ctypes.windll.kernel32
-
-        # Get handle to stdin
-        hStdin = kernel32.GetStdHandle(-10)
-
-        # Get current console mode
-        mode = ctypes.c_uint()
-        kernel32.GetConsoleMode(hStdin, ctypes.byref(mode))
+        stdin_handle = kernel32.GetStdHandle(-10)
+        old_mode = ctypes.c_uint()
+        kernel32.GetConsoleMode(stdin_handle, ctypes.byref(old_mode))
 
         # Disable:
         # ENABLE_LINE_INPUT (0x0002)
         # ENABLE_ECHO_INPUT (0x0004)
         # ENABLE_PROCESSED_INPUT (0x0001)
-        new_mode = mode.value & ~(0x0002 | 0x0004 | 0x0001)
-
-        kernel32.SetConsoleMode(hStdin, new_mode)
+        new_mode = (old_mode.value & ~(0x0002 | 0x0004 | 0x0001)) | 0x0200 # ENABLE_VIRTUAL_TERMINAL_INPUT (for xterm compatability)
+        kernel32.SetConsoleMode(stdin_handle, new_mode)
+        # end
 
         stdin = sys.stdin
         stdout = sys.stdout
@@ -234,7 +228,9 @@ class WindowsTerminalIO(TerminalIO):
                     callback(event)
         finally:
             set_xterm_features(stdout, DEFAULT_FEATURES)
-            kernel32.SetConsoleMode(hStdin, mode)
+            # windows specific cleanup
+            kernel32.SetConsoleMode(stdin_handle, old_mode)
+            # end
 
 
 class UnixTerminalIO(TerminalIO):
