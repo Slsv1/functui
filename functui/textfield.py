@@ -2,7 +2,6 @@ from enum import Enum, auto
 from typing import NamedTuple, Self
 from dataclasses import dataclass
 from types import MappingProxyType
-import curses
 
 class TextActionChar(NamedTuple):
     char: str

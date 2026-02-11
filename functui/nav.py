@@ -1,5 +1,4 @@
 """Tools to make layouts responsive to keyboard and mouse input"""
-import curses
 from enum import Enum, auto
 from typing import Self, Literal, Iterable, Any, NamedTuple
 from dataclasses import dataclass, field
