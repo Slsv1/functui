@@ -41,6 +41,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 import sys
+import ctypes
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
 
@@ -204,6 +205,23 @@ class WindowsTerminalIO(TerminalIO):
         callback: Callable,
         features: TerminalFeatures = APPLICATION_MODE_FEATURES
     ):
+        kernel32 = ctypes.windll.kernel32
+
+        # Get handle to stdin
+        hStdin = kernel32.GetStdHandle(-10)
+
+        # Get current console mode
+        mode = ctypes.c_uint()
+        kernel32.GetConsoleMode(hStdin, ctypes.byref(mode))
+
+        # Disable:
+        # ENABLE_LINE_INPUT (0x0002)
+        # ENABLE_ECHO_INPUT (0x0004)
+        # ENABLE_PROCESSED_INPUT (0x0001)
+        new_mode = mode.value & ~(0x0002 | 0x0004 | 0x0001)
+
+        kernel32.SetConsoleMode(hStdin, new_mode)
+
         stdin = sys.stdin
         stdout = sys.stdout
         parser = ByteParser()
@@ -216,6 +234,7 @@ class WindowsTerminalIO(TerminalIO):
                     callback(event)
         finally:
             set_xterm_features(stdout, DEFAULT_FEATURES)
+            kernel32.SetConsoleMode(hStdin, mode)
 
 
 class UnixTerminalIO(TerminalIO):
