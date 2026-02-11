@@ -38,56 +38,74 @@ class TerminalFeatures:
     bracketed_paste: bool = True
     alternate_screen: bool = True
 
-ALL_FEATURES = TerminalFeatures()
+DEFAULT_FEATURES = TerminalFeatures(False, False, False)
+APPLICATION_MODE_FEATURES = TerminalFeatures()
 
 
 
-def enable_xterm_features(stdout: TextIO, features: TerminalFeatures):
+
+def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
     if features.alternate_screen:
         stdout.write("\x1b[?1049h") # Alt screen
+        stdout.flush()
+    else:
+        stdout.write("\x1b[?1049l") # Alt screen
+        stdout.flush()
+
     if features.mouse:
         stdout.write("\x1b[?1000h") # SET_VT200_MOUSE
         stdout.write("\x1b[?1003h") # SET_ANY_EVENT_MOUSE
         stdout.write("\x1b[?1006h") # SET_ANY_EVENT_MOUSE
-    if features.bracketed_paste:
-        stdout.write("\x1b[?2004h") # set bracketed paste mode, xterm.
-    stdout.flush()
-
-def disable_xterm_features(stdout: TextIO, features: TerminalFeatures):
-    if features.mouse:
+    else:
         stdout.write("\x1b[?1000l") # RESET_VT200_MOUSE
         stdout.write("\x1b[?1003l") # RESET_ANY_EVENT_MOUSE
         stdout.write("\x1b[?1006l") # RESET_ANY_EVENT_MOUSE
+
     if features.bracketed_paste:
+        stdout.write("\x1b[?2004h") # set bracketed paste mode, xterm.
+    else:
         stdout.write("\x1b[?2004l") # reset bracketed paste mode, xterm.
-    # leave altscreen after 
-    if features.alternate_screen:
-        stdout.write("\x1b[?1049l") # Alt screen
+
+    # if not features.alternate_screen:
+    #     stdout.write("\x1b[?1049l") # Alt screen
+
     stdout.flush()
 
 class TerminalIO(ABC):
     @abstractmethod
-    def run(self, *,callback: Callable, features: TerminalFeatures = ALL_FEATURES):
+    def run(self, *,callback: Callable, features: TerminalFeatures = APPLICATION_MODE_FEATURES):
         ...
     
 class WindowsTerminalIO(TerminalIO):
-    def run(self, *, features: TerminalFeatures = ALL_FEATURES):
+    def run(
+        self,
+        *,
+        callback: Callable,
+        features: TerminalFeatures = APPLICATION_MODE_FEATURES
+    ):
         stdin = sys.stdin
         stdout = sys.stdout
         try:
-            stdin.buffer.read()
-            enable_xterm_features(stdout, features)
+            set_xterm_features(stdout, features)
+            for _ in range(10):
+                input = stdin.buffer.read(1)
+                callback(repr(input))
         finally:
-            disable_xterm_features(stdout, ALL_FEATURES)
+            set_xterm_features(stdout, DEFAULT_FEATURES)
 
 
 class UnixTerminalIO(TerminalIO):
     def __init__(self) -> None:
         super().__init__()
-        self.old_terminal_attrs: None | list[Any] = None
+        # self.old_terminal_attrs: None | list[Any] = None
 
 
-    def run(self, *,callback: Callable, features: TerminalFeatures = ALL_FEATURES):
+    def run(
+        self,
+        *,
+        callback: Callable,
+        features: TerminalFeatures = APPLICATION_MODE_FEATURES,
+    ):
         stdin = sys.stdin
         stdout = sys.stdout
 
@@ -95,19 +113,20 @@ class UnixTerminalIO(TerminalIO):
         import termios
         import tty
         fd = sys.stdin.fileno()
-        self._old_terminal_atrs = termios.tcgetattr(fd)
+        old_attrs = termios.tcgetattr(fd)
         tty.setraw(fd)
         # end
-        
         try:
-            stdin.buffer.read()
-            enable_xterm_features(stdout, features)
-            ...
-            while True:
+            set_xterm_features(stdout, features)
+            for _ in range(10):
                 input = stdin.buffer.read(1)
-                callback(input)
+                callback(repr(input))
         finally:
-            disable_xterm_features(stdout, ALL_FEATURES)
+            set_xterm_features(stdout, DEFAULT_FEATURES)
+            # unix specific cleanup
+            tty.setcbreak(fd)
+            termios.tcsetattr(fd, termios.TCSANOW, old_attrs)
+            # end
 
 
 
