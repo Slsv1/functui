@@ -206,11 +206,14 @@ class WindowsTerminalIO(TerminalIO):
     ):
         stdin = sys.stdin
         stdout = sys.stdout
+        parser = ByteParser()
+
         try:
             set_xterm_features(stdout, features)
-            for _ in range(10):
+            for _ in range(1000):
                 input = stdin.buffer.read(1)
-                callback(repr(input))
+                if event := parser.feed(input[0]):
+                    callback(event)
         finally:
             set_xterm_features(stdout, DEFAULT_FEATURES)
 
