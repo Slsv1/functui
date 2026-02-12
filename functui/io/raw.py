@@ -142,14 +142,17 @@ class WindowsTerminalIO(TerminalIO):
 
         stdin = sys.stdin
         stdout = sys.stdout
-        parser = ByteParser()
+        byte_parser = ByteParser()
+        raw_parser = RawInputParser()
 
         try:
             set_xterm_features(stdout, features)
             for _ in range(1000):
                 input = stdin.buffer.read(1)
-                if event := parser.feed(input[0]):
-                    callback(event)
+                if raw_event := byte_parser.feed(input[0]):
+                    # print(repr(raw_event.data), raw_event.type)
+                    if event := raw_parser.feed(raw_event):
+                        callback(event)
         finally:
             set_xterm_features(stdout, DEFAULT_FEATURES)
             # windows specific cleanup
