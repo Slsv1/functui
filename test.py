@@ -10,4 +10,4 @@ features = TerminalFeatures(
     alternate_screen=True,
 )
 
-io.run(callback=lambda x: print(f"{x.key_event}"), features=features)
+io.run(callback=lambda x: print(f"{x.key_event} {repr(x.mouse_position_event)}"), features=features)

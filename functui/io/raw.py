@@ -45,7 +45,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import InputEvent
+from ..classes import InputEvent, Coordinate
 import sys
 import ctypes
 
@@ -103,9 +103,32 @@ class RawInputParser:
             case RawInputParserState.GROUND:
                 if raw_event.type == RawInputType.CHAR:
                     return InputEvent(key_event=raw_event.data)
-                if raw_event.type == RawInputType.CSI and raw_event.data == "\x1b[200~": # bracketed paste start
-                    self.state = RawInputParserState.PASTE
-                    return
+                if raw_event.type == RawInputType.CSI:
+                    if raw_event.data == "\x1b[200~": # bracketed paste start
+                        self.state = RawInputParserState.PASTE
+                        return
+                    if raw_event.data.startswith("\x1b[<"): # mouse
+                        first_sep_at = raw_event.data.find(";")
+                        button_nr = raw_event.data[3:first_sep_at]
+                        released = raw_event.data.endswith("m")
+                        released_suffix = " released" if released else ""
+                        prefix, x, y_and_suffix = raw_event.data.split(";", 3)
+                        y = y_and_suffix[:-1]
+                        data = "unknown"
+                        if button_nr == "0":
+                            data = "left mouse" + released_suffix
+                        elif button_nr == "1":
+                            data = "middle mouse" + released_suffix
+                        elif button_nr == "2":
+                            data = "right mouse" + released_suffix
+                        elif button_nr in ("35", "34", "33", "32"): # mouse move
+                            data = None
+                        elif button_nr == "65":
+                            data = "mouse wheel up"
+                        elif button_nr == "64":
+                            data = "mouse wheel down"
+
+                        return InputEvent(key_event=data, mouse_position_event=Coordinate(int(x), int(y)))
                 if parsed_key := SUQUENCE_TO_KEY.get(raw_event.data, None):
                     return InputEvent(key_event=parsed_key)
                 return InputEvent(key_event="unknown")
@@ -126,7 +149,7 @@ class WindowsTerminalIO(TerminalIO):
         callback: Callable,
         features: TerminalFeatures = APPLICATION_MODE_FEATURES
     ):
-        # windows specific code
+        # windows specific setup
         kernel32 = ctypes.windll.kernel32 # type: ignore
         stdin_handle = kernel32.GetStdHandle(-10)
         old_mode = ctypes.c_uint()
@@ -190,9 +213,10 @@ class UnixTerminalIO(TerminalIO):
             for _ in range(1000):
                 input = stdin.buffer.read(1)
                 if raw_event := byte_parser.feed(input[0]):
-                    # print(repr(raw_event.data), raw_event.type)
                     if event := raw_parser.feed(raw_event):
                         callback(event)
+                        # if event.key_event == "unknown":
+                        #     print(repr(raw_event.data), raw_event.type.name)
         finally:
             set_xterm_features(stdout, DEFAULT_FEATURES)
             # unix specific cleanup
