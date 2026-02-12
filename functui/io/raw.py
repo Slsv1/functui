@@ -46,7 +46,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import InputEvent, Coordinate, Rect
+from ..classes import InputEvent, Coordinate, Rect, intersperse
 import sys
 import ctypes
 import shutil
@@ -57,10 +57,11 @@ class TerminalFeatures:
     bracketed_paste: bool = False
     alternate_screen: bool = False
     line_wrap: bool = True
+    hidden_cursor: bool = False
     # in_band_window_resize: bool = False
 
 DEFAULT_FEATURES = TerminalFeatures()
-APPLICATION_MODE_FEATURES = TerminalFeatures(True, True, True, False)
+APPLICATION_MODE_FEATURES = TerminalFeatures(True, True, True, True)
 
 
 
@@ -89,6 +90,10 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
         stdout.write("\x1b[?7h")
     else:
         stdout.write("\x1b[?7l")
+    if features.hidden_cursor:
+        stdout.write("\x1b[?25h")
+    else:
+        stdout.write("\x1b[?25l")
 
     # if features.in_band_window_resize:
     #     stdout.write("\x1b[?2048h")
@@ -101,7 +106,7 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
 
 
 class TerminalIO(ABC):
-    """Termian input output object that has both windows and unix implemintions.
+    """Terminal input output object that has both windows and unix implemintions.
     see also:
         :func:`create_terminal_io`
     """
@@ -122,8 +127,6 @@ class TerminalIO(ABC):
 
         see also:
             Ways of generating the ``ansi_data`` string can be found in :obj:`functui.io.ansi`."""
-        self.stdout.write(ansi_data)
-        self.stdout.flush()
 
 class RawInputParserState(Enum):
     GROUND = auto()
@@ -164,7 +167,7 @@ class RawInputParser:
                         elif button_nr == "64":
                             data = "mouse wheel down"
 
-                        return InputEvent(key_event=data, mouse_position_event=Coordinate(int(x), int(y)))
+                        return InputEvent(key_event=data, mouse_position_event=Coordinate(int(x)-1, int(y)-1))
                 if parsed_key := SUQUENCE_TO_KEY.get(raw_event.data, None):
                     return InputEvent(key_event=parsed_key)
                 return InputEvent(key_event="unknown")
@@ -181,7 +184,10 @@ class RawInputParser:
 class WindowsTerminalIO(TerminalIO):
     def get_terminal_size(self) -> Rect:
         size = shutil.get_terminal_size()
-        return Rect(size.columns, size.lines)
+        return Rect(size.lines, size.columns)
+    def print(self, ansi_data: str):
+        self.stdout.write(ansi_data)
+        self.stdout.flush()
     def run(
         self,
         *,
@@ -226,6 +232,10 @@ class UnixTerminalIO(TerminalIO):
     def get_terminal_size(self) -> Rect:
         size = shutil.get_terminal_size()
         return Rect(size.columns, size.lines)
+    def print(self, ansi_data: str):
+        ansi_data = "".join(intersperse(ansi_data.splitlines(), sep="\n\r"))
+        self.stdout.write(ansi_data)
+        self.stdout.flush()
     def run(
         self,
         *,

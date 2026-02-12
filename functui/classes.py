@@ -917,7 +917,7 @@ class Screen:
 
                     at = Coordinate(command.at.x + delta_x, command.at.y)
                     self.set(at, pixel)
-        self._clean_up_wide_chars()
+        # self._clean_up_wide_chars()
 
     def _clean_up_wide_chars(self):
         # print("".join(str(i.char_type) for i in self._data))
