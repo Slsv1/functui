@@ -64,10 +64,7 @@ functui documentation
    reference/flex
    reference/rich_text
    reference/nav
-   reference/ioraw
-   reference/ioansi
-   reference/iocurses
-   reference/iohtml
+   reference/io.index
 
 .. toctree::
    :maxdepth: 1

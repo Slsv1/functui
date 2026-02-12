@@ -7,18 +7,39 @@ Functui has multiple modules of doing input and output.
     
     Generaly input functions will return an :obj:`~functui.classes.InputEvent` which stores the input in a special string format. That format is specified in :ref:`keycode-specification`.
 
+:obj:`functui.io.raw`
+---------------------
+
+Recomended for all interactive applications. (keyboard and mouse).
+Used the :obj:`functui.io.ansi` to render.
+
+Input - ✅
+~~~~~~~~~~
+
+Full mouse and keyboard support.
+
+
+Output - ✅
+~~~~~~~~~~~
+
+Displays the layout with ansi escape codes.
+
+.. seealso::
+    :func:`~functui.io.raw.terminal` and :ref:`examples_elm`
+
+
+----
 
 :obj:`functui.io.ansi`
 ----------------------
 
 Recommended if you need functui just for rendering.
 
-
-Input - ⚠️
+Input - ❌
 ~~~~~~~~~~
 
 For very simple projects you may use python's build in :func:`input`.
-Otherwise, there is no build in way to get a :obj:`functui.classes.InputEvent` with this io method.
+Otherwise, there is no build in way to get a :obj:`functui.classes.InputEvent` with this io method. 
 
 
 Output - ✅
@@ -33,16 +54,10 @@ Quirks
 
 
 .. seealso::
-    :func:`~functui.io.ansi.layout_to_str` and :func:`~functui.io.ansi.result_to_str` for output. And :ref:`example_ansi_elm_counter_app` example.
+    :func:`~functui.io.ansi.layout_to_str` and :func:`~functui.io.ansi.result_to_str` for output. And :ref:`example_elm_counter_app` example.
 
 ----
 
-:obj:`functui.io.raw`
---------------------
-
-Recomended for all interactive applications. (keyboard and mouse)
-
-----
 
 :obj:`functui.io.curses`
 ------------------------

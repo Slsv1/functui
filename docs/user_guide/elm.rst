@@ -22,5 +22,5 @@ The elm architecture separates you program into three parts:
 
 Below follows a very simple example of the elm architecture being used for a coutner app.
 
-.. literalinclude:: ../../examples/ansi_elm_counter_app.py
+.. literalinclude:: ../../examples/elm_counter_app.py
 

@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 class ParserState(Enum):
     GROUND = auto()
-    UTF_2_BYTES = auto()
-    UTF_3_BYTES = auto()
-    UTF_4_BYTES = auto()
+    UTF_1_BYTE_LEFT = auto()
+    UTF_2_BYTES_LEFT = auto()
+    UTF_3_BYTES_LEFT = auto()
     ESC = auto()
     CSI = auto()
     OSC = auto()
@@ -45,18 +45,36 @@ class ByteParser:
                     return RawInputEvent(data, RawInputType.DEL)
                 elif (byte >> 5) == 0b0000_0110: # utf, 2 bytes
                     self.buffer.append(byte)
-                    self._change_state(ParserState.UTF_2_BYTES)
+                    self._change_state(ParserState.UTF_1_BYTE_LEFT)
                     return
                 elif (byte >> 4) == 0b0000_1110: # utf, 2 bytes
                     self.buffer.append(byte)
-                    self._change_state(ParserState.UTF_3_BYTES)
+                    self._change_state(ParserState.UTF_2_BYTES_LEFT)
                 elif (byte >> 3) == 0b0001_1110: # utf, 2 bytes
                     self.buffer.append(byte)
-                    self._change_state(ParserState.UTF_4_BYTES)
+                    self._change_state(ParserState.UTF_3_BYTES_LEFT)
 
                 # ascii printable character
                 # no need to clear buffer because nothing was put in.
                 return RawInputEvent(chr(byte), RawInputType.CHAR)
+            case ParserState.UTF_1_BYTE_LEFT:
+                if (byte >> 6) == 0b0000_0010:
+                    self.buffer.append(byte)
+                    char = bytearray(self.buffer).decode()
+                    self._change_state(ParserState.GROUND)
+                    return RawInputEvent(
+                        char,
+                        RawInputType.CHAR,
+                    )
+                self._change_state(ParserState.GROUND)
+            case ParserState.UTF_2_BYTES_LEFT:
+                self.buffer.append(byte)
+                self._change_state(ParserState.UTF_1_BYTE_LEFT)
+                return
+            case ParserState.UTF_3_BYTES_LEFT:
+                self.buffer.append(byte)
+                self._change_state(ParserState.UTF_2_BYTES_LEFT)
+                return
             case ParserState.ESC:
                 if byte == ord("["):
                     self.buffer.append(byte)
@@ -97,15 +115,6 @@ class ByteParser:
                 self._change_state(ParserState.GROUND)
                 return RawInputEvent(char, RawInputType.CSI)
 
-            case ParserState.UTF_2_BYTES:
-                if (byte >> 6) == 0b0000_0010:
-                    self.buffer.append(byte)
-                    char = bytearray(self.buffer).decode()
-                    self._change_state(ParserState.GROUND)
-                    return RawInputEvent(
-                        char,
-                        RawInputType.CHAR,
-                    )
 
     def _change_state(self, new_state: ParserState) -> None:
         if new_state == ParserState.GROUND:

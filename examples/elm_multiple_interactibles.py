@@ -1,7 +1,7 @@
 from functui.classes import *
 from functui.common import *
-from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, default_nav_bindings, interaction_area
-from functui.io.curses import get_input_event, draw_result, wrapper
+from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, DEFAULT_NAV_BINDINGS, interaction_area
+from functui.io.raw import terminal
 
 import curses
 from dataclasses import dataclass
@@ -16,13 +16,13 @@ class Model():
 
 def update(input: InputEvent, res: Result, m: Model):
     action = None
-    if input.key_event in default_nav_bindings:
-        action = default_nav_bindings[input.key_event]
+    if input.key_event in DEFAULT_NAV_BINDINGS:
+        action = DEFAULT_NAV_BINDINGS[input.key_event]
 
     m.nav = m.nav.update(
         res=res,
         action=action, 
-        nav_data=[m.button_1, m.button_2],
+        nav_tree=[m.button_1, m.button_2],
         mouse_position=input.mouse_position_event
     )
 
@@ -54,15 +54,17 @@ m = Model(
 )
 
 
-def main(stdscr: curses.window):
+with terminal() as term:
     while True:
-        y, x = stdscr.getmaxyx()
-        res = layout_to_result(view(m), Rect(x-1, y-1))
-        draw_result(res, stdscr)
+        # render
+        res = layout_to_result(view(m), term.get_terminal_size())
+        term.display_result(res)
 
-        key: InputEvent = get_input_event(stdscr)
-        if key.key_event == 'ctrl+c':
+        # wait for input
+        event = term.block_untill_input()
+
+        # update
+        if event.key_event == "ctrl+c":
             break
-        update(key, res, m)
-if __name__ == "__main__":
-    wrapper(main)
+        update(event, res, m)
+

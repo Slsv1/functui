@@ -178,6 +178,6 @@ Then in the update function update ``NavData`` before doing any other logic. Thi
         if m.nav.is_selected(...):
             ...
 
-Below follows a template you can copy for elm applications using the curses renderer.
+Below follows a template you can copy for elm applications that allows for interactivity.
 
 .. literalinclude:: ../../examples/curses_elm_template.py

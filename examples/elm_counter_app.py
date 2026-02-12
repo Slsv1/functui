@@ -23,6 +23,7 @@ def view(m: Model) -> Layout:
 m = Model()
 
 # Event loop.
+# this example uses the build in input functions instead of io.raw
 while True:
     # first clear terminal and draw
     os.system('cls' if os.name == 'nt' else 'clear')

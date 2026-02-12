@@ -8,7 +8,7 @@ This format however is quite limited due to terminals and their `historical reas
 
 .. seealso::
 
-   :ref:`example_curses_elm_print_input`
+   If you want to see what key codes result from what key presses run the :ref:`example_elm_print_input` example.
 
 
 Recognised non Printable Keys
@@ -91,6 +91,12 @@ Available ``ctrl+`` combinations
 - ``ctrl+]``
 - ``ctrl+^``
 - ``ctrl+_``
+
+
+Bracketed paste
+---------------
+When pasting into a console, pasted text will be wrapped into brackets.
+``[pasted text]``
 
 Missing ``ctrl+`` combinations
 ------------------------------
