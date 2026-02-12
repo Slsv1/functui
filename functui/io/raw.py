@@ -46,10 +46,12 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import InputEvent, Coordinate, Rect, intersperse
+from ..classes import InputEvent, Coordinate, Rect, intersperse, Result
+from .ansi import result_to_str
 import sys
 import ctypes
 import shutil
+import os
 
 class RawInputParserState(Enum):
     GROUND = auto()
@@ -184,6 +186,8 @@ class TerminalIO(ABC):
     @abstractmethod
     def block_untill_input(self) -> InputEvent:
         ...
+    def display_result(self, res: Result):
+        self.print("\x1b[H" + result_to_str(res) + "\033[39m\033[49m")
 class TerminalContext(ABC):
     def __init__(
         self,
@@ -204,6 +208,7 @@ class TerminalContext(ABC):
 
 class WindowsTerminalContext(TerminalContext):
     def __enter__(self):
+        os.system("") # somehow enables ansi colors?
         # windows specific setup
         kernel32 = ctypes.windll.kernel32 # type: ignore
         stdin_handle = kernel32.GetStdHandle(-10)
@@ -278,7 +283,7 @@ class UnixTerminalIO(TerminalIO):
         size = shutil.get_terminal_size()
         return Rect(size.columns, size.lines)
     def print(self, ansi_data: str):
-        ansi_data = "".join(intersperse(ansi_data.splitlines(), sep="\n\r"))
+        ansi_data = "".join(intersperse(ansi_data.split("\n"), sep="\n\r"))
         self.stdout.write(ansi_data)
         self.stdout.flush()
     def block_untill_input(

@@ -208,7 +208,7 @@ with terminal() as term:
     while True:
         # render
         res = layout_to_result(view(m), term.get_terminal_size())
-        term.print("\033[H" + result_to_str(res))
+        term.display_result(res)
 
         # wait for input
         event = term.block_untill_input()
