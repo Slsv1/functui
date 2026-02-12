@@ -1,3 +1,4 @@
+"""Cross platform input and output implemintation."""
 # xterm sequence docs
 # https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
@@ -45,18 +46,21 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import InputEvent, Coordinate
+from ..classes import InputEvent, Coordinate, Rect
 import sys
 import ctypes
+import shutil
 
 @dataclass
 class TerminalFeatures:
-    mouse: bool = True
-    bracketed_paste: bool = True
-    alternate_screen: bool = True
+    mouse: bool = False
+    bracketed_paste: bool = False
+    alternate_screen: bool = False
+    line_wrap: bool = True
+    # in_band_window_resize: bool = False
 
-DEFAULT_FEATURES = TerminalFeatures(False, False, False)
-APPLICATION_MODE_FEATURES = TerminalFeatures()
+DEFAULT_FEATURES = TerminalFeatures()
+APPLICATION_MODE_FEATURES = TerminalFeatures(True, True, True, False)
 
 
 
@@ -81,14 +85,46 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
         stdout.write("\x1b[?2004h") # set bracketed paste mode, xterm.
     else:
         stdout.write("\x1b[?2004l") # reset bracketed paste mode, xterm.
+    if features.line_wrap:
+        stdout.write("\x1b[?7h")
+    else:
+        stdout.write("\x1b[?7l")
+
+    # if features.in_band_window_resize:
+    #     stdout.write("\x1b[?2048h")
+    #     stdout.write("\x1b[?2048$p") # querry
+    #
+    # else:
+    #     stdout.write("\x1b[?2048l")
 
     stdout.flush()
 
 
 class TerminalIO(ABC):
+    """Termian input output object that has both windows and unix implemintions.
+    see also:
+        :func:`create_terminal_io`
+    """
+    def __init__(self, stdin: TextIO | None = None, stdout: TextIO | None = None) -> None:
+        self.stdin: TextIO = stdin if stdin is not None else sys.__stdin__ # type: ignore
+        self.stdout: TextIO = stdout if stdout is not None else sys.__stdout__ # type: ignore
+
     @abstractmethod
     def run(self, *,callback: Callable, features: TerminalFeatures = APPLICATION_MODE_FEATURES):
+        """Run the application."""
         ...
+    @abstractmethod
+    def get_terminal_size(self) -> Rect:
+        """Get terminal size."""
+        ...
+    def print(self, ansi_data: str):
+        """Write a string with ansi codes to output and flush.
+
+        see also:
+            Ways of generating the ``ansi_data`` string can be found in :obj:`functui.io.ansi`."""
+        self.stdout.write(ansi_data)
+        self.stdout.flush()
+
 class RawInputParserState(Enum):
     GROUND = auto()
     PASTE = auto()
@@ -143,6 +179,9 @@ class RawInputParser:
                     return InputEvent(key_event=data)
 
 class WindowsTerminalIO(TerminalIO):
+    def get_terminal_size(self) -> Rect:
+        size = shutil.get_terminal_size()
+        return Rect(size.columns, size.lines)
     def run(
         self,
         *,
@@ -163,40 +202,36 @@ class WindowsTerminalIO(TerminalIO):
         kernel32.SetConsoleMode(stdin_handle, new_mode)
         # end
 
-        stdin = sys.stdin
-        stdout = sys.stdout
         byte_parser = ByteParser()
         raw_parser = RawInputParser()
 
         try:
-            set_xterm_features(stdout, features)
-            for _ in range(1000):
-                input = stdin.buffer.read(1)
+            set_xterm_features(self.stdout, features)
+            while True:
+                input = self.stdin.buffer.read(1)
                 if raw_event := byte_parser.feed(input[0]):
                     # print(repr(raw_event.data), raw_event.type)
                     if event := raw_parser.feed(raw_event):
-                        callback(event)
+                        should_quit = callback(event)
+                        if should_quit:
+                            break
         finally:
-            set_xterm_features(stdout, DEFAULT_FEATURES)
+            set_xterm_features(self.stdout, DEFAULT_FEATURES)
             # windows specific cleanup
             kernel32.SetConsoleMode(stdin_handle, old_mode)
             # end
 
 
 class UnixTerminalIO(TerminalIO):
-    def __init__(self) -> None:
-        super().__init__()
-        # self.old_terminal_attrs: None | list[Any] = None
-
-
+    def get_terminal_size(self) -> Rect:
+        size = shutil.get_terminal_size()
+        return Rect(size.columns, size.lines)
     def run(
         self,
         *,
         callback: Callable[[InputEvent], Any],
         features: TerminalFeatures = APPLICATION_MODE_FEATURES,
     ):
-        stdin = sys.stdin
-        stdout = sys.stdout
         byte_parser = ByteParser()
         raw_parser = RawInputParser()
 
@@ -209,16 +244,18 @@ class UnixTerminalIO(TerminalIO):
         tty.setraw(fd)
         # end
         try:
-            set_xterm_features(stdout, features)
-            for _ in range(1000):
-                input = stdin.buffer.read(1)
+            set_xterm_features(self.stdout, features)
+            while True:
+                input = self.stdin.buffer.read(1)
                 if raw_event := byte_parser.feed(input[0]):
                     if event := raw_parser.feed(raw_event):
-                        callback(event)
+                        should_quit = callback(event)
+                        if should_quit:
+                            break
                         # if event.key_event == "unknown":
                         #     print(repr(raw_event.data), raw_event.type.name)
         finally:
-            set_xterm_features(stdout, DEFAULT_FEATURES)
+            set_xterm_features(self.stdout, DEFAULT_FEATURES)
             # unix specific cleanup
             tty.setcbreak(fd)
             termios.tcsetattr(fd, termios.TCSANOW, old_attrs)
@@ -227,6 +264,7 @@ class UnixTerminalIO(TerminalIO):
 
 
 def create_terminal_io():
+    """Create a :obj:`TerminalIO` for the appropriate environment."""
     IS_WINDOWS = sys.platform == "win32"
     if IS_WINDOWS:
         return WindowsTerminalIO()

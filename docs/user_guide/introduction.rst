@@ -14,7 +14,8 @@ A program rendering a simple layout.
     from functui.common import *
 
     layout = text("Bonjour") | border | center | bg_char(".")
-    print(layout_to_str(layout, Rect(11, 7)))
+    output = layout_to_str(layout, Rect(width=11, height=7))
+    print(output)
 
 Expected output:
 

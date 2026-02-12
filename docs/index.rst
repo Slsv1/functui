@@ -64,8 +64,9 @@ functui documentation
    reference/flex
    reference/rich_text
    reference/nav
-   reference/iocurses
+   reference/ioraw
    reference/ioansi
+   reference/iocurses
    reference/iohtml
 
 .. toctree::

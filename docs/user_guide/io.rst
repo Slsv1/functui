@@ -37,11 +37,17 @@ Quirks
 
 ----
 
+:obj:`functui.io.raw`
+--------------------
+
+Recomended for all interactive applications. (keyboard and mouse)
+
+----
+
 :obj:`functui.io.curses`
 ------------------------
 
-Recommended for interactive applications (keyboard and mouse).
-Uses the build in curses module.
+Recommended for legacy interactive applications on unix.
 
 
 Input - ✅
@@ -59,10 +65,9 @@ Displays the layout in a curses window.
 Quirks
 ~~~~~~
 
+- Does not work on windows.
 - Does not support :ref:`color24` (rgb colors)
-
 - Only 256 unique foreground and background combinations may be used at a time.
-
 - :obj:`~functui.classes.StyleAttr.STRIKE_THROUGH` style is not supported
 
 .. seealso::
