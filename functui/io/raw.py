@@ -33,17 +33,21 @@
 # CSI ? 1049 l -- exit + restore cursor
 
 # BRACKETED PASTE
-# CSI ? 200 ~ -- bracketed paste start
-# CSI ? 201 ~ -- bracketed paste end
+# CSI 200 ~ -- bracketed paste start
+# CSI 201 ~ -- bracketed paste end
 
 # MOUSE
 # 
+from ._xterm_parser import ByteParser, RawInputEvent, RawInputType
+from ._xterm_escape_data import SUQUENCE_TO_KEY
+
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-import sys
-import ctypes
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
+from ..classes import InputEvent
+import sys
+import ctypes
 
 @dataclass
 class TerminalFeatures:
@@ -54,116 +58,6 @@ class TerminalFeatures:
 DEFAULT_FEATURES = TerminalFeatures(False, False, False)
 APPLICATION_MODE_FEATURES = TerminalFeatures()
 
-class ParserState(Enum):
-    GROUND = auto()
-    UTF_2_BYTES = auto()
-    UTF_3_BYTES = auto()
-    UTF_4_BYTES = auto()
-    ESC = auto()
-    CSI = auto()
-    OSC = auto()
-    MAYBE_ST = auto() # string terminator
-
-
-class RawInputType(Enum):
-    CHAR = auto()
-    DEL = auto()
-    CSI = auto()
-    OSC = auto()
-    C0 = auto()
-
-@dataclass
-class RawInputEvent:
-    data: str
-    type: RawInputType
-
-ESCAPE_BYTE = ord("\x1b")
-class ByteParser:
-    buffer: list[int] = []
-    state: ParserState = ParserState.GROUND
-
-    def feed(self, byte: int) -> RawInputEvent | None:
-        match self.state:
-            case ParserState.GROUND:
-                if 0x00 <= byte <= 0x1F:
-                    if byte == ESCAPE_BYTE:
-                        self.buffer.append(byte)
-                        self._change_state(ParserState.ESC)
-                        return
-
-                    data = chr(byte)
-                    return RawInputEvent(data, RawInputType.C0)
-                if byte==0x7F:
-                    data = chr(byte)
-                    return RawInputEvent(data, RawInputType.DEL)
-                elif (byte >> 5) == 0b0000_0110: # utf, 2 bytes
-                    self.buffer.append(byte)
-                    self._change_state(ParserState.UTF_2_BYTES)
-                    return
-                elif (byte >> 4) == 0b0000_1110: # utf, 2 bytes
-                    self.buffer.append(byte)
-                    self._change_state(ParserState.UTF_3_BYTES)
-                elif (byte >> 3) == 0b0001_1110: # utf, 2 bytes
-                    self.buffer.append(byte)
-                    self._change_state(ParserState.UTF_4_BYTES)
-
-                # ascii printable character
-                # no need to clear buffer because nothing was put in.
-                return RawInputEvent(chr(byte), RawInputType.CHAR)
-            case ParserState.ESC:
-                if byte == ord("["):
-                    self.buffer.append(byte)
-                    self._change_state(ParserState.CSI)
-                    return
-                if byte == ord("]"):
-                    self.buffer.append(byte)
-                    self._change_state(ParserState.OSC)
-                    return
-            case ParserState.OSC:
-                if byte == 0x07: # BEL
-                    self.buffer.append(byte)
-                    data = bytearray(self.buffer).decode()
-                    self._change_state(ParserState.GROUND)
-                    return RawInputEvent(data, RawInputType.OSC) 
-                if byte == ESCAPE_BYTE:
-                    self._change_state(ParserState.MAYBE_ST)
-                    self.buffer.append(byte)
-                    return
-                self.buffer.append(byte)
-            case ParserState.MAYBE_ST:
-                if byte == 0x5C: # is string terminator
-                    self.buffer.append(byte)
-                    data = bytearray(self.buffer).decode()
-                    self._change_state(ParserState.GROUND)
-                    return RawInputEvent(data, RawInputType.OSC)
-                # was not string terminator, just data
-                self._change_state(ParserState.OSC)
-                self.buffer.append(byte)
-                return
-            case ParserState.CSI:
-                if 0x30 <= byte <= 0x3F: # (ASCII 0–9:;<=>?)
-                    # we are in parameter bytes, the escape code will continue
-                    self.buffer.append(byte)
-                    return
-                self.buffer.append(byte)
-                char = bytearray(self.buffer).decode()
-                self._change_state(ParserState.GROUND)
-                return RawInputEvent(char, RawInputType.CSI)
-
-            case ParserState.UTF_2_BYTES:
-                if (byte >> 6) == 0b0000_0010:
-                    self.buffer.append(byte)
-                    char = bytearray(self.buffer).decode()
-                    self._change_state(ParserState.GROUND)
-                    return RawInputEvent(
-                        char,
-                        RawInputType.CHAR,
-                    )
-
-    def _change_state(self, new_state: ParserState) -> None:
-        if new_state == ParserState.GROUND:
-            self.buffer.clear()
-        self.state = new_state
 
 
 def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
@@ -190,11 +84,41 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
 
     stdout.flush()
 
+
 class TerminalIO(ABC):
     @abstractmethod
     def run(self, *,callback: Callable, features: TerminalFeatures = APPLICATION_MODE_FEATURES):
         ...
-    
+class RawInputParserState(Enum):
+    GROUND = auto()
+    PASTE = auto()
+
+class RawInputParser:
+    def __init__(self) -> None:
+        self.state = RawInputParserState.GROUND
+        self._paste_buffer: list[str] = []
+
+    def feed(self, raw_event: RawInputEvent) -> InputEvent | None:
+        match self.state:
+            case RawInputParserState.GROUND:
+                if raw_event.type == RawInputType.CHAR:
+                    return InputEvent(key_event=raw_event.data)
+                if raw_event.type == RawInputType.CSI and raw_event.data == "\x1b[200~": # bracketed paste start
+                    self.state = RawInputParserState.PASTE
+                    return
+                if parsed_key := SUQUENCE_TO_KEY.get(raw_event.data, None):
+                    return InputEvent(key_event=parsed_key)
+                return InputEvent(key_event="unknown")
+            case RawInputParserState.PASTE:
+                if raw_event.type == RawInputType.CHAR:
+                    self._paste_buffer.append(raw_event.data)
+                    return
+                if raw_event.type == RawInputType.CSI and raw_event.data == "\x1b[201~": # bracketed paste start
+                    data = f"[{"".join(self._paste_buffer)}]"
+                    self._paste_buffer.clear()
+                    self.state = RawInputParserState.GROUND
+                    return InputEvent(key_event=data)
+
 class WindowsTerminalIO(TerminalIO):
     def run(
         self,
@@ -203,7 +127,7 @@ class WindowsTerminalIO(TerminalIO):
         features: TerminalFeatures = APPLICATION_MODE_FEATURES
     ):
         # windows specific code
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.windll.kernel32 # type: ignore
         stdin_handle = kernel32.GetStdHandle(-10)
         old_mode = ctypes.c_uint()
         kernel32.GetConsoleMode(stdin_handle, ctypes.byref(old_mode))
@@ -242,12 +166,14 @@ class UnixTerminalIO(TerminalIO):
     def run(
         self,
         *,
-        callback: Callable,
+        callback: Callable[[InputEvent], Any],
         features: TerminalFeatures = APPLICATION_MODE_FEATURES,
     ):
         stdin = sys.stdin
         stdout = sys.stdout
-        parser = ByteParser()
+        byte_parser = ByteParser()
+        raw_parser = RawInputParser()
+
 
         # unix specific setup
         import termios
@@ -260,8 +186,10 @@ class UnixTerminalIO(TerminalIO):
             set_xterm_features(stdout, features)
             for _ in range(1000):
                 input = stdin.buffer.read(1)
-                if event := parser.feed(input[0]):
-                    callback(event)
+                if raw_event := byte_parser.feed(input[0]):
+                    # print(repr(raw_event.data), raw_event.type)
+                    if event := raw_parser.feed(raw_event):
+                        callback(event)
         finally:
             set_xterm_features(stdout, DEFAULT_FEATURES)
             # unix specific cleanup

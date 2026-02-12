@@ -10,4 +10,4 @@ features = TerminalFeatures(
     alternate_screen=True,
 )
 
-io.run(callback=lambda x: print(f"{x.type.name}{repr(x.data)}"), features=features)
+io.run(callback=lambda x: print(f"{x.key_event}"), features=features)
