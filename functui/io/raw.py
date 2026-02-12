@@ -236,7 +236,7 @@ class WindowsTerminalContext(TerminalContext):
 class WindowsTerminalIO(TerminalIO):
     def get_terminal_size(self) -> Rect:
         size = shutil.get_terminal_size()
-        return Rect(size.lines, size.columns)
+        return Rect(size.columns, size.lines)
     def print(self, ansi_data: str):
         self.stdout.write(ansi_data)
         self.stdout.flush()
