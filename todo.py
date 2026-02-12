@@ -8,7 +8,6 @@
 # simple grid layout
 #
 # change to using pipes
-import curses
 import sys
 from functui import *
 from functui.common import *
@@ -17,7 +16,6 @@ from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.rich_text import Justify, adaptive_text
 from functui.nav import DEFAULT_NAV_BINDINGS, h_resizable_split, interaction_area, v_scroll
-from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
 from functui.io.raw import create_terminal_io
 from functui.io.ansi import result_to_str
 from dataclasses import dataclass
