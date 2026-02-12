@@ -18,7 +18,7 @@ from functui.textfield import create_text_input_event, default_text_input_bindin
 from functui.rich_text import Justify, adaptive_text
 from functui.nav import DEFAULT_NAV_BINDINGS, h_resizable_split, interaction_area, v_scroll
 from functui.io.curses import wrapper, get_input_event, draw_result # type: ignore
-from functui.io.raw import create_terminal_io
+from functui.io.raw import terminal
 from functui.io.ansi import result_to_str
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -205,30 +205,18 @@ m = Model(
     tasks_ids=[],
     nav_tree=[],
 )
-io = create_terminal_io()
-res = Result()
-def main(event: InputEvent):
-    global res
-    if event.key_event == "ctrl+c":
-        return True
-    dimensions = io.get_terminal_size()#.resize(-1, -1)
-    # dimensions = Rect(40, 10)
-    update(event, res, m)
-    res = layout_to_result(view(m), dimensions)
-    io.print("\033[H" + result_to_str(res))
-io.run(callback=main)
 
-# def main(stdscr: curses.window):
-#     while True:
-#         y, x = stdscr.getmaxyx()
-#         res = layout_to_result(view(m), Rect(x-1, y-1))
-#         stdscr.erase()
-#         draw_result(res, stdscr)
-#         # stdscr.refresh()
-#
-#         # sys.stdout.write(result_to_str(res))
-#         key: InputEvent = get_input_event(stdscr)  # Get a single key press
-#         if key.key_event == 'ctrl+c':
-#             break
-#         update(key, res, m)
-# wrapper(main)
+with terminal() as term:
+    while True:
+        # render
+        res = layout_to_result(view(m), term.get_terminal_size())
+        term.print("\033[H" + result_to_str(res))
+
+        # wait for input
+        event = term.block_untill_input()
+
+        # update
+        if event.key_event == "ctrl+c":
+            break
+        update(event, res, m)
+
