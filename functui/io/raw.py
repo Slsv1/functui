@@ -46,8 +46,8 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import InputEvent, Coordinate, Rect, intersperse, Result
-from .ansi import result_to_str
+from ..classes import InputEvent, Coordinate, Rect, intersperse, Result, Screen, ResultCreatedWith
+from .ansi import result_to_str, _render_ansi
 import sys
 import ctypes
 import shutil
@@ -88,9 +88,9 @@ class RawInputParser:
                         elif button_nr in ("35", "34", "33", "32"): # mouse move
                             data = None
                         elif button_nr == "65":
-                            data = "mouse wheel up"
-                        elif button_nr == "64":
                             data = "mouse wheel down"
+                        elif button_nr == "64":
+                            data = "mouse wheel up"
 
                         return InputEvent(key_event=data, mouse_position_event=Coordinate(int(x)-1, int(y)-1))
                 if parsed_key := SUQUENCE_TO_KEY.get(raw_event.data, None):
@@ -173,6 +173,10 @@ class TerminalIO(ABC):
         self.stdin: TextIO = stdin
         self.stdout: TextIO = stdout
 
+        x, y = self.get_terminal_size()
+        self._last_terminal_size = Rect(x, y)
+        self._screen = Screen(x, y)
+
     @abstractmethod
     def get_terminal_size(self) -> Rect:
         """Get terminal size."""
@@ -187,7 +191,19 @@ class TerminalIO(ABC):
     def block_untill_input(self) -> InputEvent:
         ...
     def display_result(self, res: Result):
-        self.print("\x1b[H" + result_to_str(res) + "\033[39m\033[49m")
+
+        data = res.expect_data(ResultCreatedWith)
+        # don't recreate the screen unless forced to
+        if data.screen_size != self._last_terminal_size:
+            self._last_terminal_size = data.screen_size
+            self._screen = Screen(*self._last_terminal_size)
+        else:
+            self._screen.clear()
+
+        self._screen.apply_draw_commands(data.measure_text_func, res.get_commands()) # 20 %
+        out_str =  _render_ansi(self._screen) # 30 %
+        self.print("\x1b[H" + out_str + "\033[39m\033[49m")
+
 class TerminalContext(ABC):
     def __init__(
         self,

@@ -193,9 +193,6 @@ class SetState(ResultData):
     new_state: tuple[tuple[InteractibleID, Any], ...]
     def merge_children(self, child_data):
         return SetState((*self.new_state, *child_data.new_state))
-    @classmethod
-    def create_dummy(cls):
-        return cls(tuple())
 
 def set_state(*new_state: tuple[InteractibleID, Any]):
     return SetState(new_state)
@@ -205,9 +202,6 @@ def set_state(*new_state: tuple[InteractibleID, Any]):
 #     next_id: InteractibleID
 #     def merge_children(self, child_data):
 #         return child_data
-#     @classmethod
-#     def create_dummy(cls):
-#         return cls(EMPTY_INTERACTIBLE)
 
 class BoxData(NamedTuple):
     visible_box: Box
@@ -223,9 +217,6 @@ class InteractionAreas(ResultData):
     def merge_children(self, child_data):
         self.areas.update(child_data.areas)
         return self
-    @classmethod
-    def create_dummy(cls):
-        return cls({})
 
 @dataclass(frozen=True)
 class NavState:

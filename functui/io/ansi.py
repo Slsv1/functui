@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 
 from functools import cache
+@cache
 def default_color_to_fg_ansi(color: Color):
     if isinstance(color, int):
         if color == -1:
@@ -12,7 +13,7 @@ def default_color_to_fg_ansi(color: Color):
         return f"\033[38:5:{color}m"
     else:
         return f"\033[38;2;{color.r};{color.g};{color.b}m"
-
+@cache
 def default_color_to_bg_ansi(color: Color):
     if isinstance(color, int):
         if color == -1:
@@ -67,8 +68,9 @@ def _render_ansi(screen: Screen) -> str:
             if curr_bg != pixel.style.bg and pixel.style.bg is not None:
                 curr_bg = pixel.style.bg
                 line_str.append(default_color_to_bg_ansi(curr_bg))
-            line_str.append(pixel.char)
-            out.append("".join(line_str))
+            if len(line_str):
+                out.extend(line_str)
+            out.append(pixel.char)
         out.append("\n")
     return "".join(out[:-1]) # -1 to remove the \n on the end
 

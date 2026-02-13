@@ -169,32 +169,32 @@ SUQUENCE_TO_KEY: dict[str, str] = {
     # "\x1b[2;8~": (Keys.Escape, Keys.ControlShiftInsert),
     # "\x1b[5;8~": (Keys.Escape, Keys.ControlShiftPageDown),
     # "\x1b[6;8~": (Keys.Escape, Keys.ControlShiftPageDown),
-    # # --
-    # # Arrows.
-    # # (Normal cursor mode).
-    # "\x1b[A": Keys.Up,
-    # "\x1b[B": Keys.Down,
-    # "\x1b[C": Keys.Right,
-    # "\x1b[D": Keys.Left,
-    # "\x1b[H": Keys.Home,
-    # "\x1b[F": Keys.End,
-    # # Tmux sends following keystrokes when control+arrow is pressed, but for
-    # # Emacs ansi-term sends the same sequences for normal arrow keys. Consider
-    # # it a normal arrow press, because that's more important.
-    # # (Application cursor mode).
-    # "\x1bOA": Keys.Up,
-    # "\x1bOB": Keys.Down,
-    # "\x1bOC": Keys.Right,
-    # "\x1bOD": Keys.Left,
-    # "\x1bOF": Keys.End,
-    # "\x1bOH": Keys.Home,
-    # # Shift + arrows.
-    # "\x1b[1;2A": Keys.ShiftUp,
-    # "\x1b[1;2B": Keys.ShiftDown,
-    # "\x1b[1;2C": Keys.ShiftRight,
-    # "\x1b[1;2D": Keys.ShiftLeft,
-    # "\x1b[1;2F": Keys.ShiftEnd,
-    # "\x1b[1;2H": Keys.ShiftHome,
+    # --
+    # Arrows.
+    # (Normal cursor mode).
+    "\x1b[A": "up",
+    "\x1b[B": "down",
+    "\x1b[C": "right",
+    "\x1b[D": "left",
+    "\x1b[H": "home",
+    "\x1b[F": "end",
+    # Tmux sends following keystrokes when control+arrow is pressed, but for
+    # Emacs ansi-term sends the same sequences for normal arrow keys. Consider
+    # it a normal arrow press, because that's more important.
+    # (Application cursor mode).
+    "\x1bOA": "up",
+    "\x1bOB": "down",
+    "\x1bOC": "right",
+    "\x1bOD": "left",
+    "\x1bOF": "end",
+    "\x1bOH": "home",
+    # Shift + arrows.
+    "\x1b[1;2A": "shift+up",
+    "\x1b[1;2B": "shift+down",
+    "\x1b[1;2C": "shift+right",
+    "\x1b[1;2D": "shift+left",
+    "\x1b[1;2F": "shift+end",
+    "\x1b[1;2H": "shift+home",
     # # Meta + arrow keys. Several terminals handle this differently.
     # # The following sequences are for xterm and gnome-terminal.
     # #     (Iterm sends ESC followed by the normal arrow_up/down/left/right

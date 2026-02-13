@@ -678,11 +678,6 @@ def min_size_constant(return_value: Rect) -> MinSize:
     return lambda measure_text, available: return_value
 
 class ResultData(ABC):
-    @classmethod
-    @abstractmethod
-    def create_dummy(cls) -> Self:
-        ...
-
     @abstractmethod
     def merge_children(self, child_data: Self) -> Self:
         ...
@@ -701,12 +696,17 @@ class Result:
                 if k in self._data:
                     self._data[k] = self._data[k].merge_children(child_data)
                 else:
-                    self._data[k] = k.create_dummy().merge_children(child_data)
+                    self._data[k] = child_data
 
     def try_data[T: (ResultData)](self, key: type[T]) -> T | None:
         if key in self._data:
             return self._data[key]
         return None
+
+    def expect_data[T: (ResultData)](self, key: type[T]) -> T:
+        if key in self._data:
+            return self._data[key]
+        raise
 
     def set_data(self, data: ResultData):
         self._data[data.__class__] = data
@@ -855,9 +855,6 @@ class ResultCreatedWith(ResultData):
     screen_size: Rect
     def merge_children(self, child_data):
         raise RuntimeError("Result should not be merged with with this data")
-    @classmethod
-    def create_dummy(cls):
-        raise RuntimeError("Result should not be merged with with this data")
 
 def layout_to_result(layout: Layout, dimensions: Rect, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
     """Converts a layout to a result that can be converted to desired output type.
@@ -901,6 +898,11 @@ class Screen:
         #     # current_row = tuple(i for i in current_row if i.char_type != CharType.WIDE_TAIL)
         #     out.append(current_row)
         # return out
+    def clear(self):
+        p = Pixel()
+        for y in range(self.height):
+            for x in range(self.width):
+                self._data[y][x] = p
 
     def apply_draw_commands(self, measure_text_func: Callable[[str], int],  draw_commands: Iterable[DrawCommand]):
         for command in draw_commands:

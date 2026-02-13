@@ -17,9 +17,6 @@ class ResizableSplitResultData(ResultData):
     id_to_data: dict[int, tuple[int,int, Box]]
     def merge_children(self, child_data):
         return ResizableSplitResultData({**self.id_to_data, **child_data.id_to_width})
-    @classmethod
-    def create_dummy(cls):
-        return ResizableSplitResultData({})
 
 def _v_resizable_split_render(
         left: Layout,

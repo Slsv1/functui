@@ -50,22 +50,24 @@ class ByteParser:
                 elif (byte >> 4) == 0b0000_1110: # utf, 2 bytes
                     self.buffer.append(byte)
                     self._change_state(ParserState.UTF_2_BYTES_LEFT)
+                    return
                 elif (byte >> 3) == 0b0001_1110: # utf, 2 bytes
                     self.buffer.append(byte)
                     self._change_state(ParserState.UTF_3_BYTES_LEFT)
+                    return
 
                 # ascii printable character
                 # no need to clear buffer because nothing was put in.
                 return RawInputEvent(chr(byte), RawInputType.CHAR)
             case ParserState.UTF_1_BYTE_LEFT:
-                if (byte >> 6) == 0b0000_0010:
-                    self.buffer.append(byte)
-                    char = bytearray(self.buffer).decode()
-                    self._change_state(ParserState.GROUND)
-                    return RawInputEvent(
-                        char,
-                        RawInputType.CHAR,
-                    )
+                # if (byte >> 6) == 0b0000_0010:
+                self.buffer.append(byte)
+                char = bytearray(self.buffer).decode()
+                self._change_state(ParserState.GROUND)
+                return RawInputEvent(
+                    char,
+                    RawInputType.CHAR,
+                )
                 self._change_state(ParserState.GROUND)
             case ParserState.UTF_2_BYTES_LEFT:
                 self.buffer.append(byte)
