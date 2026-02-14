@@ -254,23 +254,39 @@ def _get_all_queue_items[T](queue: SimpleQueue[T]) -> list[T]:
     return out
 
 
-class WindowsTerminalContext(TerminalContext):
-    def __enter__(self):
-        os.system("") # somehow enables ansi colors?
-        # windows specific setup
-        kernel32 = ctypes.windll.kernel32 # type: ignore
-        stdin_handle = kernel32.GetStdHandle(-10)
-        old_mode = ctypes.c_uint()
-        self.old_mode = old_mode
-        self.stdin_handle = stdin_handle
-        kernel32.GetConsoleMode(stdin_handle, ctypes.byref(old_mode))
 
-        # Disable:
-        # ENABLE_LINE_INPUT (0x0002)
-        # ENABLE_ECHO_INPUT (0x0004)
-        # ENABLE_PROCESSED_INPUT (0x0001)
-        new_mode = (old_mode.value & ~(0x0002 | 0x0004 | 0x0001)) | 0x0200 # ENABLE_VIRTUAL_TERMINAL_INPUT (for xterm compatability)
-        kernel32.SetConsoleMode(stdin_handle, new_mode)
+
+class WindowsTerminalContext(TerminalContext):
+    @staticmethod
+    def _set_console_mode(console: TextIO, mode: int) -> bool:
+        import msvcrt
+        filehandle = msvcrt.get_osfhandle(console.fileno())  # type: ignore
+        success = ctypes.windll.kernel32.SetConsoleMode(filehandle, mode) # type: ignore
+        return success
+
+    @staticmethod
+    def _get_console_mode(console: TextIO) -> int:
+        filehandle = msvcrt.get_osfhandle(console.fileno())  # type: ignore
+        mode = ctypes.c_uint()
+        ctypes.windll.kerner32.GetConsoleMode(filehandle, ctypes.byref(mode)) # type: ignore
+        return mode.value
+
+    def __enter__(self):
+        # windows specific setup
+        # ENABLE_LINE_INPUT = 0x0002
+        # ENABLE_ECHO_INPUT = 0x0002
+        # ENABLE_PROCESSED_INPUT = 0x0001
+        ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0200
+        old_console_mode_in = self._get_console_mode(self.stdin)
+        old_console_mode_out = self._get_console_mode(self.stdout)
+
+        def restore():
+            self._set_console_mode(self.stdin, old_console_mode_in)
+            self._set_console_mode(self.stdout, old_console_mode_out)
+        self.restore = restore
+
+        self._set_console_mode(self.stdin, ENABLE_VIRTUAL_TERMINAL_INPUT)
+        self._set_console_mode(self.stdout, ENABLE_VIRTUAL_TERMINAL_INPUT)
         # end
 
         event_queue: SimpleQueue[InputEvent] = SimpleQueue()
@@ -279,11 +295,12 @@ class WindowsTerminalContext(TerminalContext):
 
         set_xterm_features(self.stdout, self.features)
         return WindowsTerminalIO(event_queue, self.stdout)
+
     def __exit__(self, value, exception, traceback):
         set_xterm_features(self.stdout, DEFAULT_FEATURES)
+
         # windows specific cleanup
-        kernel32 = ctypes.windll.kernel32 # type: ignore
-        kernel32.SetConsoleMode(self.stdin_handle, self.old_mode)
+        self.restore()
         # end
 
 
