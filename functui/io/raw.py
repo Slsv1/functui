@@ -266,6 +266,7 @@ class WindowsTerminalContext(TerminalContext):
 
     @staticmethod
     def _get_console_mode(console: TextIO) -> int:
+        import msvcrt
         filehandle = msvcrt.get_osfhandle(console.fileno())  # type: ignore
         mode = ctypes.c_uint()
         ctypes.windll.kerner32.GetConsoleMode(filehandle, ctypes.byref(mode)) # type: ignore
