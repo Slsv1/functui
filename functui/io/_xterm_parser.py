@@ -122,3 +122,58 @@ class ByteParser:
         if new_state == ParserState.GROUND:
             self.buffer.clear()
         self.state = new_state
+#
+# Raw Input Parser
+#
+class RawInputParserState(Enum):
+    GROUND = auto()
+    PASTE = auto()
+
+class RawInputParser:
+    def __init__(self) -> None:
+        self.state = RawInputParserState.GROUND
+        self._paste_buffer: list[str] = []
+
+    def feed(self, raw_event: RawInputEvent) -> InputEvent | None:
+        match self.state:
+            case RawInputParserState.GROUND:
+                if raw_event.type == RawInputType.CHAR:
+                    return InputEvent(key_event=raw_event.data)
+                if raw_event.type == RawInputType.CSI:
+                    if raw_event.data == "\x1b[200~": # bracketed paste start
+                        self.state = RawInputParserState.PASTE
+                        return
+                    if raw_event.data.startswith("\x1b[<"): # mouse
+                        first_sep_at = raw_event.data.find(";")
+                        button_nr = raw_event.data[3:first_sep_at]
+                        released = raw_event.data.endswith("m")
+                        released_suffix = " released" if released else ""
+                        prefix, x, y_and_suffix = raw_event.data.split(";", 3)
+                        y = y_and_suffix[:-1]
+                        data = "unknown"
+                        if button_nr == "0":
+                            data = "left mouse" + released_suffix
+                        elif button_nr == "1":
+                            data = "middle mouse" + released_suffix
+                        elif button_nr == "2":
+                            data = "right mouse" + released_suffix
+                        elif button_nr in ("35", "34", "33", "32"): # mouse move
+                            data = None
+                        elif button_nr == "65":
+                            data = "mouse wheel down"
+                        elif button_nr == "64":
+                            data = "mouse wheel up"
+
+                        return InputEvent(key_event=data, mouse_position_event=Coordinate(int(x)-1, int(y)-1))
+                if parsed_key := SUQUENCE_TO_KEY.get(raw_event.data, None):
+                    return InputEvent(key_event=parsed_key)
+                return InputEvent(key_event="unknown")
+            case RawInputParserState.PASTE:
+                if raw_event.type == RawInputType.CHAR:
+                    self._paste_buffer.append(raw_event.data)
+                    return
+                if raw_event.type == RawInputType.CSI and raw_event.data == "\x1b[201~": # bracketed paste start
+                    data = f"[{"".join(self._paste_buffer)}]"
+                    self._paste_buffer.clear()
+                    self.state = RawInputParserState.GROUND
+                    return InputEvent(key_event=data)

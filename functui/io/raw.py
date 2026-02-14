@@ -48,6 +48,9 @@ from typing import Any, Callable, TextIO
 from dataclasses import dataclass
 from ..classes import InputEvent, Coordinate, Rect, intersperse, Result, Screen, ResultCreatedWith
 from .ansi import result_to_str, _render_ansi
+
+from queue import SimpleQueue, Empty
+import threading
 import sys
 import ctypes
 import shutil
@@ -167,10 +170,10 @@ class TerminalIO(ABC):
     """
     def __init__(
         self,
-        stdin: TextIO,
+        event_queue: SimpleQueue[InputEvent],
         stdout: TextIO
     ) -> None:
-        self.stdin: TextIO = stdin
+        self.event_queue = event_queue
         self.stdout: TextIO = stdout
 
         x, y = self.get_terminal_size()
@@ -187,9 +190,17 @@ class TerminalIO(ABC):
 
         see also:
             Ways of generating the ``ansi_data`` string can be found in :obj:`functui.io.ansi`."""
-    @abstractmethod
-    def block_untill_input(self) -> InputEvent:
-        ...
+
+    def block_untill_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
+
+        # if rendering is taking time and we cant handle every event
+        # if self.event_queue.qsize() > 1 and ignore_excess_mouse:
+        while self.event_queue.qsize() > 1 and ignore_excess_mouse:
+            event = self.event_queue.get()
+            if event.key_event is not None:
+                return event
+
+        return self.event_queue.get()
     def display_result(self, res: Result):
 
         data = res.expect_data(ResultCreatedWith)
@@ -221,6 +232,27 @@ class TerminalContext(ABC):
     def __exit__(self, value, exception, traceback):
         ...
 
+def _create_reader_thread(stdin: TextIO, queue: SimpleQueue[InputEvent]):
+    def _reader_thread():
+        byte_parser = ByteParser()
+        raw_parser = RawInputParser()
+        while True:
+            input = stdin.buffer.read(1)
+            if raw_event := byte_parser.feed(input[0]):
+                # print(repr(raw_event.data), raw_event.type)
+                if event := raw_parser.feed(raw_event):
+                    queue.put(event)
+    return threading.Thread(target=_reader_thread, daemon=True)
+
+def _get_all_queue_items[T](queue: SimpleQueue[T]) -> list[T]:
+    out = []
+    try:
+        item = queue.get_nowait()
+        out.append(item)
+    except Empty:
+        pass
+    return out
+
 
 class WindowsTerminalContext(TerminalContext):
     def __enter__(self):
@@ -241,8 +273,12 @@ class WindowsTerminalContext(TerminalContext):
         kernel32.SetConsoleMode(stdin_handle, new_mode)
         # end
 
+        event_queue: SimpleQueue[InputEvent] = SimpleQueue()
+        self.reader_thread = _create_reader_thread(self.stdin, event_queue)
+        self.reader_thread.start()
+
         set_xterm_features(self.stdout, self.features)
-        return WindowsTerminalIO(self.stdin, self.stdout)
+        return WindowsTerminalIO(event_queue, self.stdout)
     def __exit__(self, value, exception, traceback):
         set_xterm_features(self.stdout, DEFAULT_FEATURES)
         # windows specific cleanup
@@ -261,17 +297,6 @@ class WindowsTerminalIO(TerminalIO):
     def print(self, ansi_data: str):
         self.stdout.write(ansi_data)
         self.stdout.flush()
-    def block_untill_input(
-        self,
-    ) -> InputEvent:
-        byte_parser = ByteParser()
-        raw_parser = RawInputParser()
-        while True:
-            input = self.stdin.buffer.read(1)
-            if raw_event := byte_parser.feed(input[0]):
-                # print(repr(raw_event.data), raw_event.type)
-                if event := raw_parser.feed(raw_event):
-                    return event
 
 class UnixTerminalContext(TerminalContext):
     def __enter__(self):
@@ -282,9 +307,12 @@ class UnixTerminalContext(TerminalContext):
         self.old_attrs = termios.tcgetattr(self.fd)
         tty.setraw(self.fd)
         # end
-
+        event_queue: SimpleQueue[InputEvent] = SimpleQueue()
+        self.reader_thread = _create_reader_thread(self.stdin, event_queue)
+        self.reader_thread.start()
         set_xterm_features(self.stdout, self.features)
-        return UnixTerminalIO(self.stdin, self.stdout)
+        return UnixTerminalIO(event_queue, self.stdout)
+
     def __exit__(self, value, exception, traceback):
         set_xterm_features(self.stdout, DEFAULT_FEATURES)
         # unix specific cleanup
@@ -302,17 +330,9 @@ class UnixTerminalIO(TerminalIO):
         ansi_data = "".join(intersperse(ansi_data.split("\n"), sep="\n\r"))
         self.stdout.write(ansi_data)
         self.stdout.flush()
-    def block_untill_input(
-        self,
-    ) -> InputEvent:
-        byte_parser = ByteParser()
-        raw_parser = RawInputParser()
-        while True:
-            input = self.stdin.buffer.read(1)
-            if raw_event := byte_parser.feed(input[0]):
-                # print(repr(raw_event.data), raw_event.type)
-                if event := raw_parser.feed(raw_event):
-                    return event
+
+
+
 
 
 def terminal(features: TerminalFeatures = APPLICATION_MODE_FEATURES):
