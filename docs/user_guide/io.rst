@@ -1,7 +1,11 @@
-IO
-==
+I/O
+===
 
 Functui has multiple modules of doing input and output.
+
+.. seealso::
+
+   :doc:`interactivity`
 
 .. seealso::
     

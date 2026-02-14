@@ -26,6 +26,8 @@ __all__ = [
 
     # size manipulations
     'center',
+    'center_x',
+    'center_y',
     'clamp',
     'clamp_height',
     'clamp_width',
@@ -708,7 +710,7 @@ def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
     return res
 
 def center(child: Layout):
-    """Shrink and center child layout in remaining space"""
+    """Shrink and center child layout in remaining space."""
     return Layout(
         func=center,
         min_size=child.min_size,
@@ -724,6 +726,41 @@ def _center_render(child: Layout, frame: Frame, box: Box):
         box.resize(
             top=-empty_space_y[0],
             bottom=-empty_space_y[1],
+            left=-empty_space_x[0],
+            right=-empty_space_x[1]
+        )
+    )
+def center_y(child: Layout):
+    """Shrink and center child layout along the y axis."""
+    return Layout(
+        func=center_y,
+        min_size=child.min_size,
+        render=partial(_center_y_render, child)
+    )
+def _center_y_render(child: Layout, frame: Frame, box: Box):
+    min_size = child.min_size(frame.measure_text, box.rect)
+    empty_space_y = even_divide(box.height - min_size.height, 2)
+    return child.render(
+        frame,
+        box.resize(
+            top=-empty_space_y[0],
+            bottom=-empty_space_y[1],
+        )
+    )
+def center_x(child: Layout):
+    """Shrink and center child layout along the x axis."""
+    return Layout(
+        func=center_x,
+        min_size=child.min_size,
+        render=partial(_center_x_render, child)
+    )
+
+def _center_x_render(child: Layout, frame: Frame, box: Box):
+    min_size = child.min_size(frame.measure_text, box.rect)
+    empty_space_x = even_divide(box.width - min_size.width, 2)
+    return child.render(
+        frame,
+        box.resize(
             left=-empty_space_x[0],
             right=-empty_space_x[1]
         )

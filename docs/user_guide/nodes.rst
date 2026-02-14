@@ -70,12 +70,14 @@ Sizing and Constraints
 .. autosummary::
    :signatures: none
 
-   functui.common.center
-   functui.common.custom_padding
-   functui.common.padding
    functui.common.shrink
    functui.common.shrink_x
    functui.common.shrink_y
+   functui.common.center
+   functui.common.center_x
+   functui.common.center_y
+   functui.common.custom_padding
+   functui.common.padding
    functui.common.clamp_width
    functui.common.clamp_height
    functui.common.min_width

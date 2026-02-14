@@ -171,7 +171,7 @@ class TerminalIO(ABC):
     def __init__(
         self,
         event_queue: SimpleQueue[InputEvent],
-        stdout: TextIO
+        stdout: TextIO,
     ) -> None:
         self.event_queue = event_queue
         self.stdout: TextIO = stdout
@@ -239,7 +239,7 @@ def _create_reader_thread(stdin: TextIO, queue: SimpleQueue[InputEvent]):
         while True:
             input = stdin.buffer.read(1)
             if raw_event := byte_parser.feed(input[0]):
-                # print(repr(raw_event.data), raw_event.type)
+                # print(repr(raw_event.data), raw_event.type.name)
                 if event := raw_parser.feed(raw_event):
                     queue.put(event)
     return threading.Thread(target=_reader_thread, daemon=True)

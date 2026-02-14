@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 
 from functools import cache
+
 @cache
 def default_color_to_fg_ansi(color: Color):
     if isinstance(color, int):
