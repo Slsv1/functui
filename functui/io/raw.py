@@ -257,29 +257,31 @@ def _get_all_queue_items[T](queue: SimpleQueue[T]) -> list[T]:
 
 
 class WindowsTerminalContext(TerminalContext):
-    @staticmethod
-    def _set_console_mode(console: TextIO, mode: int) -> bool:
+    @classmethod
+    def _set_console_mode(cls, console: TextIO, mode: int) -> bool:
         import msvcrt
+        kernel32 = ctypes.windll.kernel32
         filehandle = msvcrt.get_osfhandle(console.fileno())  # type: ignore
-        kernel32 = ctypes.WinDLL("kernel32")
         success = kernel32.SetConsoleMode(filehandle, mode) # type: ignore
         return success
 
-    @staticmethod
-    def _get_console_mode(console: TextIO) -> int:
+    @classmethod
+    def _get_console_mode(cls, console: TextIO) -> int:
         import msvcrt
+        kernel32 = ctypes.windll.kernel32
         filehandle = msvcrt.get_osfhandle(console.fileno())
         mode = ctypes.c_uint()
-        kernel32 = ctypes.WinDLL("kernel32")
         kernel32.GetConsoleMode(filehandle, ctypes.byref(mode))
         return mode.value
 
     def __enter__(self):
+        os.system("")
         # windows specific setup
-        # ENABLE_LINE_INPUT = 0x0002
-        # ENABLE_ECHO_INPUT = 0x0002
-        # ENABLE_PROCESSED_INPUT = 0x0001
+        ENABLE_LINE_INPUT = 0x0002
+        ENABLE_ECHO_INPUT = 0x0004
+        ENABLE_PROCESSED_INPUT = 0x0001
         ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0200
+        # output modes
         ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
         old_console_mode_in = self._get_console_mode(self.stdin)
         old_console_mode_out = self._get_console_mode(self.stdout)
@@ -289,9 +291,8 @@ class WindowsTerminalContext(TerminalContext):
             self._set_console_mode(self.stdout, old_console_mode_out)
         self.restore = restore
 
-        self._set_console_mode(self.stdin, old_console_mode_in | ENABLE_VIRTUAL_TERMINAL_INPUT)
+        self._set_console_mode(self.stdin, (old_console_mode_in | ENABLE_VIRTUAL_TERMINAL_INPUT) & ~ (ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT))
         self._set_console_mode(self.stdout, old_console_mode_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-            # self._set_console_mode(self.stdout, old_console_mode_out)
         # end
 
         event_queue: SimpleQueue[InputEvent] = SimpleQueue()
