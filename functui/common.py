@@ -99,10 +99,10 @@ def combine(*wrapper_nodes: WrapperNode) -> WrapperNode:
         >>> text("hi") | border | center == text("hi") | border_and_center
         True
     """
-    def out(child: Layout):
+    def _combine(child: Layout):
         # wrapper_nodesr = reversed(wrapper_nodes)
         return reduce(lambda a, b: b(a), wrapper_nodes, child)
-    return out
+    return _combine
 
 def nothing():
     """A dummy node for situations where a node is required but not needed."""
@@ -732,14 +732,14 @@ def _center_render(child: Layout, frame: Frame, box: Box):
 #
 def bg_char(char: str) -> WrapperNode:
     """Fill background with char"""
-    def out(child: Layout):
+    def _bg_char(child: Layout):
         return Layout(
             func=bg_char,
             min_size=child.min_size,
             render=partial(_bg_char_render, char, child)
         )
 
-    return out
+    return _bg_char
 def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
     res = Result()
     res.draw_box(frame, char, box)
@@ -758,12 +758,12 @@ def border_with_title(title: Layout, border_node=border):
     Args:
         title: Layout to render on top.
         border_node: WrapperNode to put around child layout."""
-    def out(child: Layout):
+    def _border_with_title(child: Layout):
         return static_box([
             border_node(child),
             shrink_y(custom_padding(0, 0, 1, 1)(title)),
         ])
-    return out
+    return _border_with_title
 
 
 #
@@ -771,13 +771,13 @@ def border_with_title(title: Layout, border_node=border):
 #
 
 def _shrink_custom(x: bool, y: bool):
-    def out(child: Layout):
+    def _curried_shrink_custom(child: Layout):
         return Layout(
             func=_shrink_custom,
             min_size=child.min_size,
             render=partial(_shrink_render, x, y, child),
         )
-    return out
+    return _curried_shrink_custom
 
 def _shrink_render(x: bool, y: bool, child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
@@ -804,13 +804,13 @@ def custom_padding(
     right: int = 0,
 ) -> WrapperNode:
     """Add padding / Shrink a layout by differences"""
-    def out(child: Layout):
+    def _custom_padding(child: Layout):
         return Layout(
             func=custom_padding,
             min_size=min_size_expand(child.min_size, left+right, top+bottom),
             render=partial(_custom_padding_render, top, bottom, left, right ,child),
         )
-    return out
+    return _custom_padding
 
 def _custom_padding_render(top, bottom, left, right, child, frame: Frame, box: Box):
     return child.render(frame, box.resize(-top, -bottom, -left, -right))
@@ -827,13 +827,13 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
     Positive values move down and right.
     Negative values of move up and left."""
     coord = Coordinate(x, y)
-    def out(child: Layout):
+    def _offset(child: Layout):
         return Layout(
             func=offset,
             min_size=min_size_expand(child.min_size, x, y),
             render=partial(_offset_render, coord, child),
         )
-    return out
+    return _offset
 
 
 @lru_cache(LRU_MAX_SIZE)
@@ -843,25 +843,25 @@ def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
 
 def clamp_width(width: int):
     """Limit width of a child layout."""
-    def out(child: Layout):
+    def _clamp_width(child: Layout):
         return Layout(
             func=clamp_width,
             min_size=lambda mtf, r: child.min_size(mtf, r.clamp_width(width)).clamp_width(width),
             render=partial(_clamp_width_render, width, child),
         )
-    return out
+    return _clamp_width
 def _clamp_width_render(width, child, frame, box):
     return child.render(frame, box.using_rect(box.rect.clamp_width(width)))
 
 def clamp_height(height: int):
     """Limit height of a child layout."""
-    def out(child: Layout):
+    def _clamp_height(child: Layout):
         return Layout(
             func=clamp_height,
             min_size=lambda mtf, r: child.min_size(mtf, r.clamp_height(height)).clamp_height(height),
             render=partial(_clamp_height_render, height, child)
         )
-    return out
+    return _clamp_height
 def _clamp_height_render(height, child, frame, box):
     return child.render(frame, box.using_rect(box.rect.clamp_height(height)))
 

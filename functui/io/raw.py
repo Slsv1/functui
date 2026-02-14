@@ -116,7 +116,7 @@ class TerminalFeatures:
     # in_band_window_resize: bool = False
 
 DEFAULT_FEATURES = TerminalFeatures()
-APPLICATION_MODE_FEATURES = TerminalFeatures(True, True, True, True)
+APPLICATION_MODE_FEATURES = TerminalFeatures(True, True, True, True, True)
 
 
 
@@ -146,9 +146,9 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
     else:
         stdout.write("\x1b[?7l")
     if features.hidden_cursor:
-        stdout.write("\x1b[?25h")
-    else:
         stdout.write("\x1b[?25l")
+    else:
+        stdout.write("\x1b[?25h")
 
     # if features.in_band_window_resize:
     #     stdout.write("\x1b[?2048h")

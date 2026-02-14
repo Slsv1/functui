@@ -739,8 +739,7 @@ class Result:
         at: Coordinate = Coordinate(0, 0)
     ):
         bounds = frame.view_box
-        if frame.view_box.width == 0 or frame.view_box.height == 0:
-            return
+
         #       content
         #         #---#
         #         |   |
