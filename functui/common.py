@@ -1,3 +1,4 @@
+"""Usefull nodes."""
 from functools import reduce, partial, lru_cache
 from enum import Enum, auto, IntFlag
 from types import MappingProxyType

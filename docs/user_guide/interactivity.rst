@@ -6,7 +6,7 @@ This page will teach you how to get user input and make your application react t
 Picking an I/O Method
 ~~~~~~~~~~~~~~~~~~~~~
 To enable interactivity, you need some way to get input from the user.
-Functui has build in support for multiple ways of getting input,
+Functui has built in support for multiple ways of getting input,
 but if you don't have any strong preferences it is strongly recommended to use the :obj:`functui.io.raw` module which is the in-house solution for cross-platform input and output. The rest of this page will assume that you are using that module, but even if you are not, there are still much to take away from this page.
 
 .. seealso::
