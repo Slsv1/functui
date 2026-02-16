@@ -35,8 +35,25 @@ As you may see the update method has the obvious ``mouse_positon`` argument, but
 ``action``
 ~~~~~~~~~~
 
-This is essantially just the user input, but converted to a :obj:`~functui.nav.NavAction` value. You can convert user input stored in an :obj:`~functui.classes.InputEvent` to an ``NavAction`` by using the :obj:`~functui.nav.DEFAULT_NAV_BINDINGS` dictionary. All possible actions are listed below.
+This is essantially just the user input, but converted to a :obj:`~functui.nav.NavAction` value.
+You can convert user input stored in an :obj:`~functui.classes.InputEvent` to an ``NavAction`` by using the :obj:`~functui.nav.DEFAULT_NAV_BINDINGS` dictionary.
 
+.. code-block:: python
+
+    # which can be done like this
+    from functui import InputEvent
+    from functui.nav import DEFAULT_NAV_BINDINGS, NavState
+
+    nav = NavState()
+
+    # usually we get the input event form some io function,
+    # but here we just create one for the example's sake
+    event = InputEvent()
+
+    nav = nav.update(action=DEFAULT_NAV_BINDINGS.get(event.key_event, None))
+
+
+Just to get an idea how an Acion enum can look like, all possible NavActions are listed below.
 
 .. autoclass:: functui.nav.NavAction
    :no-index:

@@ -44,10 +44,41 @@ This approach may seem wastefull, which it may be to some extent, but the pros o
 
 But most importantly, immidiate mode ui simplifies your code, by *a lot*! Since your layout gets redrawn every frame, it becomes a direct representation of your program's state. No need to worry about updating the ui when you change some variable, your ui will reflect the variable's state automatically! And with immidiate mode ui, there is no need to use callbacks or implement reactive programming patterns since there just isn't anything to react to.
 
+Applying the Immidiate Mode Approach
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now when we know that we will be redrawing the ui every frame, structuring the application becomes easy. We can put the application rendering code into a while loop and just re-render everytime we get some input.
+Also we can use :func:`~functui.io.raw.TerminalIO.get_terminal_size` method to make the layout respond to terminal size and use :func:`~functui.io.raw.TerminalIO.display_to_result` to render the layout.
+
+.. code-block:: python
+
+    with terminal() as term:
+        while True:
+            layout = ...
+
+            # render
+            res = layout_to_result(layout, term.get_terminal_size())
+            term.display_result(res)
+
+            # wait for input
+            event = term.block_untill_input()
+
+            # update (do something with input)
+            if event.key_event == "ctrl+c":
+                break # exit program
+    
+.. tip::
+    As you may have noticed, we used :func:`~functui.classes.layout_to_result` instead of :func:`~functui.io.ansi.layout_to_str` which was taught in the introduction.
+    The former function returns a :obj:`~functui.classes.Result` object which contains all the draw commands required to render the layout.
+    This intermidiate step (converting to result and then rendering instead of just rendering) is very usefull because the ``Result``
+    object can stora additional data apart from draw commands. For example, the size and position of nodes, which is needed to implement mouse hover and such.
+            
+
 The Elm Architecture
 ~~~~~~~~~~~~~~~~~~~~
 
-Now when we know that we will be redrawing the ui every frame, structuring the application becomes simple. A common software architecture for immidate mode ui is "the elm architecture" which separates your program into three parts which all have a unique responsibility.
+The above example turns out to be very similar to "the elm architecture" which is a common software architecture pattern for immidiate mode ui's, and is the recommened way to structure your functui applications. 
+The elm architectures separates your program into three parts which all have a unique responsibility.
 
 - **The Model** A class that contains all of your programs mutable state. It is recommended to implements it with the :obj:`~dataclasses.dataclass` decorator to avoid writing boilerplate code.
 
@@ -80,7 +111,8 @@ Now when we know that we will be redrawing the ui every frame, structuring the a
        if event.key_event == "ctrl+k"
            ... # do something
 
-Then the update and view functions are called every frame to run your applications. Normally calling those function is the library's responsibility, but with elm architecture being so simple, funtio leave connecting everything up to you.
+Then the update and view functions are called every frame to run your application.
+Putting it all toghether looks something like this:
  
 
 .. code-block:: python
@@ -111,5 +143,9 @@ Then the update and view functions are called every frame to run your applicatio
             update(event, res, m)
 
 
+Mouse and Keyboard Navigation?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now that you know how to get user input and how to structure you're code, the time has come to work with actuall widgets like buttons, scrollable lists etc. Those are enabled by the :obj:`functui.nav` module discussed in the next document.
 
 

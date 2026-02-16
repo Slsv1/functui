@@ -51,9 +51,8 @@ functui documentation
    user_guide/introduction
    user_guide/styling
    user_guide/interactivity
-   user_guide/elm
-   user_guide/io
    user_guide/nav
+   user_guide/io
 
 
 .. toctree::
