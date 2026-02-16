@@ -4,10 +4,6 @@ I/O Overview
 Functui has multiple modules of doing input and output.
 
 .. seealso::
-
-   :doc:`interactivity`
-
-.. seealso::
     
     Generaly input functions will return an :obj:`~functui.classes.InputEvent` which stores the input in a special string format. That format is specified in :ref:`keycode-specification`.
 
@@ -29,7 +25,9 @@ Output - ✅
 Displays the layout with ansi escape codes.
 
 .. seealso::
-    :func:`~functui.io.raw.terminal` and :ref:`examples_elm`
+    :func:`~functui.io.raw.terminal` and :ref:`examples_elm`.
+
+    Also :doc:`interactivity` has a detailed guide on how to use this module.
 
 
 ----
@@ -54,7 +52,7 @@ Renders a layout as a string with ansi escape codes which are supported by virtu
 Quirks
 ~~~~~~
 
-- Output performance is not very good right now.
+- Output performance is not the best..
 
 
 .. seealso::

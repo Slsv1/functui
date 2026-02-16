@@ -1,11 +1,13 @@
 Interactivity
 =============
 
-This page will teach you how to make your application react to user input.
+This page will teach you how to get user input and make your application react to it.
 
 Picking an I/O Method
 ~~~~~~~~~~~~~~~~~~~~~
-To enable interactivity, you need some way to get input from the user. Functui has build in support for multiple ways of gatting input, but if you don't have any strong preferences it is strongly recommended to use the :obj:`functui.io.raw` module which is the in-house solution for cross-platform input and output. The rest of this page will assume that you are using that module, but even if you are not, there are still much to take away from this page.
+To enable interactivity, you need some way to get input from the user.
+Functui has build in support for multiple ways of getting input,
+but if you don't have any strong preferences it is strongly recommended to use the :obj:`functui.io.raw` module which is the in-house solution for cross-platform input and output. The rest of this page will assume that you are using that module, but even if you are not, there are still much to take away from this page.
 
 .. seealso::
     You can get an overview over all I/O methods in the :doc:`io` document.
@@ -43,6 +45,8 @@ When it comes to rendering an interactive application, functui takes the most st
 This approach may seem wastefull, which it may be to some extent, but the pros of this approach vastly outweigh the cons. Firstly a lot of ui's require redrawing everything every frame anyway, think of the system profiler htop. Secondly, even if you don't redraw every frame, functui's node's rendering functions are cached, meaning given the same layout structure, the rendering function won't need to calculate everything again.
 
 But most importantly, immidiate mode ui simplifies your code, by *a lot*! Since your layout gets redrawn every frame, it becomes a direct representation of your program's state. No need to worry about updating the ui when you change some variable, your ui will reflect the variable's state automatically! And with immidiate mode ui, there is no need to use callbacks or implement reactive programming patterns since there just isn't anything to react to.
+
+.. _apply_immidiate_mode:
 
 Applying the Immidiate Mode Approach
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,6 +146,10 @@ Putting it all toghether looks something like this:
                 break # exit program
             update(event, res, m)
 
+
+.. tip::
+
+    The elm architecture is really similar to the example under the :ref:`apply_immidiate_mode` section. It is encouraged to look for the differences between those two examples.
 
 Mouse and Keyboard Navigation?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
