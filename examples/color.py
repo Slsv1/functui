@@ -3,7 +3,6 @@ from functui.classes import *
 from functui.rich_text import adaptive_text, span
 from functui import Rect, layout_to_result, result_to_str, Color4
 from itertools import batched
-import curses
 
 def cell_white_text(color8: int):
     return text(f"{color8: >3}") | padding | bg_fill | bg(color8) | fg(Color4.BRIGHT_WHITE)

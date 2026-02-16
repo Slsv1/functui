@@ -11,7 +11,7 @@ A program rendering a simple layout.
 .. testcode::
 
     from functui import Rect, layout_to_str
-    from functui.common import *
+    from functui.common import *  # for border, center, text and bg_char
 
     layout = text("Bonjour") | border | center | bg_char(".")
     output = layout_to_str(layout, Rect(width=11, height=7))

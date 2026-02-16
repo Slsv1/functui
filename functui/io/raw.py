@@ -165,8 +165,9 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
 
 class TerminalIO(ABC):
     """Terminal input output object that has both windows and unix implemintions.
-    see also:
-        :func:`terminal`
+
+    See Also:
+        You are unlikely to create this object yourself, use :func:`terminal` instead.
     """
     def __init__(
         self,
@@ -188,10 +189,19 @@ class TerminalIO(ABC):
     def print(self, ansi_data: str):
         """Write a string with ansi codes to output and flush.
 
-        see also:
-            Ways of generating the ``ansi_data`` string can be found in :obj:`functui.io.ansi`."""
+        See Also:
+            For performance reasons, it is recommended to use
+            :func:`TerminalIO.display_result` instead."""
+
 
     def block_untill_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
+        """Wait untill user causes an input event and then return it.
+        
+        Args:
+            ignore_excess_mouse:
+                Sometimes ui does not render in time due to an event being
+                emmited for every cell a mouse moves over. In this case,
+                skip over mouse events that we don't have the time to render."""
 
         # if rendering is taking time and we cant handle every event
         # if self.event_queue.qsize() > 1 and ignore_excess_mouse:
@@ -202,6 +212,9 @@ class TerminalIO(ABC):
 
         return self.event_queue.get()
     def display_result(self, res: Result):
+        """Display a result generated from a :obj:`functui.classes.Layout`.
+        
+        The preffered way to display layouts."""
 
         data = res.expect_data(ResultCreatedWith)
         # don't recreate the screen unless forced to

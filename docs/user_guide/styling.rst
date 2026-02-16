@@ -99,8 +99,8 @@ Functui uses :obj:`~functui.classes.StyleRule` objects to represent styles rules
 
 .. code-block:: py
 
-    from functui.classes import *
-    from functui.common import *
+    from functui import *  # for Rect, StyleRule, StyleAttr, Color4 and rgb
+    from functui.common import *  # for text, push_rule and border
     from functui.io.ansi import layout_to_str
 
     style_rule = StyleRule(
@@ -132,7 +132,7 @@ Expected Output:
 
     .. code-block:: py
 
-        from functui.classes import *
+        from functui import *
         from functui.common import *
         from functui.io.ansi import layout_to_str
 
@@ -144,8 +144,8 @@ Expected Output:
             # can use | to combine muliple attributes.
         )
 
-        # use style on a layout
-        layout = text("styled_text") | push_rule(style_rule) | border
+        layout = text("styled_text") | bg_fill | push_rule(style_rule) | border
+        # bg_fill here ----------------^^^^^^^
 
         print(layout_to_str(layout, Rect(20, 3)))
 
@@ -168,7 +168,7 @@ In some cases though, this syntax of defining style rules can be quite tedious, 
 .. code-block:: py
 
 
-    from functui.classes import *
+    from functui import *
     from functui.common import *
 
     style_rule = rule_fg(Color4.RED) | rule_bold | rule_italic
@@ -187,7 +187,7 @@ To apply styles to a layout there are wrapper nodes that are named as style attr
 
 .. code-block:: py
 
-    from functui import Rect, layout_to_str, Color4
+    from functui import *
     from functui.common import *
 
     layout = text("This text is red and bold") | fg(Color4.RED) | bold | border
@@ -204,15 +204,15 @@ Expected output:
     </pre>
 
 
-``styled``
-~~~~~~~~~~
+:obj:`~functui.common.styled`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Notice how these wrapper nodes style all of their descendants with the specified style.
 If you want to style only certain wrapper nodes (for example a border), you can use :obj:`~functui.common.styled` to wrap nodes you want to style.
 
 .. code-block:: py
 
-    from functui import Rect, layout_to_str, rule_fg, rgb
+    from functui import *
     from functui.common import *
 
     style_rule = rule_fg(rgb(0, 255, 255))
@@ -241,7 +241,7 @@ Sometimes there may be a need for multiple styles in the same paragraph. This ca
 
 .. code-block:: py
 
-    from functui.classes import *
+    from functui import *
     from functui.common import *
     from functui.rich_text import adaptive_text, rich_text, span
     from functui.io.ansi import layout_to_str

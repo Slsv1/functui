@@ -964,6 +964,8 @@ class Screen:
 
 class InputEvent(NamedTuple):
     key_event: str | None = None
-    """Represents both key and mouse events"""
+    """Represents both key and mouse button events.
+    Is set to None if no key or mouse button event was emitted."""
     mouse_position_event: Coordinate | None = None
-    """Is present when mouse position was changed"""
+    """New mouse position.
+    Is set to None if mouse position was not changed."""

@@ -3,7 +3,6 @@ from functui.common import *
 from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, DEFAULT_NAV_BINDINGS, interaction_area
 from functui.io.raw import terminal
 
-import curses
 from dataclasses import dataclass
 
 

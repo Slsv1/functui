@@ -11,7 +11,7 @@ This format however is quite limited due to terminals and their `historical reas
    If you want to see what key codes result from what key presses run the :ref:`example_elm_print_input` example.
 
 
-Recognised non Printable Keys
+Recognised Non Printable Keys
 -----------------------------
 
 - ``escape``
@@ -61,8 +61,8 @@ Mouse
 - ``mouse wheel up``
 - ``mouse wheel down``
 
-Available ``ctrl+`` combinations
---------------------------------
+``ctrl+`` Combinations
+----------------------
 
 - ``ctrl+a``
 - ``ctrl+b``
@@ -72,8 +72,11 @@ Available ``ctrl+`` combinations
 - ``ctrl+f``
 - ``ctrl+g``
 - ``ctrl+h``
+- ``ctrl+i`` MISSING due to being same as ``tab``
+- ``ctrl+j`` MISSING due to being same as ``enter``
 - ``ctrl+k``
 - ``ctrl+l``
+- ``ctrl+m`` MISSING due to being same as ``enter``
 - ``ctrl+n``
 - ``ctrl+o``
 - ``ctrl+p``
@@ -97,13 +100,6 @@ Bracketed paste
 ---------------
 When pasting into a console, pasted text will be wrapped into brackets.
 ``[pasted text]``
-
-Missing ``ctrl+`` combinations
-------------------------------
-
-- ``ctrl+i`` missing due to being same as ``tab``
-- ``ctrl+j`` missing due to being same as ``enter``
-- ``ctrl+m`` missing due to being same as ``enter``
 
 Unknown
 -------
