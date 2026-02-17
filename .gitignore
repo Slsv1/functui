@@ -8,6 +8,7 @@ build
 
 perf
 .venv
+.env
 run.prof
 _build
 docs/_build
