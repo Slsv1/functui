@@ -194,17 +194,15 @@ class TerminalIO(ABC):
             :func:`TerminalIO.display_result` instead."""
 
 
-    def block_untill_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
-        """Wait untill user causes an input event and then return it.
-        
-        Args:
+    def block_until_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
+        """Wait until user causes an input event and then return it.
+        args:
             ignore_excess_mouse:
                 Sometimes ui does not render in time due to an event being
                 emmited for every cell a mouse moves over. In this case,
                 skip over mouse events that we don't have the time to render."""
 
         # if rendering is taking time and we cant handle every event
-        # if self.event_queue.qsize() > 1 and ignore_excess_mouse:
         while self.event_queue.qsize() > 1 and ignore_excess_mouse:
             event = self.event_queue.get()
             if event.key_event is not None:
@@ -213,7 +211,7 @@ class TerminalIO(ABC):
         return self.event_queue.get()
     def display_result(self, res: Result):
         """Display a result generated from a :obj:`functui.classes.Layout`.
-        
+
         The preffered way to display layouts."""
 
         data = res.expect_data(ResultCreatedWith)

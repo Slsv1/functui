@@ -1,3 +1,12 @@
+from functui import *
+from functui.rich_text import adaptive_text
+from functui.common import *
+
+layout = adaptive_text(" hej ") | border | shrink
+print(layout_to_str(layout, Rect(20, 5)))
+
+
+
 # from functui.io import raw
 # from prompt_toolkit.input.defaults import create_input
 # from prompt_toolkit.output.defaults import create_output

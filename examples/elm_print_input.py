@@ -63,7 +63,7 @@ with terminal() as term:
         term.display_result(res)
 
         # wait for input
-        event = term.block_untill_input()
+        event = term.block_until_input()
 
         # update
         if event.key_event == "ctrl+c":

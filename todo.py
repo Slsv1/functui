@@ -156,7 +156,7 @@ def view(m: Model):
     nav = m.nav
     text_widget = nothing()
     if m.current_text_input is not None:
-        text_widget = adaptive_text(m.current_text_input.value)\
+        text_widget = adaptive_text(m.current_text_input.view_as_span())\
             | bg_fill\
             | border_with_title(text("Input") | center, border_double)\
             | custom_padding(2, 2, 2, 2)\
@@ -211,7 +211,7 @@ with terminal() as term:
         term.display_result(res)
 
         # wait for input
-        event = term.block_untill_input()
+        event = term.block_until_input()
 
         # update
         if event.key_event == "ctrl+c":

@@ -98,6 +98,7 @@ Styling
    functui.common.bg_fill
    functui.common.styled
    functui.common.bold
+   functui.common.blink
    functui.common.underline
    functui.common.strike_through
    functui.common.reverse

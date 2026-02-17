@@ -140,7 +140,7 @@ def wrapper(func: Callable[[curses.window], Any]):
 
 
 def get_input_event(stdscr: curses.window) -> InputEvent:
-    """Block untill an input event is sent, and return it in a standardized format.
+    """Block until an input event is sent, and return it in a standardized format.
 
     Args:
         stdscr: (curses.window)

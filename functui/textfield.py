@@ -3,6 +3,9 @@ from typing import NamedTuple, Self
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from functui.classes import StyleAttr, StyleRule
+from functui.rich_text import Span, span
+
 class TextActionChar(NamedTuple):
     char: str
 
@@ -50,12 +53,24 @@ class TextInput():
             new_submited, 
         )
 
+    def view_as_span(self, cursor_style: StyleRule=StyleRule(add_attrs=StyleAttr.REVERSE)) -> Span:
+        if self.cursor_pos == len(self.value):
+            v = self.value + " "
+        else:
+            v = self.value
+        return span(
+            v[:self.cursor_pos],
+            span(v[self.cursor_pos], rule=cursor_style),
+            v[self.cursor_pos+1:],
+            rule=StyleRule()
+        )
+
 default_text_input_bindings = MappingProxyType({
     "escape": TextAction.SUBMIT,
     "enter": TextAction.SUBMIT,
     "backspace": TextAction.DELETE,
     "left": TextAction.CURSOR_LEFT,
-    "right": TextAction.CURSOR_RIGHT
+    "right": TextAction.CURSOR_RIGHT,
 })
 def create_text_input_event(key_event: str | None, bindings = default_text_input_bindings):
     if key_event is None:

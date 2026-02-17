@@ -360,6 +360,7 @@ class StyleAttr(Flag):
 
     Attributes:
         BOLD
+        BLINK
         REVERSE
         ITALIC
         UNDERLINE
@@ -367,6 +368,7 @@ class StyleAttr(Flag):
         DIM: Will be interpreted as thinner font weight by the html renderer.
     """
     BOLD = auto()
+    BLINK = auto()
     REVERSE = auto()
     ITALIC = auto()
     UNDERLINE = auto()
@@ -504,6 +506,7 @@ class ComputedStyle:
         )
 
 rule_bold = StyleRule(add_attrs=StyleAttr.BOLD)
+rule_blink = StyleRule(add_attrs=StyleAttr.BLINK)
 rule_italic = StyleRule(add_attrs=StyleAttr.ITALIC)
 rule_strike_through = StyleRule(add_attrs=StyleAttr.STRIKE_THROUGH)
 rule_reverse = StyleRule(add_attrs=StyleAttr.REVERSE)

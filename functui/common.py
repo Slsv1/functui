@@ -47,6 +47,7 @@ __all__ = [
     'italic',
     'dim',
     'bold',
+    'blink',
     'strike_through',
     'reverse',
 
@@ -535,6 +536,16 @@ def strike_through(node: Layout):
     return _push_rule(rule_strike_through, node)
 def dim(node: Layout):
     """Style all descendants as dim.
+
+    See Also:
+        If you want to style only certain wrapper nodes concider using :obj:`styled`
+    """
+    return _push_rule(rule_dim, node)
+
+def blink(node: Layout):
+    """Style all descendants as blink.
+
+    Use this sparingly.
 
     See Also:
         If you want to style only certain wrapper nodes concider using :obj:`styled`

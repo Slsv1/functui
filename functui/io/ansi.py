@@ -32,6 +32,8 @@ def style_to_ansi(style: StyleAttr):
         out.append("\033[3m")
     if StyleAttr.UNDERLINE in style:
         out.append("\033[4m")
+    if StyleAttr.BLINK in style:
+        out.append("\033[5m")
     if StyleAttr.REVERSE in style:
         out.append("\033[7m")
     if StyleAttr.STRIKE_THROUGH in style:

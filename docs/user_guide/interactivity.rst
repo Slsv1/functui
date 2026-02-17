@@ -23,13 +23,13 @@ Before you start polling for input, it is a good idea to do some terminal config
     
     with terminal() as term:
         # once inside the `with` block, we may wait for input.
-        event = term.block_untill_input()
+        event = term.block_until_input()
     
     # once we leave the `with` block, all terminal configuration gets reset.
 
 A context manager is used here so that when your application exits, all of the terminal configuration is reverted automatically.
 
-As demonstrated in the above example, the :meth:`~functui.io.raw.TerminalIO.block_untill_input` method is used to get input. That method returns an :obj:`~functui.classes.InputEvent` object, which is best explained with the API documentation below.
+As demonstrated in the above example, the :meth:`~functui.io.raw.TerminalIO.block_until_input` method is used to get input. That method returns an :obj:`~functui.classes.InputEvent` object, which is best explained with the API documentation below.
 
 .. autoclass:: functui.classes.InputEvent
     :noindex:
@@ -65,7 +65,7 @@ Also we can use :func:`~functui.io.raw.TerminalIO.get_terminal_size` method to m
             term.display_result(res)
 
             # wait for input
-            event = term.block_untill_input()
+            event = term.block_until_input()
 
             # update (do something with input)
             if event.key_event == "ctrl+c":
@@ -139,7 +139,7 @@ Putting it all toghether looks something like this:
             term.display_result(res)
 
             # wait for input
-            event = term.block_untill_input()
+            event = term.block_until_input()
 
             # update
             if event.key_event == "ctrl+c":
