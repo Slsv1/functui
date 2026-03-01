@@ -831,8 +831,8 @@ def _shrink_custom(x: bool, y: bool):
 def _shrink_render(x: bool, y: bool, child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
     child_box = Box(
-        min_size.width if x else box.width,
-        min_size.height if y else box.height,
+        min(min_size.width, box.width)if x else box.width,
+        min(min_size.height, box.height) if y else box.height,
         box.position
     )
     return child.render(frame, child_box)

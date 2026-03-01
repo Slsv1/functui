@@ -58,7 +58,7 @@ __all__ = [
     'rule_underline',
 ]
 
-LRU_MAX_SIZE = 512
+LRU_MAX_SIZE = 0
 
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))

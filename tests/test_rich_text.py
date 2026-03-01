@@ -2,7 +2,7 @@ import pytest
 # from functui.ansirender import layout_to_str
 from functui import Rect, layout_to_str
 from functui.classes import Color4, StyleRule
-from functui.text_wrapping import _span_to_lines, Segment, Span, wrap_line_default, Group
+from functui.rich_text import _span_to_lines, Segment, Span, wrap_line_default, Group
 from wcwidth import wcswidth
 
 
