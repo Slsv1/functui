@@ -26,9 +26,6 @@ __all__ = [
     'MinSize',
     'Pixel',
     'Rect',
-    'Result',
-    'ResultCreatedWith',
-    'ResultData',
     'Screen',
     'StyleAttr',
     'StyleRule',
@@ -745,41 +742,6 @@ def min_size_union(
 def min_size_constant(return_value: Rect) -> MinSize:
     return lambda measure_text, available: return_value
 
-class ResultData(ABC):
-    @abstractmethod
-    def merge_children(self, child_data: Self) -> Self:
-        ...
-
-
-@dataclass(unsafe_hash=True)
-class Result:
-    _data: dict[type[ResultData], ResultData] = field(default_factory=dict)
-
-    def add_children_after(self, child_results: list[Self]):
-        for child in child_results:
-            # if some node does not provide data of a type but child does, then create a dummy
-            for k, child_data in child._data.items():
-                if k in self._data:
-                    self._data[k] = self._data[k].merge_children(child_data)
-                else:
-                    self._data[k] = child_data
-
-    def try_data[T: (ResultData)](self, key: type[T]) -> T | None:
-        if key in self._data:
-            return self._data[key]
-        return None
-
-    def expect_data[T: (ResultData)](self, key: type[T]) -> T:
-        if key in self._data:
-            return self._data[key]
-        raise
-
-    def set_data(self, data: ResultData):
-        self._data[data.__class__] = data
-
-
-
-
 # I have concidered individual classes for this
 # like for example a border being its own class that inherits form node
 # instead of a function border that returns a node
@@ -809,7 +771,7 @@ class Layout:
     """
     func: Callable
     min_size: MinSize
-    render: partial[Result]
+    render: partial
 
     def __or__(self, other):
         return other(self)
@@ -831,21 +793,13 @@ class WrapperNode(Protocol):
     def __call__(self, child_layout: Layout, /) -> Layout:
         ...
 
-@dataclass(frozen=True, eq=True)
-class ResultCreatedWith(ResultData):
-    """this is added to a result by the get_result function so that this data can later be used by any rendering function"""
-    measure_text_func: MeasureTextFunc
-    screen: Screen
-    screen_size: Rect
-    def merge_children(self, child_data):
-        raise RuntimeError("Result should not be merged with with this data")
 
 def layout_to_result(
     layout: Layout,
     dimensions: Rect,
     measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t),
     screen: Screen | None = None, 
-) -> Result:
+) -> Screen :
     """Converts a layout to a result that can be converted to desired output type.
 
     See Also:
@@ -853,7 +807,7 @@ def layout_to_result(
     """
     if screen is None:
         screen = Screen(dimensions.width, dimensions.height)
-    result = layout.render(
+    layout.render(
         Frame(
             screen_rect=dimensions,
             view_box=Box(dimensions.width, dimensions.height),
@@ -863,8 +817,7 @@ def layout_to_result(
         ),
         Box(width=dimensions.width, height=dimensions.height),
     )
-    result.set_data(ResultCreatedWith(measure_text, screen_size=dimensions, screen=screen))
-    return result
+    return screen
 
 def _get_default_data(width: int, height: int):
     return [[Pixel() for _ in range(width)] for _ in range(height)]

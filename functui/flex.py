@@ -84,7 +84,6 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     available_space = box.height - reserved_space
     space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
     at_y = 0
-    res = Result()
     for flex in children:
         child_min_height = flex.node.min_size(frame.measure_text, box.rect).height if flex.basis else 0
         child_box = Box(
@@ -92,9 +91,8 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
             height=child_min_height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
         )
         child_box = child_box.offset_by(box.position + Coordinate(0, at_y))
-        res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+        flex.node.render(frame.shrink_to(child_box), child_box)
         at_y += child_box.height
-    return res
 
 
 def hbox_flex(children: Iterable[Flex | Layout], /):
@@ -184,7 +182,6 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     available_space = box.width - reserved_space
     space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
     at_x = 0
-    res = Result()
     for flex in children:
         child_min_width = flex.node.min_size(frame.measure_text, box.rect).width if flex.basis else 0
         child_delta = sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
@@ -194,9 +191,8 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
             height=box.height,
         )
         child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))
-        res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+        flex.node.render(frame.shrink_to(child_box), child_box)
         at_x += child_box.width
-    return res
 
 @dataclass
 class _FlexData:
@@ -260,7 +256,6 @@ def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
     children_by_lines = _split_flex_by_lines_h(box.width, children, frame.measure_text)
 
     at_y = 0
-    res = Result()
 
     for data in children_by_lines:
         children = data.flex_children
@@ -279,7 +274,6 @@ def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
                 height=row_height,
             )
             child_box = child_box.offset_by(box.position + Coordinate(at_x, at_y))
-            res.add_children_after([flex.node.render(frame.shrink_to(child_box.intersect(box)), child_box)])
+            flex.node.render(frame.shrink_to(child_box.intersect(box)), child_box)
             at_x += child_box.width
         at_y += row_height
-    return res
