@@ -86,9 +86,7 @@ def result_to_str(result: Result) -> str:
     data = result.try_data(ResultCreatedWith)
     if data is None:
         raise AssertionError("Result has no ResultCreatedWith data. If possible please use get_result() function to get a result.")
-    screen = Screen(data.screen_size.width, data.screen_size.height)
-    screen.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
-    return _render_ansi(screen) # 30 %
+    return _render_ansi(data.screen) # 30 %
 
 def layout_to_str(layout: Layout, dimensions: Rect) -> str:
     """Convert a layout to a string with ansi escapecodes that can be displayed in a terminal.
