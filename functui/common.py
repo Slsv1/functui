@@ -114,7 +114,7 @@ def nothing():
     return Layout(
         func=nothing,
         min_size=min_size_constant(Rect(0, 0)),
-        render=partial(lambda f, b: None),
+        render=partial(lambda f, b: Result()),
     )
 
 def empty(node: Layout):
@@ -163,8 +163,10 @@ def text(string: str):
 
 @lru_cache(LRU_MAX_SIZE)
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
+    res = Result()
     for y, line in enumerate(text):
-        frame.draw_string_line(line, box.position + Coordinate(0, y))
+        res.draw_string_line(frame, line, box.position + Coordinate(0, y))
+    return res
 
 
 #
@@ -330,7 +332,9 @@ def vbar_custom(char: str = "|"):
     )
 @lru_cache(LRU_MAX_SIZE)
 def _vbar_render(char: str, frame: Frame, box: Box):
-    frame.draw_box(char, Box(1, box.height, box.position))
+    res = Result()
+    res.draw_box(frame, char, Box(1, box.height, box.position))
+    return res
 def hbar_custom(char: str="-"):
     """Horizonatal bar build with a custom character."""
     return Layout(
@@ -340,7 +344,9 @@ def hbar_custom(char: str="-"):
     )
 @lru_cache(LRU_MAX_SIZE)
 def _hbar_render(char: str, frame: Frame, box: Box):
-    frame.draw_box(char, Box(box.width, 1, box.position))
+    res = Result()
+    res.draw_box(frame, char, Box(box.width, 1, box.position))
+    return res
 
 vbar = vbar_custom(BORDER_REGULAR.line_v)
 """Vertical bar."""
@@ -383,15 +389,17 @@ border_ascii = custom_border(style=BORDER_ASCII)
 
 @lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
-    frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position))
-    frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position))
-    frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
-    frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
-    frame.draw_pixel(fill=style.corner_tl, at=box.position + Coordinate(0, 0))
-    frame.draw_pixel(fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
-    frame.draw_pixel(fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
-    frame.draw_pixel(fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
-    child.render(frame, box.resize(-1, -1, -1, -1))
+    res = Result()
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
+    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
+    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+    res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
+    res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
+    res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
+    res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
+    res.add_children_after([child.render(frame, box.resize(-1, -1, -1, -1))])
+    return res
 
 @dataclass
 class BorderConnection:
@@ -405,37 +413,37 @@ class BorderConnection:
 #     frame: Frame,
 #     box: Box
 # ):
-#     child_res = child.render(box.resize(-1, -1, -1, -1))
+#     child_res = child.render(frame, box.resize(-1, -1, -1, -1))
 #     res = Result()
-#     frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position))
-#     frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position))
-#     frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
-#     frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
-#     frame.draw_pixel(fill=style.corner_tl, at=box.position + Coordinate(0, 0))
-#     frame.draw_pixel(fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
-#     frame.draw_pixel(fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
-#     frame.draw_pixel(fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
+#     res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
+#     res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
+#     res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
+#     res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+#     res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
+#     res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
+#     res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
+#     res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
 #
-#     if connections := child_frame.try_data():
+#     if connections := child_res.try_data():
 #         for connection in connections:
 #             # top
 #             if connection.position.y == box.position.y:
 #                 if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.UP))):
-#                     frame.draw_pixel(fill=intersection)
+#                     res.draw_pixel(frame, fill=intersection)
 #
 #                 # if intersection := style.get_intersection(connection.weight_map | (weight_map & MASK_WEIGHT_TOP)):
-#                 #     frame.draw_pixel(fill=intersection)
+#                 #     res.draw_pixel(frame, fill=intersection)
 #
 #             elif connection.position.y == box.position.y + box.height - 1:
 #                 if intersection := style.get_intersection(overlay_weight_maps(connection.weight_map, keep_weight_direction(weight_map, Direction.DOWN))):
-#                     frame.draw_pixel(fill=intersection)
+#                     res.draw_pixel(frame, fill=intersection)
 #             ...
 #
 #
 #
 #
 #
-#     frame.add_children_after([child_res])
+#     res.add_children_after([child_res])
 #     return res
 
 
@@ -596,11 +604,11 @@ def styled(node: WrapperNode, rule: StyleRule) -> WrapperNode:
         )
     return _styled
 
-def _styled_render(child: Layout, node: WrapperNode, rule: StyleRule, frame: Frame, box: Box):
+def _styled_render(child: Layout, node: WrapperNode, rule: StyleRule, frame, box):
     return _push_rule(rule, node(
             _force_style(frame.default_style, child)
         )
-    ).render(box)
+    ).render(frame, box)
 #
 # Containers
 #
@@ -638,8 +646,10 @@ def static_box(children: Iterable[Layout]) -> Layout:
         render=partial(_static_box_render, children),
     )
 def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
+    res = Result()
     for child in children:
-        child.render(frame.shrink_to(box), box)
+        res.add_children_after([child.render(frame.shrink_to(box), box)])
+    return res
 
 def vbox(children: Iterable[Layout], at_y: int=0, reverse: bool=False):
     """A container node that arranges its chilren verticaly.
@@ -664,6 +674,7 @@ def vbox(children: Iterable[Layout], at_y: int=0, reverse: bool=False):
 
 @lru_cache(LRU_MAX_SIZE)
 def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
+    res=Result()
     for node in children:
         child_min_size = node.min_size(frame.measure_text, Rect(box.width, 9999))
         child_box = Box(box.width, child_min_size.height).offset_by(box.position + Coordinate(0, at_y))
@@ -673,10 +684,13 @@ def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
         # # dont do commands for boxes out of bounds who are above
         # if at_y < 0:
         #     continue
-        node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+        res.add_children_after([
+                node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+        ])
         # if at_y > box.height:
         #     break
 
+    return res
 
 def hbox(children: Iterable[Layout], at_x: int=0):
     """A container node that arranges its chilren Horizontaly.
@@ -697,11 +711,15 @@ def hbox(children: Iterable[Layout], at_x: int=0):
     )
 @lru_cache(LRU_MAX_SIZE)
 def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
+    res=Result()
     for node in children:
         child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(child_min_size.width, box.height).offset_by(box.position + Coordinate(at_x, 0))
-        node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+        res.add_children_after([
+            node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+        ])
         at_x += child_box.width
+    return res
 
 def center(child: Layout):
     """Shrink and center child layout in remaining space."""
@@ -772,8 +790,10 @@ def bg_char(char: str) -> WrapperNode:
 
     return _bg_char
 def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
-    frame.draw_box(char, box)
-    child.render(frame, box)
+    res = Result()
+    res.draw_box(frame, char, box)
+    res.add_children_after([child.render(frame, box)])
+    return res
 
 bg_fill = bg_char(" ")
 """Fill background with whitespace.
@@ -867,7 +887,7 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
 
 @lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
-    return node.render(box.offset_by(by).resize(top=-by.y, right=-by.x))
+    return node.render(frame, box.offset_by(by).resize(top=-by.y, right=-by.x))
 
 
 def clamp_width(width: int):
@@ -932,8 +952,10 @@ def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box) ->
     start_at_pixel = box.width * progress
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = start_at_pixel - start_at_pixel_int
-    frame.draw_box(progress_str[0], Box(start_at_pixel_int, 1 ,box.position))
-    frame.draw_pixel(progress_str[(len(progress_str)-1) * start_at_progress], box.position + Coordinate(start_at_pixel_int, 0))
+    res = Result()
+    res.draw_box(frame, progress_str[0], Box(start_at_pixel_int, 1 ,box.position))
+    res.draw_pixel(frame, progress_str[(len(progress_str)-1) * start_at_progress], box.position + Coordinate(start_at_pixel_int, 0))
+    return res
 
 
 
@@ -944,7 +966,7 @@ def v_scroll_bar(start: float, showing: float):
         render=partial(_v_scroll_bar_render, start, showing)
 
     )
-def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
+def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -> Result:
     start_at_pixel = box.height * start
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
@@ -969,11 +991,13 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
         case _:
             end_char = " "
 
+    res = Result()
     for i in range(box.height):
         if i == start_at_pixel_int:
-            frame.draw_pixel(start_char, box.position + Coordinate(0, i))
+            res.draw_pixel(frame, start_char, box.position + Coordinate(0, i))
         elif i == end_at_pixel_int:
-            frame.draw_pixel(end_char, box.position + Coordinate(0, i))
+            res.draw_pixel(frame, end_char, box.position + Coordinate(0, i))
         elif start_at_pixel_int < i < end_at_pixel_int:
-            frame.draw_pixel("│", box.position + Coordinate(0, i))
+            res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
+    return res
 

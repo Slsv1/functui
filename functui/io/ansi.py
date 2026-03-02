@@ -81,8 +81,13 @@ def _render_ansi(screen: Screen) -> str:
 def _ansi_go_up(y):
     return f"\033[{y}A"
 
-def result_to_str(screen) -> str:
+def result_to_str(result: Result) -> str:
     """Convert a result to a string with ansi escapecodes that can be displayed in a terminal."""
+    data = result.try_data(ResultCreatedWith)
+    if data is None:
+        raise AssertionError("Result has no ResultCreatedWith data. If possible please use get_result() function to get a result.")
+    screen = Screen(data.screen_size.width, data.screen_size.height)
+    screen.apply_draw_commands(data.measure_text_func, result.get_commands()) # 20 %
     return _render_ansi(screen) # 30 %
 
 def layout_to_str(layout: Layout, dimensions: Rect) -> str:

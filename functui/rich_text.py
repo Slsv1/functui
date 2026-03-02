@@ -124,19 +124,21 @@ def rich_text(*string: Span | str):
 @lru_cache(LRU_MAX_SIZE)
 def _rich_text_render(span: Span, frame: Frame, box: Box):
     if box.width <= 4:
-        return
+        return Result()
 
     lines = _span_to_lines(span, frame.measure_text)
+    res = Result()
 
     for dy, line in enumerate(lines):
         if dy == box.height:
             break
         dx = 0
         for segment in chain.from_iterable(g.segments for g in line):
-            frame.with_style(frame.default_style.apply_rule(segment.rule)).draw_string_line(
-                segment.text, box.position + Coordinate(dx, dy)
+            res.draw_string_line(
+                frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
+    return res
 
 def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = "-"):
     """A data node for text that can be wrapped and styled.
@@ -173,9 +175,10 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
 @lru_cache(LRU_MAX_SIZE)
 def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame: Frame, box: Box):
     if box.width <= 1:
-        return
+        return Result()
 
     groups = _span_to_lines(span, frame.measure_text)
+    res = Result()
     lines = list(
         chain.from_iterable(
             wrap_line_default(line, box.width, frame.measure_text, soft_hyphen) for line in groups
@@ -190,10 +193,11 @@ def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame:
         elif justify == Justify.CENTER:
             dx = (box.width - sum(i.length for i in line)) // 2
         for segment in chain.from_iterable(g.segments for g in line):
-            frame.with_style(frame.default_style.apply_rule(segment.rule)).draw_string_line(
-                segment.text, box.position + Coordinate(dx, dy)
+            res.draw_string_line(
+                frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
+    return res
 
 
 # adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")
