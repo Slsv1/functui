@@ -72,6 +72,7 @@ default_text_input_bindings = MappingProxyType({
     "left": TextAction.CURSOR_LEFT,
     "right": TextAction.CURSOR_RIGHT,
 })
+
 def create_text_input_event(key_event: str | None, bindings = default_text_input_bindings):
     if key_event is None:
         return

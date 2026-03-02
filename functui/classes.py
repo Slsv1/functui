@@ -58,7 +58,7 @@ __all__ = [
     'rule_underline',
 ]
 
-LRU_MAX_SIZE = 0
+LRU_MAX_SIZE = 512
 
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
@@ -89,8 +89,8 @@ def intersperse[T](iterable: Iterable[T], sep: T) -> Iterable[T]:
 # General Data Structures
 #
 
-@dataclass(frozen=True, eq=True)
-class Coordinate:
+
+class Coordinate(NamedTuple):
     """An immutable coordinate in 2d space
 
     Attributes: 
@@ -192,8 +192,8 @@ class Rect(NamedTuple):
             width=self.width,
             height=self.height if height > self.height else height,
         )
-@dataclass(frozen=True, eq=True)
-class Box:
+
+class Box(NamedTuple):
     """An immutable rectangle defined by width, height and position.
 
     Attributes:
@@ -418,8 +418,7 @@ class Color4(IntEnum):
     RESET = -1
 
 
-@dataclass(frozen=True, eq=True)
-class Color24:
+class Color24(NamedTuple):
     """Represent a 24 bit color.
 
     Attributes:
@@ -462,15 +461,15 @@ def hex(value: int, /):
 
 Color = int | Color24
 
-# class Color8
-@dataclass(frozen=True, eq=True)
-class StyleRule:
-    """An immutable dataclass for style attributes:
+
+class StyleRule(NamedTuple):
+    """An immutable dataclass for style attributes.
 
     Attributes:
-        fg: Foreground
-        bg: Background
-        char_style: Styling flags.
+        fg: Foreground color.
+        bg: Background color.
+        add_attrs: Add styling flags.
+        add_attrs: Remove styling flags.
     """
     fg: Color | None = None 
     bg: Color | None = None
@@ -485,9 +484,8 @@ class StyleRule:
             bg=self.bg if rule.bg is None else rule.bg,
         )
 
-@dataclass(frozen=True, eq=True)
-class ComputedStyle:
-    """An immutable dataclass for style attributes:
+class ComputedStyle(NamedTuple):
+    """An immutable dataclass for style attributes that can be rendered.
 
     Attributes:
         fg: Foreground
@@ -516,24 +514,18 @@ def rule_fg(color: Color, /):
     return StyleRule(fg=color)
 def rule_bg(color: Color, /):
     return StyleRule(bg=color)
-# class Style:
 
 
 #
 # Ui specific datastructures
 #
 
-# @dataclass(frozen=True, eq=True)
-# class WideCharTail:
-#     overwriting: str
-#
 class CharType(Enum):
     NORMAL = auto()
     WIDE_HEAD = auto()
     WIDE_TAIL = auto()
 
-@dataclass(frozen=True, eq=True)
-class Pixel:
+class Pixel(NamedTuple):
     char: str = " "
     char_type: CharType = CharType.NORMAL
     style: ComputedStyle = ComputedStyle()
@@ -558,18 +550,15 @@ class Pixel:
             style,
         )
 
-@dataclass(frozen=True, eq=True)
-class DrawPixel:
+class DrawPixel(NamedTuple):
     pixel: Pixel
     at: Coordinate = Coordinate(0, 0)
 
-@dataclass(frozen=True, eq=True)
-class DrawBox:
+class DrawBox(NamedTuple):
     fill: Pixel
     box: Box
 
-@dataclass(frozen=True, eq=True)
-class DrawStringLine:
+class DrawStringLine(NamedTuple):
     string: tuple[Pixel]
     """All pixels are assumed to contain the same style."""
     at: Coordinate
@@ -586,8 +575,7 @@ class MeasureTextFunc(Protocol):
     def __call__(self, string: str, /) -> int:
         ...
 
-@dataclass(frozen=True, eq=True)
-class Frame:
+class Frame(NamedTuple):
     view_box: Box
     screen_rect: Rect
     default_style: ComputedStyle
@@ -817,8 +805,7 @@ class Result:
 # it beign split between multiple methods would 
 
 
-@dataclass(frozen=True)
-class Layout:
+class Layout(NamedTuple):
     """An immutable layout that can be rendered as a string
 
     Attributes:
@@ -850,13 +837,14 @@ class WrapperNode(Protocol):
     def __call__(self, child_layout: Layout, /) -> Layout:
         ...
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True, eq=True, slots=True)
 class ResultCreatedWith(ResultData):
     """this is added to a result by the get_result function so that this data can later be used by any rendering function"""
     measure_text_func: MeasureTextFunc
     screen_size: Rect
     def merge_children(self, child_data):
         raise RuntimeError("Result should not be merged with with this data")
+
 
 def layout_to_result(layout: Layout, dimensions: Rect, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
     """Converts a layout to a result that can be converted to desired output type.
