@@ -256,6 +256,23 @@ class NavState:
     #
     # persistent state
     #
+
+    # is_hover
+    # is_active
+    # is_selected
+
+    # is_left_clicked
+    # is_right_clicked
+    # is_middle_clicked
+
+    # is_left_mouse_released
+    # is_right_mouse_released
+    # is_middle_mouse_released
+
+    # is_left_mouse_held_down
+    # is_right_mouse_held_down
+    # is_middle_mouse_held_down
+
     def try_state[T](self, interactible_id: InteractibleID, data: type[T]) -> T | None:
         return self._persistent_state.get((interactible_id, data))
     #
@@ -710,70 +727,5 @@ def _v_scroll_render(
     # a.append(text("final:" + str(scroll_dy)))
     modified_child = vbox([child,], at_y=-scroll_dy)
     res.add_children_after([modified_child.render(frame, box)])
-    return res
-
-@dataclass(frozen=True, eq=True)
-class ResizableSplitData:
-    at: int
-
-def h_resizable_split(interactible_id: InteractibleID, nav: NavState, left: Layout, right: Layout, sep: Layout = vbar) -> Layout:
-    split_data = nav.try_state(interactible_id, ResizableSplitData)
-    if split_data is not None:
-        split_at = split_data.at
-    else:
-        split_at = 20
-    if nav.is_held_down(interactible_id):
-        split_at += nav.get_mouse_drag_difference().x
-
-    return Layout(
-        func=h_resizable_split,
-        min_size=min_size_horizontal([left.min_size, right.min_size, sep.min_size]),
-        render=partial(
-            _h_resizable_split_render,
-            interactible_id,
-            left,
-            right,
-            sep | interaction_area(interactible_id, dragable=True),
-            split_at,
-        )
-    )
-
-def _h_resizable_split_render(
-        interactible_id: InteractibleID,
-        left: Layout,
-        right: Layout,
-        sep: Layout,
-        split_at: int,
-        frame: Frame,
-        box: Box
-) -> Result:
-    split_rect = sep.min_size(frame.measure_text, box.rect)
-
-    split_at = clamp(split_at, 0, box.width-split_rect.width)
-
-    left_box = Box(
-        split_at,
-        box.height,
-        box.position,
-    )
-    right_box = Box(
-        box.width-split_at-split_rect.width,
-        box.height,
-        box.position + Coordinate(split_at + split_rect.width, 0)
-    )
-    split_box = Box(
-        split_rect.width,
-        box.height,
-        box.position + Coordinate(split_at, 0)
-    )
-
-    res = Result()
-    res.set_data(set_state((interactible_id, ResizableSplitData(split_at))))
-
-    res.add_children_after([
-        left.render(frame.shrink_to(left_box), left_box),
-        sep.render(frame.shrink_to(split_box), split_box),
-        right.render(frame.shrink_to(right_box), right_box),
-    ])
     return res
 

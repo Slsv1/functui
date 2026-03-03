@@ -97,7 +97,7 @@ def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     return res
 
 
-def hbox_flex(processed_children: Iterable[Flex | Layout]):
+def hbox_flex(children: Iterable[Flex | Layout], /):
     """A container node that allows children to expand on the x axis.
 
     Modeled of the CSS flexbox layout model. By default acts as a regular :obj:`~functui.common.xbox`.
@@ -147,11 +147,33 @@ def hbox_flex(processed_children: Iterable[Flex | Layout]):
             └──────────────────────────────────────┘
 
     """
-    processed_children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in processed_children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 1, True)(child) for child in children)
+
+    def _min_size(measure_text: MeasureTextFunc, from_size: Rect):
+        acc = []
+        reserved_space = sum(i.node.min_size(measure_text, from_size).width for i in children if i.basis)
+        total_grow = sum(i.grow for i in children)
+        total_shrink = sum(i.shrink for i in children)
+
+        available_space = from_size.width - reserved_space
+        space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
+        for flex in children:
+            child_min_width = flex.node.min_size(measure_text, from_size).width if flex.basis else 0
+            actuall_width = child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+            child_box = Box(
+                width=actuall_width,
+                height=flex.node.min_size(measure_text, Rect(actuall_width, from_size.height)).height,
+            )
+            acc.append(child_box)
+        return Rect(
+            width=sum(i.width for i in acc),
+            height=max(i.height for i in acc),
+        )
+
     return Layout(
         func=hbox_flex,
-        min_size=min_size_horizontal([i.node.min_size for i in processed_children]),
-        render=partial(_hbox_flex_render, processed_children)
+        min_size=_min_size,
+        render=partial(_hbox_flex_render, children)
     )
 @lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
@@ -165,8 +187,10 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     res = Result()
     for flex in children:
         child_min_width = flex.node.min_size(frame.measure_text, box.rect).width if flex.basis else 0
+        child_delta = sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
+
         child_box = Box(
-            width=child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink)),
+            width=child_min_width + child_delta,
             height=box.height,
         )
         child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))

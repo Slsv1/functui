@@ -4,7 +4,7 @@
 
 [project]
 name = "functui"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
   "wcwidth",
 ]
@@ -28,7 +28,9 @@ license-files = ["LICENSE*"]
 
 [project.optional-dependencies]
 dev = [
-	"pytest"
+	"pytest",
+	"snakeviz",
+	"pytest-codspeed",
 ]
 doc = [
 	"sphinx",

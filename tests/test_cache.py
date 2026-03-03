@@ -1,5 +1,5 @@
 from functui.common import text, border, vbox, _border_render, _text_render, _vbox_render
-from functui.text_wrapping import span, adaptive_text, _adaptive_text_render
+from functui.rich_text import span, adaptive_text, _adaptive_text_render
 from functui.classes import layout_to_result, Rect, StyleRule, Color4
 
 def text_cach_text():

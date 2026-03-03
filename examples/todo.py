@@ -15,9 +15,10 @@ from functui.classes import *
 from functui.flex import flex_custom, hbox_flex, vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings
 from functui.rich_text import Justify, adaptive_text
-from functui.nav import DEFAULT_NAV_BINDINGS, h_resizable_split, interaction_area, v_scroll
+from functui.nav import DEFAULT_NAV_BINDINGS, interaction_area, v_scroll
 from functui.io.raw import terminal
 from functui.io.ansi import result_to_str
+from functui.resizable_split import VResizableSplit
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
@@ -43,6 +44,7 @@ class Model():
     tasks: list[Task]
     selected_task_index: int
     tasks_ids: Iterable[InteractibleID]
+    resizable_split: VResizableSplit
     nav_tree: list[InteractibleID]
     current_text_input: TextInput | None = None
     delete_button: InteractibleID = EMPTY_INTERACTIBLE
@@ -110,9 +112,12 @@ def update(input: InputEvent, res: Result, m: Model):
 
         m.nav = m.nav.update(res, action, m.nav_tree, input.mouse_position_event)
 
+        m.resizable_split = m.resizable_split.update(res, ROOT_HORIZONTAL.child(1234), m.nav)
+
     for index, task_id in enumerate(m.tasks_ids):
         if m.nav.is_selected(task_id):
             m.selected_task_index = index
+
 
     if len(m.tasks):
         if m.nav.is_selected(m.delete_button):
@@ -163,9 +168,7 @@ def view(m: Model):
             | center
 
     return static_box([
-        h_resizable_split(
-            ROOT_HORIZONTAL.child(12323),
-            nav,
+        m.resizable_split.view(
             left=vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | v_scroll(
                 container_id=m.tasks_container,
                 nav=nav,
@@ -187,7 +190,6 @@ def view(m: Model):
 
                 text("New Task") | center | button(m.create_button, nav),
             ]),
-
         ),
         text_widget
     ])
@@ -200,6 +202,7 @@ m = Model(
     nav=NavState(),
     tasks=tasks,
     selected_task_index=1,
+    resizable_split=VResizableSplit(20),
     tasks_ids=[],
     nav_tree=[],
 )
