@@ -1,21 +1,31 @@
 Keyboard and Mouse
 ==================
 
+.. warning::
+
+    This page is not fully done, and the way functui handles keyboard and mouse
+    navigation will be changed soon!
+
+
 .. important::
 
-    This page assumes that you have already a way to get a :obj:`~functui.classes.InputEvent`. If that's not the case, check out :doc:`io`.
+    This page assumes that you have already a way to get a
+    :obj:`~functui.classes.InputEvent`. If that's not the case, check out
+    :doc:`io`.
 
-
-.. seealso::
-
-    :ref:`examples_elm`
 
 Functui has the :obj:`functui.nav` module which provides the :obj:`~functui.nav.NavState` class and multiple nodes to allow interactivity.
 
 :obj:`~functui.nav.NavState`
 ----------------------------
 
-The NavState class is an immutable representation of all state related to keyboard navigation and mouse interactivity. Usually an app needs only one ``NavState`` instance. A ``NavState`` object has an :meth:`~functui.nav.NavState.update` method that needs to be call every time user has submitted some input. (For example a key press or a mouse position change). The ``update()`` method returns a new ``NavState`` object that represents the updated state based on input.
+The NavState class is an immutable representation of all state related to
+keyboard navigation and mouse interactivity. Usually an app needs only one
+``NavState`` instance. A ``NavState`` object has an
+:meth:`~functui.nav.NavState.update` method that needs to be call every time
+user has submitted some input. (For example a key press or a mouse position
+change). The ``update()`` method returns a new ``NavState`` object that
+represents the updated state based on input.
 
 The whole signature of the update method is as follows:
 
@@ -30,13 +40,17 @@ The whole signature of the update method is as follows:
     ):
 
 
-As you may see the update method has the obvious ``mouse_positon`` argument, but the purpouse of the others can be unclear. Below follows an explanation of how to provide those other arguments and why they are needed.
+As you may see the update method has the obvious ``mouse_positon`` argument,
+but the purpose of the others can be unclear. Below follows an explanation of
+how to provide those other arguments and why they are needed.
 
 ``action``
 ~~~~~~~~~~
 
-This is essantially just the user input, but converted to a :obj:`~functui.nav.NavAction` value.
-You can convert user input stored in an :obj:`~functui.classes.InputEvent` to an ``NavAction`` by using the :obj:`~functui.nav.DEFAULT_NAV_BINDINGS` dictionary.
+This is essentially just the user input, but converted to a
+:obj:`~functui.nav.NavAction` value. You can convert user input stored in an
+:obj:`~functui.classes.InputEvent` to an ``NavAction`` by using the
+:obj:`~functui.nav.DEFAULT_NAV_BINDINGS` dictionary.
 
 .. code-block:: python
 
@@ -53,7 +67,8 @@ You can convert user input stored in an :obj:`~functui.classes.InputEvent` to an
     nav = nav.update(action=DEFAULT_NAV_BINDINGS.get(event.key_event, None))
 
 
-Just to get an idea how an Acion enum can look like, all possible NavActions are listed below.
+Just to get an idea how an Action enum can look like, all possible NavActions
+are listed below.
 
 .. autoclass:: functui.nav.NavAction
    :no-index:
@@ -66,7 +81,12 @@ Just to get an idea how an Acion enum can look like, all possible NavActions are
 ``res``
 ~~~~~~~
 
-The result produced from rendering a :obj:`~functui.classes.Layout`. ``NavState`` needs the result in order to know where on the screen certain nodes were rendered. This data is used to check if the mouse position is inside any (for example) buttons or scrollable areas. More on this topic will follow, but in short you use the :func:`~functui.nav.interaction_area` wrapper node to mark nodes as interactible.
+The result produced from rendering a :obj:`~functui.classes.Layout`.
+``NavState`` needs the result in order to know where on the screen certain
+nodes were rendered. This data is used to check if the mouse position is inside
+any (for example) buttons or scrollable areas. More on this topic will follow,
+but in short you use the :func:`~functui.nav.interaction_area` wrapper node to
+mark nodes as interactible.
 
 .. seealso::
 
@@ -152,18 +172,26 @@ You can also nest containers and specify their navigation direction.
 Mouse Detection
 ---------------
 
-Mouse detection can be performed with an :func:`~functui.nav.interaction_area` wrapper node.
+Mouse detection can be performed with an :func:`~functui.nav.interaction_area`
+wrapper node.
 
-To detect if mouse is hovering over an interactible use the :meth:`~functui.nav.NavState.is_hover` method.
+To detect if mouse is hovering over an intractable use the
+:meth:`~functui.nav.NavState.is_hover` method.
 
-Unlike keyboard navigation, selection is split into two stages. :meth:`~functui.nav.NavState.is_held_down` method returns ``True`` while left click is held down. When left click is relased :meth:`~functui.nav.NavState.is_selected` returns true. This behaviour is usefull for implementing buttons that get highlighted when you hold left click and have ability to be canceled if you move your mouse away.
+Unlike keyboard navigation, selection is split into two stages.
+:meth:`~functui.nav.NavState.is_held_down` method returns ``True`` while left
+click is held down. When left click is relased
+:meth:`~functui.nav.NavState.is_selected` returns true. This behaviour is
+useful for implementing buttons that get highlighted when you hold left click
+and have ability to be canceled if you move your mouse away.
 
 
 
 NavData and The Elm Architecture
 --------------------------------
 
-To allow for keyboard and mouse interactivity with the elm architecture set :obj:`~functui.nav.NavAction` as an attribute in your model. 
+To allow for keyboard and mouse interactivity with the elm architecture set
+:obj:`~functui.nav.NavAction` as an attribute in your model. 
 
 .. code-block:: py
 
@@ -173,7 +201,9 @@ To allow for keyboard and mouse interactivity with the elm architecture set :obj
          ...
 
 
-Then in the update function update ``NavData`` before doing any other logic. This is so that you can use methods like :meth:`~functui.nav.NavAction.is_selected` and not be a frame behind.
+Then in the update function update ``NavData`` before doing any other logic.
+This is so that you can use methods like
+:meth:`~functui.nav.NavAction.is_selected` and not be a frame behind.
 
 .. code-block:: py
     
@@ -195,6 +225,7 @@ Then in the update function update ``NavData`` before doing any other logic. Thi
         if m.nav.is_selected(...):
             ...
 
-Below follows a template you can copy for elm applications that allows for interactivity.
+Below follows a template you can copy for elm applications that allows for
+interactivity.
 
 .. literalinclude:: ../../examples/curses_elm_template.py

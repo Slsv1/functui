@@ -74,3 +74,10 @@ functui documentation
    user_guide/glossary
    user_guide/keycodes
    user_guide/examples
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Project
+
+   GitHub <https://github.com/Slsv1/functui>

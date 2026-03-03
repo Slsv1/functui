@@ -49,12 +49,10 @@ But wrapper nodes have more functionality apart from adding visuals, they also l
     By default layouts take up as much space as they can.
     Wrapper nodes limits their children's sizes and decide their position.
 
-A good example of a wrapper node limiting their childrens size
-is the center node.
-First it limits its child to its minimum size,
-and then centers it in the remaining space.
-If the example code did not have the center node,
-then nothing would be limiting the border and text from taking up all the space.
+A good example of a wrapper node limiting their children's size is the center
+node. First it limits its child to its minimum size, and then centers it in the
+remaining space. If the example code did not have the center node, then nothing
+would be limiting the border and text from taking up all the space.
 
 .. testcode::
 
@@ -82,7 +80,7 @@ Expected output:
 Rendering
 ---------
 To render a layout you can simply use the :func:`~functui.io.ansi.layout_to_str`
-function with a :class:`~functui.classes.Rect` to specifiy dimensions.
+function with a :class:`~functui.classes.Rect` to specify dimensions.
 
 .. seealso::
 
@@ -91,7 +89,9 @@ function with a :class:`~functui.classes.Rect` to specifiy dimensions.
 Containers
 ----------
 
-While rendering text with a border is fun, it is not very usefull for creating layouts unless you have containers than can manage the position and size of multiple children. A simple container node is a :func:`~functui.common.vbox`.
+While rendering text with a border is fun, it is not very useful for creating
+layouts unless you have containers than can manage the position and size of
+multiple children. A simple container node is a :func:`~functui.common.vbox`.
 
 .. testcode::
 
@@ -121,13 +121,12 @@ Expected output:
     │                  │
     └──────────────────┘    
 
-A container's children are just regular nodes,
-meaning that you can put wrapper nodes around them
-(As we did with the border around the 'buz' text node).
-We also used a :func:`~functui.common.hbar` node to create a horizonal rule.
+A container's children are just regular nodes, meaning that you can put wrapper
+nodes around them (As we did with the border around the 'buz' text node). We
+also used a :func:`~functui.common.hbar` node to create a horizontal rule.
 
-Continuing on this trend of everything being nodes, containers are nodes themselved,
-meaning that you can nest containers inside eachother.
+Continuing on this trend of everything being nodes, containers are nodes
+themselves, meaning that you can nest containers inside each other.
 
 .. testcode::
 
@@ -155,22 +154,28 @@ meaning that you can nest containers inside eachother.
 
 .. tip::
 
-    As you may have noticed, the separator between bar, and buz nodes was created manualy.
-    To do this automatically use :func:`~functui.classes.intersperse`.
+    As you may have noticed, the separator between bar, and buz nodes was
+    created manually. To do this automatically use
+    :func:`~functui.classes.intersperse`.
 
 Summary
 -------
 - **Node** - A function that returns a :obj:`~functui.classes.Layout`.
-- **Wrapper Node** - A function that 'decorates' other layouts as well as manages their size. For example, a :func:`~functui.common.border`
+- **Wrapper Node** - A function that 'decorates' other layouts as well as
+  manages their size. For example, a :func:`~functui.common.border`
 - ``|`` - Operator used for structuring layouts without needing to write a lot of parentheses.
 - **Container Node** - A wrapper node than manages the position and size of multiple children. For example, a :func:`~functui.common.vbox`.
 
 What Now?
 ---------
 
-If you want to just experiment and see what kind of layouts this library can create, check out the :doc:`nodes`.
+If you want to just experiment and see what kind of layouts this library can
+create, check out the :doc:`nodes`.
 
-If you look to add interactive elements (like keyboard and mouse interactions) start with looking at :doc:`elm`.
+If you look to add interactive elements (like keyboard and mouse interactions)
+start with looking at :doc:`interactivity`.
 
-And of course don't forget about the examples available on GitHub in the ``/examples`` folder or :doc:`here in the docs <examples>`!
+And of course don't forget about the examples available on `GitHub
+<https://github.com/Slsv1/functui>`__ in the ``/examples`` folder or :doc:`here
+in the docs <examples>`!
 

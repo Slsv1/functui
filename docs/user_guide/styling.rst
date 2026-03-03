@@ -1,7 +1,9 @@
 Styling
 =======
 
-Styling in the terminal has historically been quite confusing. Due to terminals being very old, there have been added multiple ways of styling, without the ability to remove legacy styling options due to backwards compatability.
+Styling in the terminal has historically been quite confusing. Due to terminals
+being very old, there have been added multiple ways of styling, without the
+ability to remove legacy styling options due to backwards compatibility.
 
 
 .. seealso::
@@ -15,7 +17,11 @@ Styling in the terminal has historically been quite confusing. Due to terminals 
 
 4 bit color
 ~~~~~~~~~~~
-One consequence of terminal history is that there are three ways of doing colors. The oldest, and most widely supported way is the 4 bit colors. **Colors specified with this format render differently depending on terminal theme!** This color format is accessible with the :obj:`~functui.classes.Color4` enum. Below folows a chart with all colors available with this enum.
+One consequence of terminal history is that there are three ways of doing
+colors. The oldest, and most widely supported way is the 4 bit colors. **Colors
+specified with this format render differently depending on terminal theme!**
+This color format is accessible with the :obj:`~functui.classes.Color4` enum.
+Below follows a chart with all colors available with this enum.
 
 .. raw:: html
 
@@ -41,7 +47,10 @@ One consequence of terminal history is that there are three ways of doing colors
 XTERM-256
 ~~~~~~~~~
 
-Another widely supported color format is XTERM-256 (8 bit colors) This format is also very widely supported. To access this format you just simply use an :obj:`int` anywhere a color is needed. Which integer coresponds to which color can be viewed in the figure below.
+Another widely supported color format is XTERM-256 (8 bit colors) This format
+is also very widely supported. To access this format you just simply use an
+:obj:`int` anywhere a color is needed. Which integer corresponds to which color
+can be viewed in the figure below.
 
 .. raw:: html
 
@@ -64,7 +73,7 @@ Another widely supported color format is XTERM-256 (8 bit colors) This format is
     <span style="color:#000000; background-color:#d7af00"> 178 </span><span style="color:#000000; background-color:#d7af5f"> 179 </span><span style="color:#000000; background-color:#d7af87"> 180 </span><span style="color:#000000; background-color:#d7afaf"> 181 </span><span style="color:#000000; background-color:#d7afd7"> 182 </span><span style="color:#000000; background-color:#d7afff"> 183 </span><span style="color:#000000; background-color:#d7d700"> 184 </span><span style="color:#000000; background-color:#d7d75f"> 185 </span><span style="color:#000000; background-color:#d7d787"> 186 </span><span style="color:#000000; background-color:#d7d7af"> 187 </span><span style="color:#000000; background-color:#d7d7d7"> 188 </span><span style="color:#000000; background-color:#d7d7ff"> 189 </span><span style="color:#000000; background-color:#d7ff00"> 190 </span><span style="color:#000000; background-color:#d7ff5f"> 191 </span><span style="color:#000000; background-color:#d7ff87"> 192 </span><span style="color:#000000; background-color:#d7ffaf"> 193 </span><span style="color:#000000; background-color:#d7ffd7"> 194 </span><span style="color:#000000; background-color:#d7ffff"> 195 </span>
     <span style="color:#000000; background-color:#ffaf00"> 214 </span><span style="color:#000000; background-color:#ffaf5f"> 215 </span><span style="color:#000000; background-color:#ffaf87"> 216 </span><span style="color:#000000; background-color:#ffafaf"> 217 </span><span style="color:#000000; background-color:#ffafd7"> 218 </span><span style="color:#000000; background-color:#ffafff"> 219 </span><span style="color:#000000; background-color:#ffd700"> 220 </span><span style="color:#000000; background-color:#ffd75f"> 221 </span><span style="color:#000000; background-color:#ffd787"> 222 </span><span style="color:#000000; background-color:#ffd7af"> 223 </span><span style="color:#000000; background-color:#ffd7d7"> 224 </span><span style="color:#000000; background-color:#ffd7ff"> 225 </span><span style="color:#000000; background-color:#ffff00"> 226 </span><span style="color:#000000; background-color:#ffff5f"> 227 </span><span style="color:#000000; background-color:#ffff87"> 228 </span><span style="color:#000000; background-color:#ffffaf"> 229 </span><span style="color:#000000; background-color:#ffffd7"> 230 </span><span style="color:#000000; background-color:#ffffff"> 231 </span>
 
-    Color ramps, black and white intentionaly excluded
+    Color ramps, black and white intentionally excluded
     <span style="color:#ffffff; background-color:#080808"> 232 </span><span style="color:#ffffff; background-color:#121212"> 233 </span><span style="color:#ffffff; background-color:#1c1c1c"> 234 </span><span style="color:#ffffff; background-color:#262626"> 235 </span><span style="color:#ffffff; background-color:#303030"> 236 </span><span style="color:#ffffff; background-color:#3a3a3a"> 237 </span><span style="color:#ffffff; background-color:#444444"> 238 </span><span style="color:#ffffff; background-color:#4e4e4e"> 239 </span><span style="color:#ffffff; background-color:#585858"> 240 </span><span style="color:#ffffff; background-color:#626262"> 241 </span><span style="color:#ffffff; background-color:#6c6c6c"> 242 </span><span style="color:#ffffff; background-color:#767676"> 243 </span>
     <span style="color:#000000; background-color:#808080"> 244 </span><span style="color:#000000; background-color:#8a8a8a"> 245 </span><span style="color:#000000; background-color:#949494"> 246 </span><span style="color:#000000; background-color:#9e9e9e"> 247 </span><span style="color:#000000; background-color:#a8a8a8"> 248 </span><span style="color:#000000; background-color:#b2b2b2"> 249 </span><span style="color:#000000; background-color:#bcbcbc"> 250 </span><span style="color:#000000; background-color:#c6c6c6"> 251 </span><span style="color:#000000; background-color:#d0d0d0"> 252 </span><span style="color:#000000; background-color:#dadada"> 253 </span><span style="color:#000000; background-color:#e4e4e4"> 254 </span><span style="color:#000000; background-color:#eeeeee"> 255 </span>
     </pre>
@@ -72,14 +81,22 @@ Another widely supported color format is XTERM-256 (8 bit colors) This format is
 
 .. tip::
 
-   Colors represented by integers 0 through 15 are exactly the same colors as in :obj:`~functui.classes.Color4` enum (except ``RESET``). That enum is actually an :obj:`~enum.IntEnum` which means that it's members are treated as integers. (``RESET`` member is represented as -1)
+   Colors represented by integers 0 through 15 are exactly the same colors as
+   in :obj:`~functui.classes.Color4` enum (except ``RESET``). That enum is
+   actually an :obj:`~enum.IntEnum` which means that it's members are treated
+   as integers. (``RESET`` member is represented as -1)
 
 .. _color24:
 
 True Color
 ~~~~~~~~~~
 
-Lastly, there is true color (24 bit or rgb color). This color format can be accessed either via :func:`~functui.classes.rgb` or :func:`~functui.classes.hex` functions that create a :obj:`~functui.classes.Color24` object that stores the color. This is the color format that the support is somewhat lacking. Most notably, the curses renderer does not support it.
+Lastly, there is true color (24 bit or rgb color). This color format can be
+accessed either via :func:`~functui.classes.rgb` or
+:func:`~functui.classes.hex` functions that create a
+:obj:`~functui.classes.Color24` object that stores the color. This is the color
+format that the support is somewhat lacking. Most notably, the curses renderer
+does not support it.
 
 .. seealso::
 
@@ -90,12 +107,19 @@ Lastly, there is true color (24 bit or rgb color). This color format can be acce
 Color Downgrading
 -----------------
 
-If you are using a color format that is not supported by the renderer (or terminal), it will be automatically downgraded to a supported format, with the new colors trying to match the original as closely as possible.
+If you are using a color format that is not supported by the renderer (or
+terminal), it will be automatically downgraded to a supported format, with the
+new colors trying to match the original as closely as possible.
 
 Styling elements
 ----------------
 
-Functui uses :obj:`~functui.classes.StyleRule` objects to represent styles rules. These objects contains a forground and background color as well as a bunch of :obj:`~functui.classes.StyleAttr` flags to represent style attributes like bold or italic. Color can be represented either by an :obj:`int` (for 4 and 8 bit colors) or a :obj:`~functui.classes.Color24` (for 24 bit colors). To use a style rule on a layout you can use :obj:`~functui.common.push_rule`.
+Functui uses :obj:`~functui.classes.StyleRule` objects to represent styles
+rules. These objects contains a foreground and background color as well as a
+bunch of :obj:`~functui.classes.StyleAttr` flags to represent style attributes
+like bold or italic. Color can be represented either by an :obj:`int` (for 4
+and 8 bit colors) or a :obj:`~functui.classes.Color24` (for 24 bit colors). To
+use a style rule on a layout you can use :obj:`~functui.common.push_rule`.
 
 .. code-block:: py
 
@@ -128,7 +152,11 @@ Expected Output:
     </pre>
 
 .. important::
-    As you may notice, only the text was styled even though technically the text node is taking up all of the available space inside the border. This is due to styles being applied only to "printed" characters, rather than the whole area a node takes up. To apply style to the whole node, use :obj:`~functui.common.bg_fill`.
+    As you may notice, only the text was styled even though technically the
+   text node is taking up all of the available space inside the border. This is
+   due to styles being applied only to "printed" characters, rather than the
+   whole area a node takes up. To apply style to the whole node, use
+   :obj:`~functui.common.bg_fill`.
 
     .. code-block:: py
 
@@ -163,7 +191,9 @@ Expected Output:
 ``rule_*``
 ~~~~~~~~~~
 
-In some cases though, this syntax of defining style rules can be quite tedious, especially if you only want to define a few style attributes. For those cases, there are numerous `rule_*` constants and functions.
+In some cases though, this syntax of defining style rules can be quite tedious,
+especially if you only want to define a few style attributes. For those cases,
+there are numerous `rule_*` constants and functions.
 
 .. code-block:: py
 
@@ -181,8 +211,13 @@ In some cases though, this syntax of defining style rules can be quite tedious, 
 Convenient Styling Nodes
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Finaly, it's not always that you want to create a new style rule. Especially when it comes to quick prototyping, there are cases when you just want to apply one style and don't need the ability to reuse it. For those cases use :obj:`~functui.common.fg` and :obj:`~functui.common.bg` wrapper nodes for adding color to foreground and background respectively.
-To apply styles to a layout there are wrapper nodes that are named as style attributes. For example :obj:`~functui.common.bold` and :obj:`~functui.common.italic`.
+Finally, it's not always that you want to create a new style rule. Especially
+when it comes to quick prototyping, there are cases when you just want to apply
+one style and don't need the ability to reuse it. For those cases use
+:obj:`~functui.common.fg` and :obj:`~functui.common.bg` wrapper nodes for
+adding color to foreground and background respectively. To apply styles to a
+layout there are wrapper nodes that are named as style attributes. For example
+:obj:`~functui.common.bold` and :obj:`~functui.common.italic`.
 
 
 .. code-block:: py
@@ -237,7 +272,12 @@ Expected output:
 Rich Text
 ---------
 
-Sometimes there may be a need for multiple styles in the same paragraph. This can be done with the :obj:`~functui.rich_text.rich_text` node or :obj:`~functui.rich_text.adaptive_text` if you also want that paragraph to be responsive to screen size changes. To style only a part of the paragraph, wrap that part in a :obj:`~functui.rich_text.span` and specify a :obj:`~functui.classes.style_rule`.
+Sometimes there may be a need for multiple styles in the same paragraph. This
+can be done with the :obj:`~functui.rich_text.rich_text` node or
+:obj:`~functui.rich_text.adaptive_text` if you also want that paragraph to be
+responsive to screen size changes. To style only a part of the paragraph, wrap
+that part in a :obj:`~functui.rich_text.span` and specify a
+:obj:`~functui.classes.style_rule`.
 
 .. code-block:: py
 
