@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from functools import lru_cache, partial
+from math import floor
 from typing import runtime_checkable, Callable, Iterable
 from .classes import *
 
@@ -56,6 +57,49 @@ def flex(node: Layout) -> Flex:
 #     total_grow = sum(i.grow for i in children)
 #     total_shrink = sum(i.shrink for i in children)
 
+def _calculate_flex_children_sizes(
+    available_space: int,
+    children: Iterable[Flex],
+    child_basis: Iterable[int]
+) -> Iterable[int]:
+    leftover_space = available_space - sum(child_basis)
+    child_data = list(zip(child_basis, children))
+
+    if leftover_space < 0: # shrink
+        leftover_space = -1 * leftover_space
+
+        fixed_space = sum(basis for (basis, child) in child_data if child.shrink == 0)
+
+        # shrink_factor equation explanation
+
+        # a -> available space
+        # k -> shrink factor
+        # bₙ -> basis size of child n
+        # sₙ -> shrink constant (Flex.shrink) of child n
+        # f -> sum of all fixed widths
+
+        # after elements have ben shrunk by factor k,
+        # the below eqation should be true.
+        # a = b₁s₁k + ... + bₙsₙk + f
+        # <=> a = k(b₁s₁ + ... + bₙsₙ) + f
+        # <=> k = (a-f)/(b₁s₁ + ... + bₙsₙ)
+
+        children_that_will_shrink = (i for i in child_data if i[1].shrink != 0)
+        shrink_factor = (available_space-fixed_space) / sum(
+            child.shrink * basis for (basis, child) in children_that_will_shrink
+        )
+        out = []
+        for (basis, child) in child_data:
+            out.append(floor(basis * shrink_factor * child.shrink) if child.shrink != 0 else basis)
+        return out
+
+    # grow
+    total_grow = sum(i.grow for i in children)
+    space_rations = even_divide(leftover_space, total_grow)
+    out = []
+    for (basis, child) in child_data:
+        out.append(basis + sum(space_rations.pop() for _ in range(child.grow)))
+    return out
 
 
 def vbox_flex(children: Iterable[Flex | Layout]) -> Layout:
@@ -147,55 +191,49 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
             └──────────────────────────────────────┘
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 1, True)(child) for child in children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
 
     def _min_size(measure_text: MeasureTextFunc, from_size: Rect):
-        acc = []
-        reserved_space = sum(i.node.min_size(measure_text, from_size).width for i in children if i.basis)
-        total_grow = sum(i.grow for i in children)
-        total_shrink = sum(i.shrink for i in children)
+        child_basis = [(i.node.min_size(measure_text, from_size).width if
+                i.basis else 0) for i in children]
+        child_widths = _calculate_flex_children_sizes(from_size.width, children, child_basis)
 
-        available_space = from_size.width - reserved_space
-        space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
-        for flex in children:
-            child_min_width = flex.node.min_size(measure_text, from_size).width if flex.basis else 0
-            actuall_width = child_min_width + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
-            child_box = Box(
-                width=actuall_width,
-                height=flex.node.min_size(measure_text, Rect(actuall_width, from_size.height)).height,
+        child_heights = []
+        for (width, child) in zip(child_widths, children):
+            rect = child.node.min_size(
+                measure_text,
+                Rect(width, from_size.height)
             )
-            acc.append(child_box)
-        return Rect(
-            width=sum(i.width for i in acc),
-            height=max(i.height for i in acc),
+            child_heights.append(rect.height)
+        ret = Rect(
+            sum(child_widths),
+            max(child_heights)
         )
+        return ret
+
 
     return Layout(
         func=hbox_flex,
         min_size=_min_size,
         render=partial(_hbox_flex_render, children)
     )
+
 @lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
-    reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).width for i in children if i.basis)
-    total_grow = sum(i.grow for i in children)
-    total_shrink = sum(i.shrink for i in children)
+    child_basis = [(i.node.min_size(frame.measure_text, box.rect).width if
+            i.basis else 0) for i in children]
+    child_widths = _calculate_flex_children_sizes(box.width, children, child_basis)
+    print(child_widths)
 
-    available_space = box.width - reserved_space
-    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
-    at_x = 0
     res = Result()
-    for flex in children:
-        child_min_width = flex.node.min_size(frame.measure_text, box.rect).width if flex.basis else 0
-        child_delta = sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
-
-        child_box = Box(
-            width=child_min_width + child_delta,
-            height=box.height,
-        )
-        child_box = child_box.offset_by(box.position + Coordinate(at_x, 0))
-        res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+    at_x = 0
+    for child, child_width in zip(children, child_widths):
+        # child_min_rect = child.node.min_size(frame.measure_text, Rect(child_width, box.height))
+        child_box = Box(child_width, box.height, box.position + Coordinate(at_x, 0))
         at_x += child_box.width
+
+        res.add_children_after([child.node.render(frame.shrink_to(child_box), child_box)])
+
     return res
 
 @dataclass

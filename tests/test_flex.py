@@ -1,7 +1,8 @@
 from functui.flex import flex, flex_custom, vbox_flex, hbox_flex
-from functui.common import text, border_ascii
+from functui.common import _bg_char_render, bg_char, text, border_ascii, shrink
 
 from functui import layout_to_str, Rect
+from functui.rich_text import adaptive_text
 
 def item(s: str):
     return text(s) | border_ascii
@@ -68,3 +69,59 @@ def test_flex_different_shrink_with_basis():
     ]
     assert render_to_fit(layout, expected) == expected
 
+def test_flex_shrink_to_min_size_vertical_and_horizontal():
+    layout = hbox_flex([
+        adaptive_text("aaa bbb") | border_ascii | flex_custom(1),
+        adaptive_text("ccc") | bg_char(".") | border_ascii|  flex_custom(1),
+    ]) | border_ascii | shrink
+    expected = [
+        "+----------+ ",
+        "|+---++---+| ",
+        "||aaa||ccc|| ",
+        "||bbb||   || ",
+        "|+---++---+| ",
+        "+----------+ ",
+        "             ",
+    ]
+    assert render_to_fit(layout, expected) == expected
+
+# def test_flex_shrink_to_min_size():
+#     layout = hbox_flex([
+#         adaptive_text("aaa bbb") | border_ascii | flex_custom(1),
+#         adaptive_text("ccc") | bg_char(".") | border_ascii|  flex_custom(1),
+#     ]) | border_ascii | shrink
+#     expected = [
+#         "+----------+",
+#         "|+---++---+|",
+#         "||aaa||ccc||",
+#         "||bbb||   ||",
+#         "|+---++---+|",
+#         "+----------+",
+#         "            ",
+#     ]
+#     assert render_to_fit(layout, expected) == expected
+#
+"""
+min_size:
+    if shrink:
+        for each shrink>0:
+            actuall_size = basis_size * factor
+    if grow:
+        for each grow>0:
+            actuall_size = basis_size + ration
+
+
+    return sum(asctuall_sizes)
+
+actuall:
+    if shrink:
+        for each shrink>0:
+            actuall_size = basis_size * factor
+    if grow:
+        for each grow>0:
+            actuall_size = basis_size + ration
+
+    for each actuall_size:
+        child(actuall_size)
+
+"""
