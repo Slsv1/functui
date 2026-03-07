@@ -66,31 +66,54 @@ def _calculate_flex_children_sizes(
     child_data = list(zip(child_basis, children))
 
     if leftover_space < 0: # shrink
-        leftover_space = -1 * leftover_space
+        # missing_space = -1 * leftover_space
 
         fixed_space = sum(basis for (basis, child) in child_data if child.shrink == 0)
+        flexible_space = available_space - fixed_space
+
+        children_that_will_shrink = [i for i in child_data if i[1].shrink != 0]
 
         # shrink_factor equation explanation
 
-        # a -> available space
+        # a -> flexible_space
         # k -> shrink factor
-        # bₙ -> basis size of child n
-        # sₙ -> shrink constant (Flex.shrink) of child n
-        # f -> sum of all fixed widths
+        # bₙ -> basis size of shrinkable child n
+        # sₙ -> inverse shrink constant (Flex.shrink) of child n
+        # (inverse is needed so that higher constant means more shrink)
 
         # after elements have ben shrunk by factor k,
         # the below eqation should be true.
-        # a = b₁s₁k + ... + bₙsₙk + f
-        # <=> a = k(b₁s₁ + ... + bₙsₙ) + f
-        # <=> k = (a-f)/(b₁s₁ + ... + bₙsₙ)
+        # a = b₁s₁k + ... + bₙsₙk 
+        # <=> a = k(b₁s₁ + ... + bₙsₙ)
+        # <=> k = a/(b₁s₁ + ... + bₙsₙ)
 
-        children_that_will_shrink = (i for i in child_data if i[1].shrink != 0)
-        shrink_factor = (available_space-fixed_space) / sum(
-            child.shrink * basis for (basis, child) in children_that_will_shrink
+
+        shrink_factor = flexible_space / sum(
+            (1/child.shrink) * basis for (basis, child) in children_that_will_shrink
         )
+        shrunk_children = []
+        calculated_flexible_space = 0
+        for (basis, child) in children_that_will_shrink:
+            child_size = floor(basis * shrink_factor * (1/child.shrink))
+            calculated_flexible_space += child_size
+            shrunk_children.append(child_size)
+
+        # because child sizes are actually floats that have been rounded to ints
+        # there may be a rounding error that needs to be handled
+        rounding_error = flexible_space - calculated_flexible_space
+
+        if rounding_error:
+            rounding_rations = even_divide(rounding_error, len(shrunk_children))
+            shrunk_children = [a + b for (a, b) in zip(shrunk_children, rounding_rations)]
+
+        shrunk_children = list(reversed(shrunk_children)) # so that pop is in order
         out = []
-        for (basis, child) in child_data:
-            out.append(floor(basis * shrink_factor * child.shrink) if child.shrink != 0 else basis)
+        for basis, child in child_data:
+            if child.shrink == 0:
+                out.append(basis)
+            else:
+                out.append(shrunk_children.pop())
+
         return out
 
     # grow
@@ -205,11 +228,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
                 Rect(width, from_size.height)
             )
             child_heights.append(rect.height)
-        ret = Rect(
-            sum(child_widths),
-            max(child_heights)
-        )
-        return ret
+        return Rect(sum(child_widths), max(child_heights))
 
 
     return Layout(
@@ -223,7 +242,6 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     child_basis = [(i.node.min_size(frame.measure_text, box.rect).width if
             i.basis else 0) for i in children]
     child_widths = _calculate_flex_children_sizes(box.width, children, child_basis)
-    print(child_widths)
 
     res = Result()
     at_x = 0
