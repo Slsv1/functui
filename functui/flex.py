@@ -131,33 +131,43 @@ def vbox_flex(children: Iterable[Flex | Layout]) -> Layout:
     To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, True, True)(child) for child in children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, False, True)(child) for child in children)
+
+    def _min_size(measure_text: MeasureTextFunc, from_size: Rect):
+        child_basis = [(i.node.min_size(measure_text, from_size).height if
+                i.basis else 0) for i in children]
+        child_heights = _calculate_flex_children_sizes(from_size.height, children, child_basis)
+
+        child_widths = []
+        for (height, child) in zip(child_heights, children):
+            rect = child.node.min_size(
+                measure_text,
+                Rect(from_size.width, height)
+            )
+            child_widths.append(rect.width)
+        return Rect(max(child_widths), sum(child_heights))
+
     return Layout(
         func=vbox_flex,
-        min_size=min_size_vertical([i.node.min_size for i in children]),
+        min_size=_min_size,
         render=partial(_vbox_flex_render, children)
     )
 
 
 @lru_cache(LRU_MAX_SIZE)
 def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
-    reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).height for i in children if i.basis)
-    total_grow = sum(i.grow for i in children)
-    total_shrink = sum(i.shrink for i in children)
+    child_basis = [(i.node.min_size(frame.measure_text, box.rect).height if
+            i.basis else 0) for i in children]
+    child_heights = _calculate_flex_children_sizes(box.height, children, child_basis)
 
-    available_space = box.height - reserved_space
-    space_rations = even_divide(available_space, total_grow if available_space >= 0 else total_shrink)
-    at_y = 0
     res = Result()
-    for flex in children:
-        child_min_height = flex.node.min_size(frame.measure_text, box.rect).height if flex.basis else 0
-        child_box = Box(
-            width=box.width,
-            height=child_min_height + sum(space_rations.pop() for _ in range(flex.grow if available_space >= 0 else flex.shrink))
-        )
-        child_box = child_box.offset_by(box.position + Coordinate(0, at_y))
-        res.add_children_after([flex.node.render(frame.shrink_to(child_box), child_box)])
+    at_y = 0
+    for child, child_height in zip(children, child_heights):
+        child_box = Box(box.width, child_height, box.position + Coordinate(0, at_y))
         at_y += child_box.height
+
+        res.add_children_after([child.node.render(frame.shrink_to(child_box), child_box)])
+
     return res
 
 
@@ -243,7 +253,6 @@ def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     res = Result()
     at_x = 0
     for child, child_width in zip(children, child_widths):
-        # child_min_rect = child.node.min_size(frame.measure_text, Rect(child_width, box.height))
         child_box = Box(child_width, box.height, box.position + Coordinate(at_x, 0))
         at_x += child_box.width
 
@@ -291,7 +300,7 @@ def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
     To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, True, True)(child) for child in children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, False, True)(child) for child in children)
     def min_size(measure_text: MeasureTextFunc, from_rect: Rect):
         lines = _split_flex_by_lines_h(from_rect.width, children, measure_text)
 
