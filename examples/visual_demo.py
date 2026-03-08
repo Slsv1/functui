@@ -50,7 +50,7 @@ def flex_item(string: str):
 def flex_itemw(string: str):
     return text(string) | center | custom_padding(1, 1, 1, 1)
 
-layout = vbox_flex([
+layout = vbox([
     hbox_flex([
         vbox([
             text("4 bit") | fg(Color4.GREEN),
@@ -62,18 +62,18 @@ layout = vbox_flex([
     ]) | border_with_title(text("Colors")),
     display_char_styles() | border_with_title(text("Styles")),
     hbox_flex([
-        vbox_flex([
+        vbox([
             hbox_flex(intersperse([
                 flex_item("flex") | flex,
                 flex_item("flex_custom(2)") | flex_custom(2),
                 flex_item("no flex"),
             ], sep=vbar)) | border_with_title(text("Flexible Containers")),
-            adaptive_text(LOREM) | padding | dim | border_with_title(text("Text wrapping")) | flex,
+            adaptive_text(LOREM) | padding | dim | border_with_title(text("Text wrapping")),
         ]) | flex,
         hbox_flex_wrap(
             [(text("flex") | custom_padding(1, 1, 1, 1) | styled(border, rule_fg(i+0)) | flex_custom(1, basis=True)) for i in range(10)]
         )| border_with_title(text("Flexible and Wrappable Containers")) | flex,
-    ]) | flex,
+    ]),
 ])
 
 result = layout_to_result(layout, Rect(102, 45))
