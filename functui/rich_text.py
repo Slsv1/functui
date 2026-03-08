@@ -160,10 +160,11 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
                 wrap_line_default(line, available.width, measure_text, soft_hyphen) for line in groups
             )
         )
-        return Rect(
+        ret = Rect(
             max((sum(group.length for group in line) for line in lines), default=0),
             len(lines)
         )
+        return ret
     return Layout(
         func=adaptive_text,
         min_size=min_size,

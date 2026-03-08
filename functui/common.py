@@ -887,7 +887,7 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
 
 @lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
-    return node.render(frame, box.offset_by(by).resize(top=-by.y, right=-by.x))
+    return node.render(frame, box.offset_by(by))
 
 
 def clamp_width(width: int):

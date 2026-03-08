@@ -100,7 +100,7 @@ multiple children. A simple container node is a :func:`~functui.common.vbox`.
 
     layout = vbox([
         text("foo"),
-        hbar(),
+        hbar,
         text("bar"),
         text("buz") | border,
     ]) | border
@@ -113,17 +113,17 @@ Expected output:
 
     ┌──────────────────┐
     │foo               │
-    │------------------│
+    │──────────────────│
     │bar               │
     │┌────────────────┐│
     ││buz             ││
     │└────────────────┘│
     │                  │
-    └──────────────────┘    
+    └──────────────────┘
 
 A container's children are just regular nodes, meaning that you can put wrapper
 nodes around them (As we did with the border around the 'buz' text node). We
-also used a :func:`~functui.common.hbar` node to create a horizontal rule.
+also used a :obj:`~functui.common.hbar` node to create a horizontal rule.
 
 Continuing on this trend of everything being nodes, containers are nodes
 themselves, meaning that you can nest containers inside each other.
@@ -135,7 +135,7 @@ themselves, meaning that you can nest containers inside each other.
 
     layout = vbox([
         text("foo"),
-        hbox([text("bar"), vbar(), text("buz")]) | border,
+        hbox([text("bar"), vbar | padding, text("buz")]) | border,
     ]) | border
 
     print(layout_to_str(layout, Rect(20, 9)))
@@ -145,7 +145,7 @@ themselves, meaning that you can nest containers inside each other.
     ┌──────────────────┐
     │foo               │
     │┌────────────────┐│
-    ││bar|buz         ││
+    ││bar │ buz       ││
     │└────────────────┘│
     │                  │
     │                  │

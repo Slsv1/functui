@@ -64,7 +64,7 @@ LRU_MAX_SIZE = 512
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
 def even_divide(num, denomenator) -> list[int]:
-    return [num // denomenator + (1 if x < num % denomenator else 0)  for x in range (denomenator)]
+    return [num // denomenator + (1 if x < num % denomenator else 0) for x in range(denomenator)]
 
 def intersperse[T](iterable: Iterable[T], sep: T) -> Iterable[T]:
     """Yield elements with sep inserted between them.

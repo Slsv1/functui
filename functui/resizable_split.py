@@ -8,11 +8,6 @@ from typing import Callable, Self, Any
 from functools import partial
 
 
-class ResizableSplitAction(Enum):
-    MOVE_LEFT = auto()
-    MOVE_RIGHT = auto()
-    CENTER = auto()
-
 @dataclass(frozen=True, eq=True, unsafe_hash=True)
 class ResizableSplitResultData(ResultData):
     id_to_data: dict[int, tuple[int,int, Box]]
