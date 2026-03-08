@@ -41,87 +41,44 @@ def test_flex_grow_uniform_without_basis():
     assert render_to_fit(layout, expected) == expected
 
 def test_flex_shrink_with_basis():
-    flex_config = flex_custom(grow=0, shrink=1, basis=True)
+    flex_config = flex_custom(grow=0, shrink=True, basis=True)
     layout = hbox_flex([
-        item("======aaaaaaa") | flex_config,
-        item("bbbbbb") | flex_config,
+        text("======aaaaaaa") | flex_config,
+        text("bbbbbb") | flex_config,
     ]) | border_ascii
     expected = [
-        "+-------------+",
-        "|+------++---+|",
-        "||======||bbb||",
-        "|+------++---+|",
-        "+-------------+",
+        "+---------+",
+        "|======bbb|",
+        "+---------+",
     ]
     assert render_to_fit(layout, expected) == expected
 
-def test_flex_different_shrink_with_basis():
-    layout = hbox_flex([
-        item("======aaaaaaa") | flex_custom(grow=0, shrink=1, basis=True),
-        item("bbbbbbccccccc") | flex_custom(grow=0, shrink=2, basis=True),
-    ]) | border_ascii
-    expected = [
-        "+-------------------+",
-        "|+---------++------+|",
-        "||======aaa||bbbbbb||",
-        "|+---------++------+|",
-        "+-------------------+",
-    ]
-    assert render_to_fit(layout, expected) == expected
 
-def test_flex_shrink_to_min_size_vertical_and_horizontal():
+def test_flex_shrink_to_min_size_vertically():
     layout = hbox_flex([
         adaptive_text("aaa bbb") | border_ascii | flex_custom(1),
-        adaptive_text("ccc") | bg_char(".") | border_ascii|  flex_custom(1),
+        adaptive_text("ccc") | border_ascii|  flex_custom(1),
     ]) | border_ascii | shrink
     expected = [
-        "+----------+ ",
-        "|+---++---+| ",
-        "||aaa||ccc|| ",
-        "||bbb||   || ",
-        "|+---++---+| ",
-        "+----------+ ",
-        "             ",
+        "+----------+",
+        "|+---++---+|",
+        "||aaa||ccc||",
+        "||bbb||   ||",
+        "|+---++---+|",
+        "+----------+",
+        "            ",
+        "            ",
+        "            ",
+        "            ",
     ]
     assert render_to_fit(layout, expected) == expected
 
-# def test_flex_shrink_to_min_size():
-#     layout = hbox_flex([
-#         adaptive_text("aaa bbb") | border_ascii | flex_custom(1),
-#         adaptive_text("ccc") | bg_char(".") | border_ascii|  flex_custom(1),
-#     ]) | border_ascii | shrink
-#     expected = [
-#         "+----------+",
-#         "|+---++---+|",
-#         "||aaa||ccc||",
-#         "||bbb||   ||",
-#         "|+---++---+|",
-#         "+----------+",
-#         "            ",
-#     ]
-#     assert render_to_fit(layout, expected) == expected
-#
-"""
-min_size:
-    if shrink:
-        for each shrink>0:
-            actuall_size = basis_size * factor
-    if grow:
-        for each grow>0:
-            actuall_size = basis_size + ration
-
-
-    return sum(asctuall_sizes)
-
-actuall:
-    if shrink:
-        for each shrink>0:
-            actuall_size = basis_size * factor
-    if grow:
-        for each grow>0:
-            actuall_size = basis_size + ration
-
-    for each actuall_size:
-        child(actuall_size)
-
-"""
+def test_no_exception_when_no_space():
+    layout = hbox_flex([
+        adaptive_text("aaa bbb") | border_ascii | flex_custom(1),
+        adaptive_text("ccc") | border_ascii|  flex_custom(1),
+    ]) | border_ascii | shrink
+    expected = [
+        "+", # limit to a 1 x 1 screen size
+    ]
+    assert render_to_fit(layout, expected) == expected

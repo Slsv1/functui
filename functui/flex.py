@@ -21,10 +21,10 @@ class Flex:
     """
     node: Layout
     grow: int
-    shrink: int
+    shrink: bool
     basis: bool
 
-def flex_custom(grow=1, shrink=1, basis=False) -> Callable[[Layout], Flex]:
+def flex_custom(grow=1, shrink=True, basis=False) -> Callable[[Layout], Flex]:
     """Wrap child layout in a :obj:`Flex` class to mark it as flexible and adjust attributes.
 
     Note:
@@ -34,7 +34,6 @@ def flex_custom(grow=1, shrink=1, basis=False) -> Callable[[Layout], Flex]:
         grow: 
             How much unused space will be given to this layout relative to other layouts.
         shrink:
-            How much to shrink this layout relative to other layouts if it cant fit the container.
             This property has an effect only when ``basis`` is set to ``True``.
         basis:
             If parent container should reserve space for this layout's minum size.
@@ -50,51 +49,49 @@ def flex(node: Layout) -> Flex:
     Note:
         This node is only usefull with flex containers (:obj:`vbox_flex` and :obj:`hbox_flex`).
     """
-    return flex_custom(1, 1, False)(node)
+    return flex_custom(1, True, False)(node)
 
-# def _ration_size(available: int, children: Iterable[Flex], main_axis_horizontal=False):
-#     # reserved_space = sum(i.node.min_size(frame.measure_text, box.rect).height for i in children if i.basis)
-#     total_grow = sum(i.grow for i in children)
-#     total_shrink = sum(i.shrink for i in children)
 
 def _calculate_flex_children_sizes(
     available_space: int,
     children: Iterable[Flex],
-    child_basis: Iterable[int]
+    child_basis: Iterable[int],
 ) -> Iterable[int]:
+
     leftover_space = available_space - sum(child_basis)
     child_data = list(zip(child_basis, children))
 
     if leftover_space < 0: # shrink
         # missing_space = -1 * leftover_space
-
         fixed_space = sum(basis for (basis, child) in child_data if child.shrink == 0)
         flexible_space = available_space - fixed_space
 
-        children_that_will_shrink = [i for i in child_data if i[1].shrink != 0]
+        children_that_will_shrink = [i for i in child_data if i[1].shrink]
 
         # shrink_factor equation explanation
 
         # a -> flexible_space
         # k -> shrink factor
         # bₙ -> basis size of shrinkable child n
-        # sₙ -> inverse shrink constant (Flex.shrink) of child n
-        # (inverse is needed so that higher constant means more shrink)
 
         # after elements have ben shrunk by factor k,
         # the below eqation should be true.
-        # a = b₁s₁k + ... + bₙsₙk 
-        # <=> a = k(b₁s₁ + ... + bₙsₙ)
-        # <=> k = a/(b₁s₁ + ... + bₙsₙ)
+        # a = b₁k + ... + bₙk 
+        # <=> a = k(b₁ + ... + bₙ)
+        # <=> k = a/(b₁ + ... + bₙ)
 
-
-        shrink_factor = flexible_space / sum(
-            (1/child.shrink) * basis for (basis, child) in children_that_will_shrink
+        basis_sum = sum(
+            basis for (basis, child) in children_that_will_shrink
         )
+
+        if basis_sum == 0:
+            return child_basis
+
+        shrink_factor = flexible_space / basis_sum
         shrunk_children = []
         calculated_flexible_space = 0
         for (basis, child) in children_that_will_shrink:
-            child_size = floor(basis * shrink_factor * (1/child.shrink))
+            child_size = round(basis * shrink_factor)
             calculated_flexible_space += child_size
             shrunk_children.append(child_size)
 
@@ -134,7 +131,7 @@ def vbox_flex(children: Iterable[Flex | Layout]) -> Layout:
     To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, True, True)(child) for child in children)
     return Layout(
         func=vbox_flex,
         min_size=min_size_vertical([i.node.min_size for i in children]),
@@ -214,7 +211,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
             └──────────────────────────────────────┘
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, False, True)(child) for child in children)
 
     def _min_size(measure_text: MeasureTextFunc, from_size: Rect):
         child_basis = [(i.node.min_size(measure_text, from_size).width if
@@ -294,7 +291,7 @@ def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
     To destribute remaing space unevanly, childrens ``grow`` attribute can be changed by using :obj:`flex_custom`.
 
     """
-    children = tuple(child if isinstance(child, Flex) else flex_custom(0, 0, True)(child) for child in children)
+    children = tuple(child if isinstance(child, Flex) else flex_custom(0, True, True)(child) for child in children)
     def min_size(measure_text: MeasureTextFunc, from_rect: Rect):
         lines = _split_flex_by_lines_h(from_rect.width, children, measure_text)
 
