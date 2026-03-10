@@ -13,11 +13,6 @@ __all__ = [
     "ScrollAction",
 
     "Direction",
-    "InteractibleID",
-    "InteractibleIDPart",
-    "ROOT_VERTICAL",
-    "ROOT_HORIZONTAL",
-    "EMPTY_INTERACTIBLE",
 
     "NavState",
     "DEFAULT_NAV_BINDINGS",
@@ -67,7 +62,7 @@ KEYBOARD_NAV_ACTION = [NavAction.NAV_DOWN, NavAction.NAV_UP, NavAction.NAV_LEFT,
 type ScrollAction = Literal[NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, NavAction.SCROLL_UP]
 SCROLL_ACTION = [NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, NavAction.SCROLL_UP]
 
-type NodeId = tuple[str, int] | str | None
+type NodeId = tuple[str, int] | str
 
 
 @dataclass
@@ -75,13 +70,13 @@ class NavContainer:
     direction: Direction 
     children: tuple[NodeId | NavContainer, ...]
     remember: bool
-    container_id: NodeId
+    container_id: NodeId | None
 
 
-def vnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId=None):
+def vnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId|None=None):
     return NavContainer(Direction.VERTICAL, tuple(ids), remember, container_id)
 
-def hnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId=None):
+def hnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId|None=None):
     return NavContainer(Direction.HORIZONTAL, tuple(ids), remember, container_id)
 
 @dataclass(frozen=True, eq=True)
@@ -128,9 +123,9 @@ class NavState:
     areas: MappingProxyType[NodeId, BoxData] = MappingProxyType({})
     """All areas that were marked by an :obj:`interaction_area` wrapper node."""
 
-    _active_data: _ActiveData = _ActiveData(None, (0,))
+    _active_data: _ActiveData | None = None
     """Interactible that is active through keyboard navigation."""
-    _hovered_data: _HoveredData = _HoveredData(None, False)
+    _hovered_data: _HoveredData | None = None
     """Interactible that the mouse is hovering over."""
 
 
@@ -164,7 +159,7 @@ class NavState:
     # state management
     #
     def is_active(self, key: NodeId) -> bool:
-        if self._active_data.id == None:
+        if self._active_data is None:
             return False
         return key == self._active_data.id
 
@@ -208,6 +203,7 @@ class NavState:
     #         if key.data == id.data[:len(key.data)]:
     #             return True
     #     return False
+
     def get_scrolling_difference(self):
         if self.action == NavAction.SCROLL_UP:
             return -3
@@ -216,8 +212,59 @@ class NavState:
             return 3
 
         return 0
+
     def get_mouse_drag_difference(self) -> Coordinate:
         return self.mouse_position - self.last_mouse_position
+
+    @staticmethod
+    def _find_closest(tree: NavContainer, index: tuple[int, ...] = ()) -> _ActiveData | None:
+        for i, child in enumerate(tree.children):
+            if isinstance(child, NavContainer):
+                return NavState._find_closest(child, index + (i,))
+            return NavState._ActiveData(child, index + (i,))
+        return None
+
+    @staticmethod
+    def _navigate_by_keyboard(
+            tree: NavContainer,
+            current_index: tuple[int, ...],
+            action: KeyboardNavAction 
+    ) -> _ActiveData | bool:
+
+        direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
+        backwards = False
+        if direction == Direction.HORIZONTAL:
+            backwards = True if action == NavAction.NAV_LEFT else False
+        elif direction == Direction.VERTICAL:
+            backwards = True if action == NavAction.NAV_UP else False
+
+
+        found_current = False
+
+        def _iter(tree: NavContainer, index: tuple[int, ...] = ()) -> NavState._ActiveData | None:
+            nonlocal found_current
+
+            for i, child in enumerate(reversed(tree.children) if backwards else tree.children):
+                i = len(tree.children) - i - 1 if backwards else i
+
+                if isinstance(child, NavContainer):
+                    if (res := _iter(child, index + (i,))) is not None:
+                        return res
+                    continue
+
+                if current_index == index + (i,):
+                    found_current = True
+                    continue
+
+                if found_current: #then search for next
+                    # +1 because yes
+                    # 
+                    if  tree.direction == direction:
+                        return NavState._ActiveData(child, index + (i,))
+
+        if (res := _iter(tree)) is not None:
+            return res
+        return found_current
 
     def update(
             self,
@@ -228,11 +275,14 @@ class NavState:
     ):
         next_active_data = self._active_data
         if nav_tree is not None and action in KEYBOARD_NAV_ACTION:
-            if self._active_data.id == None:
-                ... # TODO: find_closest
-
-            nav_result = _navigate_by_keyboard(nav_tree, list(self._active_data.tree_index), action) # type: ignore
-            next_active_data = self._ActiveData(nav_result.next_id, tuple(nav_result.next_index))
+            if self._active_data is None:
+                next_active_data = self._find_closest(nav_tree)
+            else:
+                nav_result = self._navigate_by_keyboard(nav_tree, self._active_data.tree_index, action) # type: ignore
+                if isinstance(nav_result, self._ActiveData):
+                    next_active_data = nav_result
+                elif not nav_result: # id was not found
+                    next_active_data = self._find_closest(nav_tree)
 
 
 
@@ -246,89 +296,6 @@ class NavState:
             _active_data=next_active_data,
             _hovered_data=self._hovered_data,
         )
-
-# def interaction_area(interactible_id: InteractibleID, dragable=False):
-#     """A wrapper node that marks its child layout as interactive.
-#
-#     Meant to be used along with :obj:`NavState`.
-#
-#     This wrapper node also retrieves at which size and position child layout was rendered at.
-#     This allows mouse hover detection, and in a scrollable container, automatically
-#     scrolling to a child that became active through keyboard navigation.
-#     """
-#     def _out(child: Layout):
-#         return Layout(
-#             func=interaction_area,
-#             min_size=child.min_size,
-#             render=partial(_render_interaction_area, interactible_id, child, dragable)
-#         )
-#     return _out
-#
-#
-# def _render_interaction_area(
-#     interactible_id: InteractibleID,
-#     child: Layout,
-#     dragable: bool,
-#     frame: Frame,
-#     box: Box
-# ) -> Result:
-#     res = Result()
-#     availabe_box = frame.view_box.intersect(box)
-#     res.set_data(InteractionAreas({interactible_id: BoxData(availabe_box, box, dragable)}))
-#     res.add_children_after([child.render(frame, box)])
-#     return res
-
-
-class _NavigationResult(NamedTuple):
-    next_id: NodeId
-    next_index: list[int]
-
-def _navigate_by_keyboard(
-        tree: NavContainer,
-        current_index: list[int],
-        action: KeyboardNavAction 
-) -> _NavigationResult:
-
-    direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
-    backwards = False
-    if direction == Direction.HORIZONTAL:
-        backwards = True if action == NavAction.NAV_LEFT else False
-    elif direction == Direction.VERTICAL:
-        backwards = True if action == NavAction.NAV_UP else False
-
-
-    next_index = []
-    found_current = False
-
-    def _iter(tree: NavContainer):
-        nonlocal found_current
-        next_index.append(0)
-        for i, child in enumerate(reversed(tree.children) if backwards else tree.children):
-            next_index[-1] = i
-
-            if isinstance(child, NavContainer):
-                _iter(child)
-                continue
-
-            if current_index == next_index:
-                found_current = True
-                continue
-            
-            if found_current: #then search for next
-
-                if len(next_index) < len(current_index) and tree.direction == direction:
-                    return child
-    next_id = _iter(tree)
-    if found_current:
-        return _NavigationResult(
-            next_id=next_id,
-            next_index=next_index
-        )
-    return _NavigationResult(
-        next_id=None,
-        next_index=[],
-    )
-
 
 
 DEFAULT_NAV_BINDINGS = {
@@ -357,82 +324,4 @@ DEFAULT_NAV_BINDINGS = {
 """A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
 
 
-class _NewActiveBox(NamedTuple):
-    box: Box
-    reverse: bool = False
-
-# def v_scroll(container_id: InteractibleID, nav: NavState):
-#     """Allow vertical scrolling if child does not fit into available space."""
-#     def _v_scroll(child: Layout):
-#         at_y: int | None = nav.try_state(container_id, int)
-#
-#         if at_y is None:
-#             at_y = 0
-#
-#         # find active box
-#         active_box = None
-#         if (_active_box := nav.areas.get(nav.active_id, None)) is not None\
-#             and nav.action in KEYBOARD_NAV_ACTION\
-#             and nav.active_id.data[:len(container_id.data)] == container_id.data:
-#             # ^^^^^^^^ if active_id is a child of container_id
-#             active_box = _NewActiveBox(_active_box.actual_box, nav.action == NavAction.NAV_UP)
-#
-#
-#         at_y += nav.get_scrolling_difference()
-#
-#         return Layout(
-#             func=v_scroll,
-#             min_size=child.min_size,
-#             render=partial(
-#                 _v_scroll_render,
-#                 at_y,
-#                 active_box,
-#                 container_id,
-#                 child,
-#             )
-#         )
-#     return _v_scroll
-#
-# def _v_scroll_render(
-#     scroll_dy: int,
-#     active_box: _NewActiveBox | None,
-#     container_id: InteractibleID,
-#     child: Layout,
-#     frame: Frame, 
-#     box: Box
-# ):
-#     # move to selected if selected out of bounds
-#     a = []
-#     if active_box is not None:
-#         selected_at_y = active_box.box.position.y - box.position.y # to local space
-#         start = 0 # including
-#         end = box.height # excluding
-#         # a.append(text(str(start)))
-#         # a.append(text(str(end)))
-#         # a.append(text("scroll_dy:" + str(scroll_dy)))
-#         # a.append(text("selected_at_local:" + str(selected_at_y)))
-#         # a.append(text("selected_at_global:" + str(active_box)))
-#
-#         if active_box.reverse:
-#             # aproach form below
-#
-#             if not (start <= selected_at_y < end):
-#                 scroll_dy += (selected_at_y)
-#         else:
-#
-#             # aproach from above
-#             if not (start <= (selected_at_y + active_box.box.height) < end):
-#                 scroll_dy += (selected_at_y - box.height + active_box.box.height)
-#
-#     scroll_dy = clamp(scroll_dy,
-#         0,
-#         child.min_size(frame.measure_text, Rect(box.width, 9999)).height - box.height
-#     )
-#
-#     res = Result()
-#     res.set_data(set_state((container_id, scroll_dy)))
-#     # a.append(text("final:" + str(scroll_dy)))
-#     modified_child = vbox([child,], at_y=-scroll_dy)
-#     res.add_children_after([modified_child.render(frame, box)])
-#     return res
 

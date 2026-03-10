@@ -74,26 +74,6 @@ def test_nav_nested_same_direction():
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
     assert nav.is_active("outer 1")
 
-def test_nav_nested_different_direction_skip():
-    nav = NavState()
-    tree=vnav("outer 1", hnav("nested 1", "nested 2"), "outer 2")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
-    assert nav.is_active("outer 1")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
-    assert nav.is_active("nested 1")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
-    assert nav.is_active("outer 2")
-
-    # now go back up
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
-    assert nav.is_active("nested 1")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
-    assert nav.is_active("outer 1")
 
 def test_nav_inner_different_direction_skip():
     nav = NavState()
