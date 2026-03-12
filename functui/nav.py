@@ -123,10 +123,15 @@ class NavState:
     areas: MappingProxyType[NodeId, BoxData] = MappingProxyType({})
     """All areas that were marked by an :obj:`interaction_area` wrapper node."""
 
+    # keyboard nav data
+
     _active_data: _ActiveData | None = None
     """Interactible that is active through keyboard navigation."""
+
     _hovered_data: _HoveredData | None = None
     """Interactible that the mouse is hovering over."""
+
+    _remembered_data: MappingProxyType[tuple[int, ...], int] = MappingProxyType({})
 
 
     # _held_down: InteractibleID = EMPTY_INTERACTIBLE
@@ -228,7 +233,8 @@ class NavState:
     def _navigate_by_keyboard(
             tree: NavContainer,
             current_index: tuple[int, ...],
-            action: KeyboardNavAction 
+            action: KeyboardNavAction,
+            remembered_data: MappingProxyType[tuple[int, ...], int]
     ) -> _ActiveData | bool:
 
         direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
@@ -241,26 +247,34 @@ class NavState:
 
         found_current = False
 
-        def _iter(tree: NavContainer, index: tuple[int, ...] = ()) -> NavState._ActiveData | None:
+        def _iter(tree: NavContainer, parent_index: tuple[int, ...] = ()) -> NavState._ActiveData | None:
             nonlocal found_current
 
-            for i, child in enumerate(reversed(tree.children) if backwards else tree.children):
+            child_iterator = iter(enumerate(reversed(tree.children) if backwards else tree.children))
+
+            if found_current and (parent_index in remembered_data):
+                remembered_id = remembered_data[parent_index]
+                for i in child_iterator:
+                    if i == remembered_id:
+                        break
+
+
+            for i, child in child_iterator:
                 i = len(tree.children) - i - 1 if backwards else i
 
                 if isinstance(child, NavContainer):
-                    if (res := _iter(child, index + (i,))) is not None:
+                    if (res := _iter(child, parent_index + (i,) )) is not None:
+                        # if we found new active, then return it
                         return res
                     continue
 
-                if current_index == index + (i,):
+                if current_index == parent_index + (i,):
                     found_current = True
                     continue
 
                 if found_current: #then search for next
-                    # +1 because yes
-                    # 
-                    if  tree.direction == direction:
-                        return NavState._ActiveData(child, index + (i,))
+                    if tree.direction == direction:
+                        return NavState._ActiveData(child, parent_index + (i,))
 
         if (res := _iter(tree)) is not None:
             return res
@@ -281,6 +295,8 @@ class NavState:
                 nav_result = self._navigate_by_keyboard(nav_tree, self._active_data.tree_index, action) # type: ignore
                 if isinstance(nav_result, self._ActiveData):
                     next_active_data = nav_result
+
+                    # TODO: update remembered data
                 elif not nav_result: # id was not found
                     next_active_data = self._find_closest(nav_tree)
 
@@ -321,7 +337,6 @@ DEFAULT_NAV_BINDINGS = {
     "mouse wheel down": NavAction.SCROLL_DOWN,
     "mouse wheel up": NavAction.SCROLL_UP
 }
+
+
 """A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
-
-
-
