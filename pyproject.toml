@@ -4,18 +4,18 @@
 
 [project]
 name = "functui"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
   "wcwidth",
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 authors = [
   {name = "Viacheslav Andrushenko"},
 ]
 # maintainers = [
 #   {name = "Brett Cannon", email = "brett@example.com"}
 # ]
-description = "Immidiate mode TUI library."
+description = "Immediate mode TUI library."
 readme = "README.rst"
 license = "MIT"
 license-files = ["LICENSE*"]
