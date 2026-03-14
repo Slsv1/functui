@@ -1,10 +1,11 @@
-# [build-system]
-# requires = ["hatchling"]
-# build-backend = "hatchling.build"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "functui"
-version = "0.0.4"
+version = "0.0.5"
+readme = "README.md"
 dependencies = [
   "wcwidth",
 ]
@@ -12,25 +13,33 @@ requires-python = ">=3.12"
 authors = [
   {name = "Viacheslav Andrushenko"},
 ]
-# maintainers = [
-#   {name = "Brett Cannon", email = "brett@example.com"}
-# ]
 description = "Immediate mode TUI library."
-readme = "README.rst"
 license = "MIT"
 license-files = ["LICENSE*"]
 # keywords = ["egg", "bacon", "sausage", "tomatoes", "Lobster Thermidor"]
-# classifiers = [
-#   "Development Status :: 4 - Beta",
-#   "Programming Language :: Python"
-# ]
-#
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python",
+  "License :: OSI Approved :: MIT License",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: Microsoft :: Windows :: Windows 10",
+  "Operating System :: Microsoft :: Windows :: Windows 11",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+]
 
 [project.optional-dependencies]
 dev = [
 	"pytest",
 	"snakeviz",
 	"pytest-codspeed",
+	"build",
+	"twine",
 ]
 doc = [
 	"sphinx",

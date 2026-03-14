@@ -1,14 +1,32 @@
-**__pycache__
-**.pytest_cache
-
+# environemt and packaging
+.venv
+.env
 node_modules
 package.json
 package-lock.json
-build
 
+# profiling data
+.codspeed
 perf
-.venv
-.env
-run.prof
-_build
+**.prof
+
+
+# build data
+build/
+_build/
 docs/_build
+**.egg-info
+dist/
+
+*.pyc
+**__pycache__
+**.pytest_cache
+
+# others
+foo.py
+bar.py
+baz.py
+
+foo.md
+bar.md
+baz.md
