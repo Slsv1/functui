@@ -6,6 +6,7 @@ from functools import cached_property, partial, cache
 
 from .color_data import HEX_TO_XTERM256_DEFINED_COLORS
 import wcwidth
+import colorsys
 #
 # utilities
 #
@@ -40,6 +41,7 @@ __all__ = [
     'clamp',
     'even_divide',
     'hex',
+    'hsl',
     'intersperse',
     'layout_to_result',
     'min_size_constant',
@@ -452,6 +454,12 @@ def _color_distance_fast(a: Color24, b: Color24) -> int:
 def rgb(r: int, g: int, b: int, /):
     """Create a new :obj:`Color24` from rgb parameters."""
     return Color24(r, g, b)
+
+def hsl(h: float, s: float, l: float, /):
+    """Create a new :obj:`Color24` from hsl parameters."""
+    
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    return Color24(int(r*255), int(g*255), int(b*255))
 
 
 def hex(value: int, /):

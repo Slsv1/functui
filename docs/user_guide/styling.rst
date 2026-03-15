@@ -92,7 +92,7 @@ True Color
 ~~~~~~~~~~
 
 Lastly, there is true color (24 bit or rgb color). This color format can be
-accessed either via :func:`~functui.classes.rgb` or
+accessed via :func:`~functui.classes.rgb`, :func:`~functui.classes.hsl` or
 :func:`~functui.classes.hex` functions that create a
 :obj:`~functui.classes.Color24` object that stores the color. This is the color
 format that the support is somewhat lacking. Most notably, the curses renderer

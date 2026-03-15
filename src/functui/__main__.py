@@ -8,6 +8,12 @@ def cell_white_text(color8: int):
     return text(f"{color8: >3}") | padding | bg_fill | bg(color8) | fg(Color4.BRIGHT_WHITE)
 def cell_black_text(color8: int):
     return text(f"{color8: >3}") | padding | bg_fill | bg(color8) | fg(16)
+def display_char_style():
+    out = []
+    for i in StyleAttr:
+        out.append(text(i.name) | push_rule(StyleRule(add_attrs=i))) # type: ignore
+    return hbox(intersperse(out, text(" ")))
+
 
 def display_color_8():
     regular = []
@@ -53,11 +59,33 @@ def display_color_8():
         hbox(whites),
     ])
 
+
+def display_true_color():
+    colors = []
+    STEPS_X = 90
+    STEPS_Y = 5
+    for i in range(STEPS_Y):
+        ky = (0.5 - (i / STEPS_Y) * 0.25)
+        for j in range(STEPS_X):
+            kx = j / STEPS_X
+            colors.append(text(" ") | bg(hsl(kx, 1, ky)))
+    return vbox(list(hbox(row) for row in batched(colors, STEPS_X)))
+
+
+def title(c: str):
+    return combine(padding, border_with_title(text(f" {c} ") | center, styled(border_rounded, rule_dim)))
+
+
 layout = vbox([
-    display_color_8() | shrink,
-])
-result = layout_to_result(layout, Rect(140, 40))
+    display_color_8() | title("Color8"),
+    display_true_color() | title("True Color"),
+    display_char_style() | title("StyleAttr"),
+    vbox([
+        text("Will break border if assumed width of 1 🥰, おはよう"),
+    ]) | title("Wide chars")
+]) | shrink
+
+result = layout_to_result(layout, Rect(94, 36))
 
 if __name__ == "__main__":
     print(result_to_str(result))
-

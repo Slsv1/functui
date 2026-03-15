@@ -15,6 +15,13 @@ Install with pip or your preferred python package manager.
 pip install functui
 ```
 
+## Run Demo
+Test how your terminal displays colors and styles.
+(It is normal that not all style attributes get rendered properly since not all terminals support all of them)
+``` bash
+python3 -m functui
+```
+
 ## Running Examples
 Clone the repo to get access to /example folder.
 ``` bash
