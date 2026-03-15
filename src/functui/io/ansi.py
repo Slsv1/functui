@@ -48,6 +48,8 @@ ANSI_RESET_STYLES = "\033[0m"
 def _render_ansi(screen: Screen) -> str:
     out = []
     lines = screen.split_by_lines()
+    if len(lines):
+        lines[-1].append(Pixel("", style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET)))
     curr_style = StyleAttr(0)
     curr_fg = Color4.RESET
     curr_bg = Color4.RESET
@@ -75,11 +77,8 @@ def _render_ansi(screen: Screen) -> str:
                 out.extend(line_str)
             out.append(pixel.char)
         out.append("\n")
-    return "".join(out[:-1]) # -1 to remove the \n on the end
+    return "".join(out[:-2]) # -2 to remove the \n on the end and the extra pixel
 
-
-def _ansi_go_up(y):
-    return f"\033[{y}A"
 
 def result_to_str(result: Result) -> str:
     """Convert a result to a string with ansi escapecodes that can be displayed in a terminal."""

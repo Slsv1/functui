@@ -72,35 +72,6 @@ tasks = [
 #
 
 def update(input: InputEvent, res: Result, m: Model):
-    # Keyboard navigation
-
-    nav_data = []
-    root = ROOT_HORIZONTAL
-    m.tasks_container = root.child(0, Direction.VERTICAL, persistent=True)
-
-    # continers
-    side_container = root.child(1, Direction.VERTICAL)
-    info_container = side_container.child(0, Direction.VERTICAL)
-    m.tasks_ids = [m.tasks_container.child(i) for i, _ in enumerate(tasks)]
-    nav_data.extend(m.tasks_ids)
-
-    # buttons
-    if len(m.tasks):
-        m.delete_button = info_container.child(0)
-        nav_data.append(m.delete_button)
-        m.complete_button = info_container.child(1)
-        nav_data.append(m.complete_button)
-        m.edit_button = info_container.child(2)
-        nav_data.append(m.edit_button)
-        m.text_container = info_container.child(-1)
-    else:
-        m.complete_button = EMPTY_INTERACTIBLE
-        m.delete_button = EMPTY_INTERACTIBLE
-        m.edit_button = EMPTY_INTERACTIBLE
-
-    m.create_button = side_container.child(1)
-    nav_data.append(m.create_button)
-    m.nav_tree = nav_data
 
     if m.current_text_input is not None:
         if event := create_text_input_event(input.key_event):
@@ -139,6 +110,35 @@ def update(input: InputEvent, res: Result, m: Model):
     if m.nav.is_selected(m.create_button):
         m.tasks.append(Task("New Task", False))
 
+    # Keyboard navigation
+
+    nav_data = []
+    root = ROOT_HORIZONTAL
+    m.tasks_container = root.child(0, Direction.VERTICAL, persistent=True)
+
+    # continers
+    side_container = root.child(1, Direction.VERTICAL)
+    info_container = side_container.child(0, Direction.VERTICAL)
+    m.tasks_ids = [m.tasks_container.child(i) for i, _ in enumerate(tasks)]
+    nav_data.extend(m.tasks_ids)
+
+    # buttons
+    if len(m.tasks):
+        m.delete_button = info_container.child(0)
+        nav_data.append(m.delete_button)
+        m.complete_button = info_container.child(1)
+        nav_data.append(m.complete_button)
+        m.edit_button = info_container.child(2)
+        nav_data.append(m.edit_button)
+        m.text_container = info_container.child(-1)
+    else:
+        m.complete_button = EMPTY_INTERACTIBLE
+        m.delete_button = EMPTY_INTERACTIBLE
+        m.edit_button = EMPTY_INTERACTIBLE
+
+    m.create_button = side_container.child(1)
+    nav_data.append(m.create_button)
+    m.nav_tree = nav_data
 
 #
 # Visual
