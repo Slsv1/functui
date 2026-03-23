@@ -48,8 +48,10 @@ ANSI_RESET_STYLES = "\033[0m"
 def _render_ansi(screen: Screen) -> str:
     out = []
     lines = screen.split_by_lines()
-    if len(lines):
-        lines[-1].append(Pixel("", style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET)))
+
+    for line in lines:
+        line.append(Pixel("", style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET)))
+
     curr_style = StyleAttr(0)
     curr_fg = Color4.RESET
     curr_bg = Color4.RESET
@@ -77,7 +79,7 @@ def _render_ansi(screen: Screen) -> str:
                 out.extend(line_str)
             out.append(pixel.char)
         out.append("\n")
-    return "".join(out[:-2]) # -2 to remove the \n on the end and the extra pixel
+    return "".join(out[:-1]) # -1 to remove the \n on the end
 
 
 def result_to_str(result: Result) -> str:

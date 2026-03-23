@@ -467,7 +467,7 @@ def hex(value: int, /):
     MASK = 0b11111111
     return Color24((value >> 16) & MASK, (value >> 8) & MASK, value & MASK)
 
-Color = int | Color24
+type Color = int | Color24
 
 
 class StyleRule(NamedTuple):
@@ -477,7 +477,7 @@ class StyleRule(NamedTuple):
         fg: Foreground color.
         bg: Background color.
         add_attrs: Add styling flags.
-        add_attrs: Remove styling flags.
+        remove_attrs: Remove styling flags.
     """
     fg: Color | None = None 
     bg: Color | None = None
@@ -889,13 +889,10 @@ class Screen:
     def set(self, pos: Coordinate, data: Pixel) -> None:
         """may error if out of range!!!"""
         self._data[pos.y][pos.x] = data
+
     def split_by_lines(self) -> list[list[Pixel]]:
-        # BUG
-        # right now wide chars wont be frickign yeah
         return self._data
-        #     # current_row = tuple(i for i in current_row if i.char_type != CharType.WIDE_TAIL)
-        #     out.append(current_row)
-        # return out
+
     def clear(self):
         p = Pixel()
         for y in range(self.height):

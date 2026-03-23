@@ -86,6 +86,9 @@ __all__ = [
     'border_with_title',
     'border_ascii',
     'custom_border',
+    'border_thick_dashed',
+    'border_dashed',
+    'border_rounded_dashed',
 ]
 
 
@@ -165,7 +168,7 @@ def text(string: str):
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     res = Result()
     for y, line in enumerate(text):
-        res.draw_string_line(frame, line, box.position + Coordinate(0, y))
+        res.draw_string_line(frame.shrink_to(box), line, box.position + Coordinate(0, y))
     return res
 
 
@@ -317,6 +320,32 @@ BORDER_ASCII = BorderStyle(
     corner_bl="+",
     corner_br="+",
 )
+BORDER_DASHED = BorderStyle(
+    line_v="╎",
+    line_h="╌",
+    corner_tl="┌",
+    corner_tr="┐",
+    corner_bl="└",
+    corner_br="┘",
+)
+
+BORDER_THICK_DASHED = BorderStyle(
+    line_v="╏",
+    line_h="╍",
+    corner_tl="┏",
+    corner_tr="┓",
+    corner_bl="┗",
+    corner_br="┛",
+)
+
+BORDER_ROUNDED_DASHED = BorderStyle(
+    line_v="╎",
+    line_h="╌",
+    corner_tl="╭",
+    corner_tr="╮",
+    corner_bl="╰",
+    corner_br="╯",
+)
 
 #┏━
 #
@@ -386,6 +415,12 @@ border_double = custom_border(style=BORDER_DOUBLE)
 """Puts a double border around a layout."""
 border_ascii = custom_border(style=BORDER_ASCII)
 """Puts a border consisting of ascii characters around a layout."""
+border_dashed = custom_border(style=BORDER_DASHED)
+"""Puts a dashed border around a layout."""
+border_rounded_dashed = custom_border(style=BORDER_ROUNDED_DASHED)
+"""Puts a rounded dashed border around a layout."""
+border_thick_dashed = custom_border(style=BORDER_THICK_DASHED)
+"""Puts a rounded dashed border around a layout."""
 
 @lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
