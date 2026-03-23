@@ -152,7 +152,7 @@ Expected Output:
     </pre>
 
 .. important::
-    As you may notice, only the text was styled even though technically the
+   As you may notice, only the text was styled even though technically the
    text node is taking up all of the available space inside the border. This is
    due to styles being applied only to "printed" characters, rather than the
    whole area a node takes up. To apply style to the whole node, use
