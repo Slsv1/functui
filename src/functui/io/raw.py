@@ -46,7 +46,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import InputEvent, Coordinate, Rect, intersperse, Result, Screen, ResultCreatedWith
+from ..classes import ComputedResult, InputEvent, Coordinate, Rect, ResultData, intersperse, Result, Screen
 from .ansi import result_to_str, _render_ansi
 
 from queue import SimpleQueue, Empty
@@ -209,20 +209,19 @@ class TerminalIO(ABC):
                 return event
 
         return self.event_queue.get()
-    def display_result(self, res: Result):
+    def display_result(self, res: ComputedResult):
         """Display a result generated from a :obj:`functui.classes.Layout`.
 
         The preffered way to display layouts."""
 
-        data = res.expect_data(ResultCreatedWith)
         # don't recreate the screen unless forced to
-        if data.screen_size != self._last_terminal_size:
-            self._last_terminal_size = data.screen_size
+        if res.data.dimensions != self._last_terminal_size:
+            self._last_terminal_size = res.data.dimensions
             self._screen = Screen(*self._last_terminal_size)
         else:
             self._screen.clear()
 
-        self._screen.apply_draw_commands(data.measure_text_func, res.get_commands()) # 20 %
+        self._screen.apply_draw_commands(res.data.measure_text, res.commands) # 20 %
         out_str =  _render_ansi(self._screen) # 30 %
         self.print("\x1b[H" + out_str + "\033[39m\033[49m")
 

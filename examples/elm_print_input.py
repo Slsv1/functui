@@ -1,7 +1,7 @@
 from functui.classes import *
 from functui.common import *
 from functui.flex import hbox_flex, flex
-from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, DEFAULT_NAV_BINDINGS, interaction_area
+from functui.nav import NavState, DEFAULT_NAV_BINDINGS, hoverable
 from functui.io.raw import terminal
 
 from dataclasses import dataclass, field
@@ -15,7 +15,7 @@ class Model():
     mouse_positions: list[Coordinate] = field(default_factory=list)
 
 
-def update(input: InputEvent, res: Result, m: Model):
+def update(input: InputEvent, res: ResultData, m: Model):
     action = None
     if input.key_event in DEFAULT_NAV_BINDINGS:
         action = DEFAULT_NAV_BINDINGS[input.key_event]
@@ -23,7 +23,7 @@ def update(input: InputEvent, res: Result, m: Model):
     m.nav = m.nav.update(
         res=res,
         action=action, 
-        nav_tree=[],
+        nav_tree=None,
         mouse_position=input.mouse_position_event
     )
 
@@ -68,4 +68,4 @@ with terminal() as term:
         # update
         if event.key_event == "ctrl+c":
             break
-        update(event, res, m)
+        update(event, res.data, m)

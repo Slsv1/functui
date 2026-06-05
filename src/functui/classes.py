@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Callable, Self, Iterable, Any, Protocol, TypeAlias, NamedTuple
+from types import MappingProxyType
+from typing import Callable, Hashable, Self, Iterable, Any, Protocol, Sequence, TypeAlias, NamedTuple
 from enum import Enum, Flag, auto, IntEnum
 from abc import ABC, abstractmethod
 from functools import cached_property, partial, cache
@@ -13,10 +14,12 @@ import colorsys
 
 __all__ = [
     'Box',
+    'BoxData',
     'CharType',
     'Color',
     'Color24',
     'Color4',
+    'ComputedResult',
     'ComputedStyle',
     'Coordinate',
     'DrawBox',
@@ -29,10 +32,10 @@ __all__ = [
     'Layout',
     'MeasureTextFunc',
     'MinSize',
+    'NodeId',
     'Pixel',
     'Rect',
     'Result',
-    'ResultCreatedWith',
     'ResultData',
     'Screen',
     'StyleAttr',
@@ -43,7 +46,6 @@ __all__ = [
     'hex',
     'hsl',
     'intersperse',
-    'layout_to_result',
     'min_size_constant',
     'min_size_expand',
     'min_size_horizontal',
@@ -58,9 +60,10 @@ __all__ = [
     'rule_reverse',
     'rule_strike_through',
     'rule_underline',
+    'layout_to_result',
 ]
 
-LRU_MAX_SIZE = 512
+LRU_MAX_SIZE = 0
 
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
@@ -676,40 +679,48 @@ def min_size_union(
 def min_size_constant(return_value: Rect) -> MinSize:
     return lambda measure_text, available: return_value
 
-class ResultData(ABC):
-    @abstractmethod
-    def merge_children(self, child_data: Self) -> Self:
-        ...
+type NodeId = Hashable
 
+class BoxData(NamedTuple):
+    view_box: Box
+    box: Box
+
+    @property
+    @cache
+    def visible_box(self):
+        return self.view_box.intersect(self.box)
 
 @dataclass(unsafe_hash=True)
 class Result:
     _draw_commands: list[DrawCommand] = field(default_factory=list)
-    _data: dict[type[ResultData], ResultData] = field(default_factory=dict)
+    _boxes_by_id: dict[NodeId, BoxData] = field(default_factory=dict)
+
+    #
+    # Set data
+    #
 
     def add_children_after(self, child_results: list[Self]):
         for child in child_results:
             self._draw_commands.extend(child._draw_commands)
-            # if some node does not provide data of a type but child does, then create a dummy
-            for k, child_data in child._data.items():
-                if k in self._data:
-                    self._data[k] = self._data[k].merge_children(child_data)
-                else:
-                    self._data[k] = child_data
+            self._boxes_by_id.update(child._boxes_by_id)
 
-    def try_data[T: (ResultData)](self, key: type[T]) -> T | None:
-        if key in self._data:
-            return self._data[key]
-        return None
+    def set_box_data(self, node_id: NodeId, box: Box, view_box: Box):
+        """
+        Note:
+            May ovveride exisiting entries in this result.
+        """
+        self._boxes_by_id[node_id] = BoxData(box, view_box)
 
-    def expect_data[T: (ResultData)](self, key: type[T]) -> T:
-        if key in self._data:
-            return self._data[key]
-        raise
 
-    def set_data(self, data: ResultData):
-        self._data[data.__class__] = data
+    #
+    # Get data
+    # 
 
+    def try_box_data(self, node_id: NodeId) -> None | BoxData:
+        return self._boxes_by_id.get(node_id, None)
+
+    def expect_box_data(self, node_id: NodeId) -> BoxData:
+        return self._boxes_by_id[node_id]
 
     def draw_pixel(self, frame: Frame, fill: str, at: Coordinate):
         if not frame.view_box.is_point_inside(at):
@@ -717,6 +728,13 @@ class Result:
         self._draw_commands.append(
             DrawPixel(Pixel(char=fill, style=frame.default_style), at)
         )
+
+    def get_commands(self): return tuple(self._draw_commands)
+
+    #
+    # Draw commands
+    #
+
     def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
         self._draw_commands.append(
             DrawPixel(pixel, at)
@@ -792,25 +810,7 @@ class Result:
         self._draw_commands.append(DrawStringLine(
             tuple(out), at + Coordinate(required_offset if required_offset > 0 else 0, 0)
         ))
-    def get_commands(self): return tuple(self._draw_commands)
 
-
-# I have concidered individual classes for this
-# like for example a border being its own class that inherits form node
-# instead of a function border that returns a node
-#
-# That may make things a little bit cleaner in a sence
-# (for example we can have methods like: setup, set_size, render
-# that would split up the responsibility of the current render function)
-# And this approach would maybe more understandable for those who know oop.
-# (which is most of the python community)
-# However, this approcah would introduce invalid states to the program in the case
-# of those methods being called out of order.
-# And the biggest negative would be that that approach would be harder to optimise
-# through the use of caching. Now that methods dont return anything
-# we cant really cache them because you cant cache side effects
-# And even if those methods return new version of the object
-# it beign split between multiple methods would 
 
 
 class Layout(NamedTuple):
@@ -845,16 +845,21 @@ class WrapperNode(Protocol):
     def __call__(self, child_layout: Layout, /) -> Layout:
         ...
 
-@dataclass(frozen=True, eq=True, slots=True)
-class ResultCreatedWith(ResultData):
-    """this is added to a result by the get_result function so that this data can later be used by any rendering function"""
-    measure_text_func: MeasureTextFunc
-    screen_size: Rect
-    def merge_children(self, child_data):
-        raise RuntimeError("Result should not be merged with with this data")
+class ResultData(NamedTuple):
+    measure_text: MeasureTextFunc
+    dimensions: Rect
+    box_data: MappingProxyType[NodeId, BoxData]
 
+@dataclass
+class ComputedResult:
+    commands: list[DrawCommand]
+    data: ResultData
 
-def layout_to_result(layout: Layout, dimensions: Rect, measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)) -> Result:
+def layout_to_result(
+        layout: Layout,
+        dimensions: Rect,
+        measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
+) -> ComputedResult:
     """Converts a layout to a result that can be converted to desired output type.
 
     See Also:
@@ -869,11 +874,12 @@ def layout_to_result(layout: Layout, dimensions: Rect, measure_text: MeasureText
         ),
         Box(width=dimensions.width, height=dimensions.height),
     )
-    result.set_data(ResultCreatedWith(measure_text, screen_size=dimensions))
-    return result
+    return ComputedResult(result._draw_commands, ResultData(
+        dimensions=dimensions,
+        measure_text=measure_text,
+        box_data=MappingProxyType(result._boxes_by_id)
+    ))
 
-def _get_default_data(width: int, height: int):
-    return [[Pixel() for _ in range(width)] for _ in range(height)]
 
 class Screen:
     """Represents the text grid of a screen."""
@@ -881,7 +887,7 @@ class Screen:
         self.width = width
         self.height = height
         self.wide_char_cutoff = "#"
-        self._data: list[list[Pixel]] = _get_default_data(width, height)
+        self._data: list[list[Pixel]] = [[Pixel() for _ in range(width)] for _ in range(height)]
 
     def get(self, pos: Coordinate) -> Pixel:
         return self._data[pos.y][pos.x]
@@ -890,7 +896,8 @@ class Screen:
         """may error if out of range!!!"""
         self._data[pos.y][pos.x] = data
 
-    def split_by_lines(self) -> list[list[Pixel]]:
+    def split_by_lines(self) -> Sequence[Sequence[Pixel]]:
+        """do NOT modify what this function returns!"""
         return self._data
 
     def clear(self):
