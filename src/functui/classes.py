@@ -709,7 +709,7 @@ class Result:
         Note:
             May ovveride exisiting entries in this result.
         """
-        self._boxes_by_id[node_id] = BoxData(box, view_box)
+        self._boxes_by_id[node_id] = BoxData(view_box=view_box, box=box)
 
 
     #

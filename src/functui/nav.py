@@ -3,9 +3,10 @@ from enum import Enum, auto
 from typing import Hashable, Self, Literal, Iterable, Any, NamedTuple, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from functools import partial
+from functools import partial, reduce
 from .classes import *
-from .common import vbox, offset, vbar
+from .common import fg, vbox, offset, vbar, static_box, text, border, bg_char, shrink
+from time import sleep
 
 __all__ = [
     "NavAction",
@@ -15,10 +16,15 @@ __all__ = [
     "Direction",
 
     "NavState",
+
+    "vnav",
+    "hnav",
     "DEFAULT_NAV_BINDINGS",
 
+    # nodes
     "hoverable",
     "v_scroll",
+    "v_resizable_split"
 ]
 
 class NavAction(Enum):
@@ -115,8 +121,8 @@ def v_resizable_split(
     sep_at = 10
 
     if nav.result_data is not None and sep_id in nav.result_data.box_data:
-        sep_box = nav.result_data.box_data[sep_id].visible_box 
-        box = nav.result_data.box_data[node_id].visible_box
+        sep_box = nav.result_data.box_data[sep_id].box 
+        box = nav.result_data.box_data[node_id].box
 
         sep_at = nav._split_data.get(node_id, -1)
 
@@ -184,7 +190,8 @@ def _v_resizable_split_render(
 def v_scroll(
     container_id: NodeId,
     nav: NavState,
-    children: Iterable[NodeId] = (),
+    children: Sequence[NodeId],
+    scroll_ovveride: Iterable[NodeId] = (),
     scrolling_speed:int=1,
 ):
     """Allow vertical scrolling if child does not fit into available space."""
@@ -195,26 +202,37 @@ def v_scroll(
         if at_y is None:
             at_y = 0
 
-        # find active box
-        # active_box = None
-        # if (_active_box := nav.areas.get(nav.active_id, None)) is not None\
-        #     and nav.action in KEYBOARD_NAV_ACTION\
-        #     and nav.active_id.data[:len(container_id.data)] == container_id.data:
-        #     # ^^^^^^^^ if active_id is a child of container_id
-        #     active_box = _NewActiveBox(_active_box.actual_box, nav.action == NavAction.NAV_UP)
-
-
+        a = []
         if nav.result_data is not None and container_id in nav.result_data.box_data:
             last_box_data = nav.result_data.box_data[container_id]
 
-            # make sure scrolling does nothing when child gets scrolled
-            child_interaction = False
-            for c in children:
-                if (child_box_data := nav.result_data.box_data.get(c, None)) is not None:
-                    child_interaction = child_box_data.visible_box.is_overlaping(last_box_data.visible_box) and child_box_data.visible_box.is_point_inside(nav.mouse_position)
-                    if child_interaction: break
-            if last_box_data.view_box.is_point_inside(nav.mouse_position) and not child_interaction:
-                at_y += nav.get_scrolling_difference() * scrolling_speed
+            if nav._keyboard_nav.active is not None\
+                and (active_box := nav.result_data.box_data.get(nav._keyboard_nav.active.id, None)) is not None\
+                and nav.action in KEYBOARD_NAV_ACTION\
+                and nav._keyboard_nav.active.id in children: 
+
+                selected_at_y = active_box.box.position.y - last_box_data.box.position.y # to local space
+                start = 0 # including
+                end = last_box_data.box.height # excluding
+                if nav.action == NavAction.NAV_UP:
+                    # aproach form below
+
+                    if not (start <= selected_at_y < end):
+                        at_y += (selected_at_y)
+                else:
+
+                    # aproach from above
+                    if not (start <= (selected_at_y + active_box.box.height) < end):
+                        at_y += (selected_at_y - last_box_data.box.height + active_box.box.height)
+            else:
+                # make sure scrolling does nothing when child gets scrolled
+                child_interaction = False
+                for c in scroll_ovveride:
+                    if (child_box_data := nav.result_data.box_data.get(c, None)) is not None:
+                        child_interaction = child_box_data.visible_box.is_overlaping(last_box_data.visible_box) and child_box_data.visible_box.is_point_inside(nav.mouse_position)
+                        if child_interaction: break
+                if last_box_data.view_box.is_point_inside(nav.mouse_position) and not child_interaction:
+                    at_y += nav.get_scrolling_difference() * scrolling_speed
 
             at_y = clamp(at_y,
                 0,
@@ -243,27 +261,8 @@ def _v_scroll_render(
     box: Box
 ):
     # move to selected if selected out of bounds
-    # a = []
+
     # if active_box is not None:
-    #     selected_at_y = active_box.box.position.y - box.position.y # to local space
-    #     start = 0 # including
-    #     end = box.height # excluding
-    #     # a.append(text(str(start)))
-    #     # a.append(text(str(end)))
-    #     # a.append(text("scroll_dy:" + str(scroll_dy)))
-    #     # a.append(text("selected_at_local:" + str(selected_at_y)))
-    #     # a.append(text("selected_at_global:" + str(active_box)))
-    #
-    #     if active_box.reverse:
-    #         # aproach form below
-    #
-    #         if not (start <= selected_at_y < end):
-    #             scroll_dy += (selected_at_y)
-    #     else:
-    #
-    #         # aproach from above
-    #         if not (start <= (selected_at_y + active_box.box.height) < end):
-    #             scroll_dy += (selected_at_y - box.height + active_box.box.height)
 
 
     res = Result()
@@ -274,16 +273,121 @@ def _v_scroll_render(
     res.add_children_after([modified_child.render(frame, box)])
     return res
 
+
 @dataclass
-class NavState:
-    class _HoveredData(NamedTuple):
-        id: NodeId
-        is_dragable: bool
+class KeyboardNav:
+    active: _ActiveData | None = None
+    _remembered_data: dict[tuple[int, ...], int] = field(default_factory=dict)
 
     class _ActiveData(NamedTuple):
         id: NodeId
         tree_index: tuple[int, ...]
 
+    @staticmethod
+    def _find_default_active(tree: NavContainer, index: tuple[int, ...] = ()) -> _ActiveData | None:
+        for i, child in enumerate(tree.children):
+            if isinstance(child, NavContainer):
+                return KeyboardNav._find_default_active(child, index + (i,))
+            return KeyboardNav._ActiveData(child, index + (i,))
+        return None
+
+    @staticmethod
+    def _find_nearest_active(container: NavContainer, index: tuple[int, ...], depth=0) -> _ActiveData:
+        if (index[depth]) > len(container.children):
+            temp_index = list(index)
+            temp_index[depth] = (len(container.children) -1)
+            index = tuple(temp_index)
+
+        child = container.children[index[depth]]
+        if not isinstance(child, NavContainer):
+            return KeyboardNav._ActiveData(child, index[:(depth+1)])
+
+        if depth == len(index):
+            active_for_child = KeyboardNav._find_default_active(child)
+            if active_for_child is None:
+                raise Exception("what")
+
+            return KeyboardNav._ActiveData(active_for_child.id, index + active_for_child.tree_index)
+
+        return KeyboardNav._find_nearest_active(child, index, depth+1)
+
+    def update(
+            self,
+            tree: NavContainer,
+            action: KeyboardNavAction,
+    ) -> Self:
+
+        # if no keyboardnav was happening before, try find default
+        if self.active is None:
+            self.active = KeyboardNav._find_default_active(tree)
+            return self
+
+        # deside direction and backwards
+        direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
+        backwards = False
+        if direction == Direction.HORIZONTAL:
+            backwards = True if action == NavAction.NAV_LEFT else False
+        elif direction == Direction.VERTICAL:
+            backwards = True if action == NavAction.NAV_UP else False
+
+
+        old_active_data = KeyboardNav._find_nearest_active(
+            tree,
+            self.active.tree_index,
+        )
+
+        # helper
+        def _find_container(tree:NavContainer, index: Sequence[int]) -> NavContainer:
+            return reduce(lambda acc, index: acc.children[index] if isinstance(acc, NavContainer) else acc, index, tree) # type: ignore
+
+        stack = list(old_active_data.tree_index)
+        has_incemented = False
+
+        # breakpoint()
+
+        while True:
+            container = _find_container(tree, stack[:-1])
+            child_index = stack[-1]
+            child = container.children[child_index]
+
+            # go into child container
+            # (push container)
+            if isinstance(child, NavContainer):
+                new_child = self._remembered_data.get(tuple(stack), 0)
+                if new_child >= len(child.children):
+                    new_child = len(child.children) -1
+                    del self._remembered_data[tuple(stack)]
+                stack.append(new_child)
+                continue
+
+            if has_incemented:
+                if container.remember:
+                    self._remembered_data[tuple(stack[:-1])] = child_index
+                self.active =  KeyboardNav._ActiveData(child, tuple(stack))
+                return self
+
+
+            # if current container is wrong direction OR at end of container
+            # (pop containers)
+            while (container.direction != direction) or (child_index == 0 if backwards else len(container.children) == (child_index+1)):
+                if len(stack) == 1:
+                    return self # don't navigate
+                stack.pop()
+
+                container = _find_container(tree, stack[:-1])
+
+                child_index = stack[-1]
+                child = container.children[child_index]
+
+
+
+            # increment
+            stack[-1] = stack[-1] + (-1 if backwards else 1)
+            has_incemented = True
+
+
+@dataclass
+class NavState:
 
     # context reset with every update
 
@@ -305,19 +409,31 @@ class NavState:
     _split_data: dict[NodeId, int] = field(default_factory=dict)
 
     # keyboard nav data
+    
+    _keyboard_nav: KeyboardNav = field(default_factory=lambda: KeyboardNav())
 
-    _active_data: _ActiveData | None = None
-    """Interactible that is active through keyboard navigation."""
-
-    _remembered_data: MappingProxyType[tuple[int, ...], int] = MappingProxyType({})
 
     def is_active(self, key: NodeId) -> bool:
-        if self._active_data is None:
+        if self._keyboard_nav.active is None:
             return False
-        return key == self._active_data.id
+        return key == self._keyboard_nav.active.id
 
     def is_hovered(self, key: NodeId) -> bool:
         return key in self._currently_hovered
+
+    def is_selected(self, key: NodeId) -> bool:
+        """Whether an interactible was selected by keyboard or mouse.
+
+        This condition if often triggered by pressing enter while an
+        interactible is active through keyboard navigation, or by releasing left click on an interactible with a mouse.
+
+        More specifically, this returns whether an interactible is active and
+        :obj:`~NavAction.SELECT_VIA_KEYBOARD` was triggered OR an interactible
+        is hovered and :obj:`~NavAction.SELECT_VIA_MOUSE_END` was triggered
+        """
+        return \
+            (self.is_hovered(key) and self.action == NavAction.SELECT_VIA_MOUSE_END)\
+            or (self.is_active(key) and self.action == NavAction.SELECT_VIA_KEYBOARD)
 
     def is_held_down(self, key: NodeId) -> bool:
         return key in self._held_down
@@ -332,64 +448,6 @@ class NavState:
     def get_mouse_drag_difference(self) -> Coordinate:
         return self.mouse_position - self.last_mouse_position
 
-    @staticmethod
-    def _find_closest(tree: NavContainer, index: tuple[int, ...] = ()) -> _ActiveData | None:
-        for i, child in enumerate(tree.children):
-            if isinstance(child, NavContainer):
-                return NavState._find_closest(child, index + (i,))
-            return NavState._ActiveData(child, index + (i,))
-        return None
-
-    @staticmethod
-    def _navigate_by_keyboard(
-            tree: NavContainer,
-            current_index: tuple[int, ...],
-            action: KeyboardNavAction,
-            remembered_data: MappingProxyType[tuple[int, ...], int]
-    ) -> _ActiveData | bool:
-
-        direction = Direction.HORIZONTAL if action in (NavAction.NAV_RIGHT, NavAction.NAV_LEFT) else Direction.VERTICAL
-        backwards = False
-        if direction == Direction.HORIZONTAL:
-            backwards = True if action == NavAction.NAV_LEFT else False
-        elif direction == Direction.VERTICAL:
-            backwards = True if action == NavAction.NAV_UP else False
-
-
-        found_current = False
-
-        def _iter(tree: NavContainer, parent_index: tuple[int, ...] = ()) -> NavState._ActiveData | None:
-            nonlocal found_current
-
-            child_iterator = iter(enumerate(reversed(tree.children) if backwards else tree.children))
-
-            if found_current and (parent_index in remembered_data):
-                remembered_id = remembered_data[parent_index]
-                for i in child_iterator:
-                    if i == remembered_id:
-                        break
-
-
-            for i, child in child_iterator:
-                i = len(tree.children) - i - 1 if backwards else i
-
-                if isinstance(child, NavContainer):
-                    if (res := _iter(child, parent_index + (i,) )) is not None:
-                        # if we found new active, then return it
-                        return res
-                    continue
-
-                if current_index == parent_index + (i,):
-                    found_current = True
-                    continue
-
-                if found_current: #then search for next
-                    if tree.direction == direction:
-                        return NavState._ActiveData(child, parent_index + (i,))
-
-        if (res := _iter(tree)) is not None:
-            return res
-        return found_current
 
     def update(
             self,
@@ -398,18 +456,10 @@ class NavState:
             nav_tree: NavContainer | None = None,
             mouse_position: Coordinate | None = Coordinate(-1, -1),
     ):
-        next_active_data = self._active_data
         if nav_tree is not None and action in KEYBOARD_NAV_ACTION:
-            if self._active_data is None:
-                next_active_data = self._find_closest(nav_tree)
-            else:
-                nav_result = self._navigate_by_keyboard(nav_tree, self._active_data.tree_index, action) # type: ignore
-                if isinstance(nav_result, self._ActiveData):
-                    next_active_data = nav_result
-
-                    # TODO: update remembered data
-                elif not nav_result: # id was not found
-                    next_active_data = self._find_closest(nav_tree)
+            self._keyboard_nav.update(nav_tree, action) # type: ignore
+        elif action == NavAction.SELECT_VIA_MOUSE_START:
+            self._keyboard_nav.active = None
 
         # hovered
         if res is not None and mouse_position is not None:
@@ -432,7 +482,6 @@ class NavState:
         self.last_mouse_position = self.mouse_position
         self.mouse_position = mouse_position if mouse_position is not None else self.mouse_position
         self.result_data = res
-        self._active_data = next_active_data
 
 
 

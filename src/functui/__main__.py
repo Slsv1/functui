@@ -1,7 +1,7 @@
 from functui.common import *
 from functui.classes import *
 from functui.rich_text import adaptive_text, span
-from functui import Rect, layout_to_result, result_to_str, Color4
+from functui.io.ansi import result_to_str
 from itertools import batched
 
 def cell_white_text(color8: int):

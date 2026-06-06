@@ -216,6 +216,7 @@ class TerminalIO(ABC):
 
         # don't recreate the screen unless forced to
         if res.data.dimensions != self._last_terminal_size:
+            print("fahhh")
             self._last_terminal_size = res.data.dimensions
             self._screen = Screen(*self._last_terminal_size)
         else:

@@ -48,7 +48,7 @@ def test_nav_right_and_left():
 
 def test_nav_nested_same_direction():
     nav = NavState()
-    tree=nav_v("outer 1", nav_v("nested 1", "nested 2"), "outer 2")
+    tree=vnav("outer 1", vnav("nested 1", "nested 2"), "outer 2")
 
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
     assert nav.is_active("outer 1")
@@ -64,40 +64,18 @@ def test_nav_nested_same_direction():
 
 
     # now go back up
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
-    assert nav.is_active("nested 2")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
-    assert nav.is_active("nested 1")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
-    assert nav.is_active("outer 1")
-
-def test_nav_nested_different_direction_skip():
-    nav = NavState()
-    tree=nav_v("outer 1", nav_h("nested 1", "nested 2"), "outer 2")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
-    assert nav.is_active("outer 1")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
-    assert nav.is_active("nested 1")
-
-    nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
-    assert nav.is_active("outer 2")
-
-    # now go back up
+    # (skip over nested 2 since we start at child number 1 by default)
 
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
     assert nav.is_active("nested 1")
 
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_UP)
     assert nav.is_active("outer 1")
+
 
 def test_nav_inner_different_direction_skip():
     nav = NavState()
-    tree=nav_v("outer 1", nav_h("inner 1", "inner 2"), "outer 2")
+    tree=vnav("outer 1", hnav("inner 1", "inner 2"), "outer 2")
 
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
     assert nav.is_active("outer 1")
@@ -120,14 +98,14 @@ def test_nav_inner_different_direction_skip():
 
 def test_nav_nested_different_direction_skip():
     nav = NavState()
-    tree=nav_v(
+    tree=vnav(
         "outer 1",
-        nav_h(
+        hnav(
             "middle 1",
 
             # when navigating down, we should skip over this even though it is
             # a vertical container.
-            nav_v("inner 1", "inner 2"),
+            vnav("inner 1", "inner 2"),
         ),
         "outer 2"
     )
@@ -154,7 +132,7 @@ def test_nav_nested_different_direction_skip():
 
 def test_nav_remember():
     nav = NavState()
-    tree=nav_v("outer 1", nav_h("nested 1", "nested 2", remember=True))
+    tree=vnav("outer 1", hnav("nested 1", "nested 2", remember=True))
 
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
     assert nav.is_active("outer 1")
@@ -171,4 +149,5 @@ def test_nav_remember():
     # here we remember that nested 2 was selected before
     nav = nav.update(nav_tree=tree, action=NavAction.NAV_DOWN)
     assert nav.is_active("nested 2")
+
 
