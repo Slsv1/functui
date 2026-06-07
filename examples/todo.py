@@ -123,6 +123,7 @@ def update(input: InputEvent, res: ResultData, m: Model):
             NodeIds.BUTTON_COMPLETE,
             NodeIds.BUTTON_EDIT,
             NodeIds.BUTTON_CREATE,
+            remember=True,
         ) if m.tasks_ids else hnav(
             NodeIds.BUTTON_CREATE
         )

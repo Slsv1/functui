@@ -190,7 +190,7 @@ def _v_resizable_split_render(
 def v_scroll(
     container_id: NodeId,
     nav: NavState,
-    children: Sequence[NodeId],
+    children: Sequence[NodeId] = (),
     scroll_ovveride: Iterable[NodeId] = (),
     scrolling_speed:int=1,
 ):

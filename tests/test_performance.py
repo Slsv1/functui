@@ -1,8 +1,9 @@
 import pytest
 from functui.common import *
-from functui import *
+from functui.classes import *
 from functui.flex import *
 from functui.rich_text import adaptive_text
+from functui.io.ansi import layout_to_str
 
 
 def _adaptive_text_item(content: str):
