@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Callable, Hashable, Self, Iterable, Any, Protocol, Sequence, TypeAlias, NamedTuple
-from enum import Enum, Flag, auto, IntEnum
+from enum import Enum, Flag, IntFlag, auto, IntEnum
 from abc import ABC, abstractmethod
 from functools import cached_property, partial, cache
-# from array import array
+from array import array
 
 from .color_data import HEX_TO_XTERM256_DEFINED_COLORS
 import wcwidth
@@ -360,7 +360,7 @@ class Box(NamedTuple):
         return (self.position.x <= point.x < (self.position.x + self.width))\
             and (self.position.y <= point.y < (self.position.y + self.height)) 
 
-class StyleAttr(Flag):
+class StyleAttr(IntFlag):
     """Flags representing different syles.
 
     Attributes:
@@ -420,7 +420,7 @@ class Color4(IntEnum):
     BRIGHT_CYAN = 14
     BRIGHT_WHITE = 15
 
-    RESET = -1
+    RESET = 256
 
 
 class Color24(NamedTuple):
@@ -536,8 +536,7 @@ class CharType(Enum):
     WIDE_HEAD = auto()
     WIDE_TAIL = auto()
 
-@dataclass
-class Pixel:
+class Pixel(NamedTuple):
     char: str = " "
     char_type: CharType = CharType.NORMAL
     style: ComputedStyle = ComputedStyle()
@@ -619,9 +618,7 @@ class Frame:
     def draw_pixel(self, fill: str, at: Coordinate):
         if not self.view_box.is_point_inside(at):
             return 
-        px = self._screen.get(at)
-        px.char = fill
-        px.style = self.default_style
+        self._screen.set(at, Pixel(fill, style=self.default_style))
 
     def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
         if not self.view_box.is_point_inside(at):
@@ -636,9 +633,7 @@ class Frame:
         box = box.intersect(self.view_box)
         for x in range(box.position.x, box.position.x + box.width):
             for y in range(box.position.y, box.position.y + box.height):
-                px = self._screen.get(Coordinate(x, y))
-                px.char = fill
-                px.style = self.default_style
+                self._screen.set(Coordinate(x, y), Pixel(fill, style=self.default_style))
 
     def draw_line_h(
         self,
@@ -650,9 +645,7 @@ class Frame:
             return
 
         for x in range(at.x, clamp(at.x + len, self.view_box.position.x, self.view_box.position.x + self.view_box.width)):
-            px = self._screen.get(Coordinate(x, at.y))
-            px.char = fill
-            px.style = self.default_style
+            self._screen.set(Coordinate(x, at.y), Pixel(fill, style=self.default_style))
             
     def draw_line_v(
         self,
@@ -664,9 +657,7 @@ class Frame:
             return
 
         for y in range(at.y, clamp(at.y + len, self.view_box.position.y, self.view_box.position.y + self.view_box.height)):
-            px = self._screen.get(Coordinate(at.x, y))
-            px.char = fill
-            px.style = self.default_style
+            self._screen.set(Coordinate(at.x, y), Pixel(fill, style=self.default_style))
 
     def draw_string_line(
         self,
@@ -714,21 +705,13 @@ class Frame:
             if x_content_offset + at.x > outer_x_bound:
                 break
             if char_width == 1:
-                px = self._screen.get(at + Coordinate(delta_x, 0))
-                px.char = char
-                px.style = self.default_style
+                self._screen.set(at + Coordinate(delta_x, 0), Pixel(char, style=self.default_style))
                 delta_x += 1
             else:
-                px = self._screen.get(at + Coordinate(delta_x, 0))
-                px.char = char
-                px.style = self.default_style
-                px.char_type=CharType.WIDE_HEAD
+                self._screen.set(at + Coordinate(delta_x, 0), Pixel(char, style=self.default_style))
                 delta_x += 1
 
-                px = self._screen.get(at + Coordinate(delta_x, 0))
-                px.char = ""
-                px.style = self.default_style
-                px.char_type=CharType.WIDE_TAIL
+                self._screen.set(at + Coordinate(delta_x, 0), Pixel("", style=self.default_style))
                 delta_x += 1
 
 
@@ -889,36 +872,84 @@ class ComputedResult:
     commands: list[DrawCommand]
     data: ResultData
 
+# just in case
+if len(StyleAttr) > 16:
+    raise Exception("we cannot have more than 16 styles since that wont fit style array in screen")
+
+
+# def xterm_to_stored_int(val: int):
+#     return val << 1
+#
+# def hex_to_stored_int(val: Color24):
+#     return (val.hex << 1) & 0b1 
+
+def color_to_store(val: Color):
+    if isinstance(val, Color24):
+        return (val.hex << 1) & 0b1 
+    else:
+        return val << 1
+
+def stored_to_color(val: int) -> int | Color24:
+    # if val & 0b1 == 0b1:
+    #     return hex(val >> 1)
+    # else:
+    return val >> 1
 
 class Screen:
     """Represents the text grid of a screen."""
+    def _pos_to_index(self, pos: Coordinate):
+        return pos.y * self.width + pos.x
+
     def __init__(self, width: int, height: int):
         self.width = width
         self.height = height
         self.wide_char_cutoff = "#"
 
         # array of unicode characters
-        self._data: list[list[Pixel]] = [[Pixel() for _ in range(width)] for _ in range(height)]
-        # self._char_data: array =  array("w", [" " for _ in range(width * height)])
-        # self._bg_data: array = array("I", [0 for _ in range(width * height)])
-        # self._fg_data: array = array("I", [0 for _ in range(width * height)])
+        # self._data: list[list[Pixel]] = [[Pixel() for _ in range(width)] for _ in range(height)]
+
+        # w = unicode char
+        self._char_data = [" " for _ in range(width * height)]
+
+        # Q = unsigned long long (at least 8 bytes (64 bits))
+        self._bg_data: array = array("Q", [Color4.RESET for _ in range(width * height)])
+        self._fg_data: array = array("Q", [Color4.RESET for _ in range(width * height)])
+
+
+        # I = unsigned int (at least 2 bytes, (16 bits))
+        self._style_data: array = array("I", [0 for _ in range(width * height)])
+
+        # B = unsigned char (8 bits)
+        self._char_type: array = array("B", [0 for _ in range(width * height)])
 
     def get(self, pos: Coordinate) -> Pixel:
-        return self._data[pos.y][pos.x]
+        index = self._pos_to_index(pos)
+        return Pixel(
+            char=self._char_data[index],
+            style=ComputedStyle(
+                fg=stored_to_color(self._fg_data[index]),
+                bg=stored_to_color(self._bg_data[index]),
+                attrs=StyleAttr(self._style_data[index])
+            ),
+        )
 
     def set(self, pos: Coordinate, data: Pixel) -> None:
         """may error if out of range!!!"""
-        self._data[pos.y][pos.x] = data
+        index = self._pos_to_index(pos)
+        self._char_data[index] = data.char
+        self._fg_data[index] = color_to_store(data.style.fg)
+        self._bg_data[index] = color_to_store(data.style.bg)
+        self._style_data[index] = data.style.attrs
 
-    def split_by_lines(self) -> Sequence[Sequence[Pixel]]:
-        """do NOT modify what this function returns!"""
-        return self._data
+    # def split_by_lines(self) -> Sequence[Sequence[Pixel]]:
+    #     """do NOT modify what this function returns!"""
+    #     return self._data
 
     def clear(self):
-        p = Pixel()
+        chars = [" "] * self.width
         for y in range(self.height):
-            for x in range(self.width):
-                self._data[y][x] = p
+            index = self._pos_to_index(Coordinate(0, y))
+            self._char_data[index:index+self.width] = chars
     @property
     def dimensions(self) -> Rect:
         return Rect(self.width, self.height)
@@ -938,33 +969,6 @@ class Screen:
             ),
             Box(width=self.width, height=self.height),
         )
-
-
-
-    def _clean_up_wide_chars(self):
-        # print("".join(str(i.char_type) for i in self._data))
-        for line in self._data:
-            for i, pixel in enumerate(line):
-                if ((i+1) % self.width) == 0: # if on last char of line
-                    continue
-                next_pixel = line[i+1]
-                # print("comparing", pixel.char_type, next_pixel.char_type)
-                match (pixel.char_type, next_pixel.char_type):
-                    case (CharType.NORMAL, CharType.NORMAL)\
-                        | (CharType.WIDE_TAIL, CharType.NORMAL)\
-                        | (CharType.WIDE_HEAD, CharType.WIDE_TAIL)\
-                        | (CharType.NORMAL, CharType.WIDE_HEAD)\
-                        | (CharType.WIDE_TAIL, CharType.WIDE_HEAD):
-                        continue
-                    case (CharType.WIDE_HEAD, CharType.WIDE_HEAD)\
-                        | (CharType.WIDE_HEAD, CharType.NORMAL):
-                        line[i] = pixel.with_char_type(CharType.NORMAL)\
-                            .with_char(self.wide_char_cutoff)
-                    case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
-                        line[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
-                            .with_char(self.wide_char_cutoff)
-        # print("".join(str(i.char_type) for i in self._data))
-
 
 
 # if last char is wide_head, meake it normal

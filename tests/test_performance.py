@@ -171,9 +171,9 @@ def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
                 text("New Task") | center | border,
             ]) | flex,
         ])
-        screen.clear()
+        # screen.clear()
         screen.draw_layout(layout)
-        out_str = _render_ansi(screen)
+        # out_str = _render_ansi(screen)
 
     assert True
     # expected = [

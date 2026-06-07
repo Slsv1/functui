@@ -6,10 +6,12 @@ from dataclasses import dataclass
 
 from functools import cache
 
+from ..classes import stored_to_color
+
 @cache
 def default_color_to_fg_ansi(color: Color):
     if isinstance(color, int):
-        if color == -1:
+        if color == 256:
             return f"\033[39m"
         return f"\033[38;5;{color}m"
     else:
@@ -17,7 +19,7 @@ def default_color_to_fg_ansi(color: Color):
 @cache
 def default_color_to_bg_ansi(color: Color):
     if isinstance(color, int):
-        if color == -1:
+        if color == 256:
             return f"\033[49m"
         return f"\033[48;5;{color}m"
     else:
@@ -81,7 +83,6 @@ ANSI_RESET_STYLES = "\033[0m"
 #     return "".join(out[:-1]) # -1 to remove the \n on the end
 def _render_ansi(screen: Screen) -> str:
     out = []
-    lines = screen.split_by_lines()
 
     curr_style = StyleAttr(0)
     curr_fg = Color4.RESET
@@ -91,9 +92,11 @@ def _render_ansi(screen: Screen) -> str:
     reset_fg_ansi = default_color_to_fg_ansi(Color4.RESET)
     reset_bg_ansi = default_color_to_bg_ansi(Color4.RESET)
 
-    for line in lines:
-        for pixel in line:
-            pixel_style = pixel.style.attrs
+    for y in range(screen.height):
+        for x in range(screen.width):
+            index = screen._pos_to_index(Coordinate(x, y))
+            pixel_style = StyleAttr(screen._style_data[index])
+            pixel_char = screen._char_data[index]
             
             # 1. Handle Style Changes
             if curr_style != pixel_style:
@@ -111,19 +114,19 @@ def _render_ansi(screen: Screen) -> str:
                     out.append(style_to_ansi(new_style))
 
             # 2. Handle Foreground Color Changes
-            p_fg = pixel.style.fg
+            p_fg = stored_to_color(screen._fg_data[index])
             if curr_fg != p_fg and p_fg is not None:
                 curr_fg = p_fg
                 out.append(default_color_to_fg_ansi(curr_fg))
 
             # 3. Handle Background Color Changes
-            p_bg = pixel.style.bg
+            p_bg = stored_to_color(screen._bg_data[index])
             if curr_bg != p_bg and p_bg is not None:
                 curr_bg = p_bg
                 out.append(default_color_to_bg_ansi(curr_bg))
 
             # 4. Append the character
-            out.append(pixel.char)
+            out.append(pixel_char)
             
         # reset style at the end of each row
         if curr_style != StyleAttr(0) or curr_fg != Color4.RESET or curr_bg != Color4.RESET:
