@@ -191,8 +191,11 @@ def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame:
             dx = box.width - sum(i.length for i in line)
         elif justify == Justify.CENTER:
             dx = (box.width - sum(i.length for i in line)) // 2
+
+        default_style = frame.default_style
         for segment in chain.from_iterable(g.segments for g in line):
-            frame.with_style(frame.default_style.apply_rule(segment.rule)).draw_string_line(
+            frame.default_style = default_style.apply_rule(segment.rule)
+            frame.draw_string_line(
                 segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)

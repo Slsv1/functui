@@ -164,8 +164,9 @@ def text(string: str):
     )
 
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
+    frame.shrink_to_mutate(box)
     for y, line in enumerate(text):
-        frame.shrink_to(box).draw_string_line(line, box.position + Coordinate(0, y))
+        frame.draw_string_line(line, box.position + Coordinate(0, y))
 
 
 #
@@ -357,7 +358,7 @@ def vbar_custom(char: str = "|"):
     )
 
 def _vbar_render(char: str, frame: Frame, box: Box):
-    frame.draw_box(char, Box(1, box.height, box.position))
+    frame.draw_line_v(fill=char, at=box.position, len=box.width)
 
 def hbar_custom(char: str="-"):
     """Horizonatal bar build with a custom character."""
@@ -368,7 +369,7 @@ def hbar_custom(char: str="-"):
     )
 
 def _hbar_render(char: str, frame: Frame, box: Box):
-    frame.draw_box(char, Box(box.width, 1, box.position))
+    frame.draw_line_h(fill=char, at=box.position, len=box.height)
 
 vbar = vbar_custom(BORDER_REGULAR.line_v)
 """Vertical bar."""
@@ -417,10 +418,10 @@ border_thick_dashed = custom_border(style=BORDER_THICK_DASHED)
 
 @lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
-    frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position))
-    frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position))
-    frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
-    frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+    frame.draw_line_v(fill=style.line_v, at=box.position, len=box.height)
+    frame.draw_line_h(fill=style.line_h, at=box.position, len=box.width)
+    frame.draw_line_v(fill=style.line_v, at=box.position + Coordinate(box.width-1, 0), len=box.height)
+    frame.draw_line_h(fill=style.line_h, at=box.position + Coordinate(0, box.height-1), len=box.width)
 
     frame.draw_pixel(fill=style.corner_tl, at=box.position + Coordinate(0, 0))
     frame.draw_pixel(fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
@@ -502,8 +503,9 @@ def _push_rule(rule: StyleRule, child: Layout):
         render=partial(_push_rule_render, child, rule)
     )
 def _push_rule_render(child: Layout, rule: StyleRule, frame: Frame, box: Box):
+    frame.default_style = frame.default_style.apply_rule(rule)
     return child.render(
-        frame.with_style(frame.default_style.apply_rule(rule)),
+        frame,
         box
     )
 def push_rule(rule: StyleRule) -> WrapperNode:
@@ -517,8 +519,9 @@ def _force_style(style: ComputedStyle, child: Layout):
         render=partial(_force_style_render, child, style)
     )
 def _force_style_render(child: Layout, style: ComputedStyle, frame: Frame, box: Box):
+    frame.default_style = style
     return child.render(
-        frame.with_style(style),
+        frame,
         box
     )
 
@@ -732,7 +735,15 @@ def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
     for node in children:
         child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(child_min_size.width, box.height).offset_by(box.position + Coordinate(at_x, 0))
+
+        if at_x < 0:
+            continue
+
         node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+
+        if at_x > box.width:
+            break
+
         at_x += child_box.width
 
 def center(child: Layout):
@@ -804,7 +815,7 @@ def bg_char(char: str) -> WrapperNode:
 
     return _bg_char
 def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
-    frame.draw_box( char, box)
+    frame.draw_box(char, box)
     child.render(frame, box)
 
 bg_fill = bg_char(" ")

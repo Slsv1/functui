@@ -4,6 +4,7 @@ from typing import Callable, Hashable, Self, Iterable, Any, Protocol, Sequence, 
 from enum import Enum, Flag, auto, IntEnum
 from abc import ABC, abstractmethod
 from functools import cached_property, partial, cache
+# from array import array
 
 from .color_data import HEX_TO_XTERM256_DEFINED_COLORS
 import wcwidth
@@ -612,6 +613,9 @@ class Frame:
             _screen=self._screen,
         )
 
+    def shrink_to_mutate(self, other_box):
+        self.view_box = self.view_box.intersect(other_box)
+
     def draw_pixel(self, fill: str, at: Coordinate):
         if not self.view_box.is_point_inside(at):
             return 
@@ -635,6 +639,34 @@ class Frame:
                 px = self._screen.get(Coordinate(x, y))
                 px.char = fill
                 px.style = self.default_style
+
+    def draw_line_h(
+        self,
+        fill: str,
+        at: Coordinate,
+        len: int,
+    ):
+        if not self.view_box.position.y <= at.y < (self.view_box.position.y + self.view_box.height):
+            return
+
+        for x in range(at.x, clamp(at.x + len, self.view_box.position.x, self.view_box.position.x + self.view_box.width)):
+            px = self._screen.get(Coordinate(x, at.y))
+            px.char = fill
+            px.style = self.default_style
+            
+    def draw_line_v(
+        self,
+        fill: str,
+        at: Coordinate,
+        len: int,
+    ):
+        if not self.view_box.is_point_inside(at):
+            return
+
+        for y in range(at.y, clamp(at.y + len, self.view_box.position.y, self.view_box.position.y + self.view_box.height)):
+            px = self._screen.get(Coordinate(at.x, y))
+            px.char = fill
+            px.style = self.default_style
 
     def draw_string_line(
         self,
@@ -674,31 +706,32 @@ class Frame:
                     break
 
         # generate output string
-        out = []
+        delta_x = 0
+        at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
         for char in content[char_offset:]:
             char_width = self.measure_text(char)
             x_content_offset += char_width
             if x_content_offset + at.x > outer_x_bound:
                 break
             if char_width == 1:
-                out.append(Pixel(char=char, style=self.default_style))
+                px = self._screen.get(at + Coordinate(delta_x, 0))
+                px.char = char
+                px.style = self.default_style
+                delta_x += 1
             else:
-                out.append(Pixel(
-                    char=char,
-                    char_type=CharType.WIDE_HEAD,
-                    style=self.default_style
-                ))
-                out.append(Pixel(
-                    char="",
-                    char_type=CharType.WIDE_TAIL,
-                    style=self.default_style
-                ))
+                px = self._screen.get(at + Coordinate(delta_x, 0))
+                px.char = char
+                px.style = self.default_style
+                px.char_type=CharType.WIDE_HEAD
+                delta_x += 1
 
-        for delta_x, pixel in enumerate(out):
-            px_at =  at + Coordinate(
-                (required_offset if required_offset > 0 else 0) + delta_x, 0
-            )
-            self._screen.set(px_at, pixel)
+                px = self._screen.get(at + Coordinate(delta_x, 0))
+                px.char = ""
+                px.style = self.default_style
+                px.char_type=CharType.WIDE_TAIL
+                delta_x += 1
+
+
 
 
 class MinSize(Protocol):
@@ -863,7 +896,12 @@ class Screen:
         self.width = width
         self.height = height
         self.wide_char_cutoff = "#"
+
+        # array of unicode characters
         self._data: list[list[Pixel]] = [[Pixel() for _ in range(width)] for _ in range(height)]
+        # self._char_data: array =  array("w", [" " for _ in range(width * height)])
+        # self._bg_data: array = array("I", [0 for _ in range(width * height)])
+        # self._fg_data: array = array("I", [0 for _ in range(width * height)])
 
     def get(self, pos: Coordinate) -> Pixel:
         return self._data[pos.y][pos.x]

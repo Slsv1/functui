@@ -47,7 +47,7 @@ from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
 from ..classes import ComputedResult, InputEvent, Coordinate, Rect, ResultData, intersperse, Result, Screen
-from .ansi import result_to_str, _render_ansi
+from .ansi import _render_ansi
 
 from queue import SimpleQueue, Empty
 import threading
