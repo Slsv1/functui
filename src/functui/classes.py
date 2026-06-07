@@ -60,7 +60,6 @@ __all__ = [
     'rule_reverse',
     'rule_strike_through',
     'rule_underline',
-    'layout_to_result',
 ]
 
 LRU_MAX_SIZE = 0
@@ -536,7 +535,8 @@ class CharType(Enum):
     WIDE_HEAD = auto()
     WIDE_TAIL = auto()
 
-class Pixel(NamedTuple):
+@dataclass
+class Pixel:
     char: str = " "
     char_type: CharType = CharType.NORMAL
     style: ComputedStyle = ComputedStyle()
@@ -586,11 +586,13 @@ class MeasureTextFunc(Protocol):
     def __call__(self, string: str, /) -> int:
         ...
 
-class Frame(NamedTuple):
+@dataclass
+class Frame:
     view_box: Box
     screen_rect: Rect
     default_style: ComputedStyle
     measure_text: MeasureTextFunc = field(hash=False, compare=False)
+    _screen: Screen
 
     def with_style(self, style: ComputedStyle):
         return self.__class__(
@@ -598,6 +600,7 @@ class Frame(NamedTuple):
             screen_rect=self.screen_rect,
             default_style=style,
             measure_text=self.measure_text,
+            _screen=self._screen,
         )
 
     def shrink_to(self, other_box):
@@ -606,7 +609,96 @@ class Frame(NamedTuple):
             screen_rect=self.screen_rect,
             default_style=self.default_style,
             measure_text=self.measure_text,
+            _screen=self._screen,
         )
+
+    def draw_pixel(self, fill: str, at: Coordinate):
+        if not self.view_box.is_point_inside(at):
+            return 
+        px = self._screen.get(at)
+        px.char = fill
+        px.style = self.default_style
+
+    def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
+        if not self.view_box.is_point_inside(at):
+            return 
+        self._screen.set(at, pixel)
+
+    def draw_box(
+        self,
+        fill: str,
+        box: Box,
+    ):
+        box = box.intersect(self.view_box)
+        for x in range(box.position.x, box.position.x + box.width):
+            for y in range(box.position.y, box.position.y + box.height):
+                px = self._screen.get(Coordinate(x, y))
+                px.char = fill
+                px.style = self.default_style
+
+    def draw_string_line(
+        self,
+        content: str,
+        at: Coordinate = Coordinate(0, 0)
+    ):
+        bounds = self.view_box
+
+        #       content
+        #         #---#
+        #         |   |
+        #         #---#
+        #       content
+        if (at.y < bounds.position.y) or (at.y >= bounds.position.y + bounds.height):
+            return
+
+        content_len = self.measure_text(content)
+        outer_x_bound = bounds.position.x + bounds.width
+        #         #---#
+        # content |   | content
+        #         #---#
+        if (at.x +content_len < bounds.position.x) or (at.x >= outer_x_bound):
+            return
+
+        # find initial x offset
+        #         #---#
+        #    content  |
+        #    ^^^^^#---#
+        required_offset = bounds.position.x - at.x
+        x_content_offset = 0
+        char_offset = 0
+        if required_offset > 0:
+            for char in content:
+                x_content_offset += self.measure_text(char)
+                char_offset += 0
+                if x_content_offset >= required_offset:
+                    break
+
+        # generate output string
+        out = []
+        for char in content[char_offset:]:
+            char_width = self.measure_text(char)
+            x_content_offset += char_width
+            if x_content_offset + at.x > outer_x_bound:
+                break
+            if char_width == 1:
+                out.append(Pixel(char=char, style=self.default_style))
+            else:
+                out.append(Pixel(
+                    char=char,
+                    char_type=CharType.WIDE_HEAD,
+                    style=self.default_style
+                ))
+                out.append(Pixel(
+                    char="",
+                    char_type=CharType.WIDE_TAIL,
+                    style=self.default_style
+                ))
+
+        for delta_x, pixel in enumerate(out):
+            px_at =  at + Coordinate(
+                (required_offset if required_offset > 0 else 0) + delta_x, 0
+            )
+            self._screen.set(px_at, pixel)
 
 
 class MinSize(Protocol):
@@ -692,7 +784,6 @@ class BoxData(NamedTuple):
 
 @dataclass(unsafe_hash=True)
 class Result:
-    _draw_commands: list[DrawCommand] = field(default_factory=list)
     _boxes_by_id: dict[NodeId, BoxData] = field(default_factory=dict)
 
     #
@@ -701,7 +792,6 @@ class Result:
 
     def add_children_after(self, child_results: list[Self]):
         for child in child_results:
-            self._draw_commands.extend(child._draw_commands)
             self._boxes_by_id.update(child._boxes_by_id)
 
     def set_box_data(self, node_id: NodeId, box: Box, view_box: Box):
@@ -722,95 +812,6 @@ class Result:
     def expect_box_data(self, node_id: NodeId) -> BoxData:
         return self._boxes_by_id[node_id]
 
-    def draw_pixel(self, frame: Frame, fill: str, at: Coordinate):
-        if not frame.view_box.is_point_inside(at):
-            return 
-        self._draw_commands.append(
-            DrawPixel(Pixel(char=fill, style=frame.default_style), at)
-        )
-
-    def get_commands(self): return tuple(self._draw_commands)
-
-    #
-    # Draw commands
-    #
-
-    def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
-        self._draw_commands.append(
-            DrawPixel(pixel, at)
-        )
-    def draw_box(
-        self,
-        frame: Frame,
-        fill: str,
-        box: Box,
-    ):
-        self._draw_commands.append(DrawBox(
-            Pixel(char=fill, style=frame.default_style),
-            frame.view_box.intersect(box)
-        ))
-    def draw_string_line(
-        self,
-        frame: Frame,
-        content: str,
-        at: Coordinate = Coordinate(0, 0)
-    ):
-        bounds = frame.view_box
-
-        #       content
-        #         #---#
-        #         |   |
-        #         #---#
-        #       content
-        if (at.y < bounds.position.y) or (at.y >= bounds.position.y + bounds.height):
-            return
-
-        content_len = frame.measure_text(content)
-        outer_x_bound = bounds.position.x + bounds.width
-        #         #---#
-        # content |   | content
-        #         #---#
-        if (at.x +content_len < bounds.position.x) or (at.x >= outer_x_bound):
-            return
-
-        # find initial x offset
-        #         #---#
-        #    content  |
-        #    ^^^^^#---#
-        required_offset = bounds.position.x - at.x
-        x_content_offset = 0
-        char_offset = 0
-        if required_offset > 0:
-            for char in content:
-                x_content_offset += frame.measure_text(char)
-                char_offset += 0
-                if x_content_offset >= required_offset:
-                    break
-
-        # generate output string
-        out = []
-        for char in content[char_offset:]:
-            char_width = frame.measure_text(char)
-            x_content_offset += char_width
-            if x_content_offset + at.x > outer_x_bound:
-                break
-            if char_width == 1:
-                out.append(Pixel(char=char, style=frame.default_style))
-            else:
-                out.append(Pixel(
-                    char=char,
-                    char_type=CharType.WIDE_HEAD,
-                    style=frame.default_style
-                ))
-                out.append(Pixel(
-                    char="",
-                    char_type=CharType.WIDE_TAIL,
-                    style=frame.default_style
-                ))
-        self._draw_commands.append(DrawStringLine(
-            tuple(out), at + Coordinate(required_offset if required_offset > 0 else 0, 0)
-        ))
-
 
 
 class Layout(NamedTuple):
@@ -823,7 +824,7 @@ class Layout(NamedTuple):
     """
     func: Callable
     min_size: MinSize
-    render: partial[Result]
+    render: partial
 
     def __or__(self, other):
         return other(self)
@@ -855,31 +856,6 @@ class ComputedResult:
     commands: list[DrawCommand]
     data: ResultData
 
-def layout_to_result(
-        layout: Layout,
-        dimensions: Rect,
-        measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
-) -> ComputedResult:
-    """Converts a layout to a result that can be converted to desired output type.
-
-    See Also:
-        To see what to do with the result, read :doc:`../user_guide/io`.
-    """
-    result = layout.render(
-        Frame(
-            screen_rect=dimensions,
-            view_box=Box(dimensions.width, dimensions.height),
-            default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
-            measure_text=measure_text
-        ),
-        Box(width=dimensions.width, height=dimensions.height),
-    )
-    return ComputedResult(result._draw_commands, ResultData(
-        dimensions=dimensions,
-        measure_text=measure_text,
-        box_data=MappingProxyType(result._boxes_by_id)
-    ))
-
 
 class Screen:
     """Represents the text grid of a screen."""
@@ -905,23 +881,27 @@ class Screen:
         for y in range(self.height):
             for x in range(self.width):
                 self._data[y][x] = p
+    @property
+    def dimensions(self) -> Rect:
+        return Rect(self.width, self.height)
 
-    def apply_draw_commands(self, measure_text_func: Callable[[str], int],  draw_commands: Iterable[DrawCommand]):
-        for command in draw_commands:
-            if isinstance(command, DrawPixel):
-                self.set(command.at, command.pixel)
+    def draw_layout(
+        self,
+        layout: Layout,
+        measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t),
+    ):
+        result = layout.render(
+            Frame(
+                screen_rect=Rect(self.width, self.height),
+                view_box=Box(self.width, self.height),
+                default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
+                measure_text=measure_text,
+                _screen=self,
+            ),
+            Box(width=self.width, height=self.height),
+        )
 
-            elif isinstance(command, DrawBox):
-                box = command.box
-                for x in range(box.position.x, box.position.x + box.width):
-                    for y in range(box.position.y, box.position.y + box.height):
-                        self.set(Coordinate(x, y), command.fill)
-            else: #DrawStringLine
-                for delta_x, pixel in enumerate(command.string):
 
-                    at = Coordinate(command.at.x + delta_x, command.at.y)
-                    self.set(at, pixel)
-        # self._clean_up_wide_chars()
 
     def _clean_up_wide_chars(self):
         # print("".join(str(i.char_type) for i in self._data))

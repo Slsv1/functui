@@ -159,21 +159,17 @@ def vbox_flex(children: Iterable[Flex | Layout]) -> Layout:
     )
 
 
-@lru_cache(LRU_MAX_SIZE)
 def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     child_basis = [(i.node.min_size(frame.measure_text, box.rect).height if
             i.basis else 0) for i in children]
     child_heights = _calculate_flex_children_sizes(box.height, children, child_basis)
 
-    res = Result()
     at_y = 0
     for child, child_height in zip(children, child_heights):
         child_box = Box(box.width, child_height, box.position + Coordinate(0, at_y))
         at_y += child_box.height
 
-        res.add_children_after([child.node.render(frame.shrink_to(child_box), child_box)])
-
-    return res
+        child.node.render(frame.shrink_to(child_box), child_box)
 
 
 def hbox_flex(children: Iterable[Flex | Layout], /):
@@ -249,27 +245,25 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
         render=partial(_hbox_flex_render, children)
     )
 
-@lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     child_basis = [(i.node.min_size(frame.measure_text, box.rect).width if
             i.basis else 0) for i in children]
     child_widths = _calculate_flex_children_sizes(box.width, children, child_basis)
 
-    res = Result()
     at_x = 0
     for child, child_width in zip(children, child_widths):
         child_box = Box(child_width, box.height, box.position + Coordinate(at_x, 0))
         at_x += child_box.width
 
-        res.add_children_after([child.node.render(frame.shrink_to(child_box), child_box)])
+        child.node.render(frame.shrink_to(child_box), child_box)
 
-    return res
 
 
 @dataclass
 class _FlexData:
     bounding_rect: Rect
     flex_children: list[Flex]
+
 def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measure_text: MeasureTextFunc):
 
     flex_by_lines = [_FlexData(Rect(0, 0), [])]
@@ -322,7 +316,6 @@ def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
     )
 
 
-@lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
     #
     # split by 'lines'
@@ -330,19 +323,13 @@ def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
     children_by_lines = _split_flex_by_lines_h(box.width, children, frame.measure_text)
 
     at_y = 0
-    res = Result()
-    results = []
 
     for data in children_by_lines:
         row_rect = Rect(box.width, data.bounding_rect.height)
         row_box = Box.from_rect(row_rect, box.position + Coordinate(0, at_y))
-        results.append(
-            _hbox_flex_render(
-                tuple(data.flex_children),
-                frame.shrink_to(row_box),
-                row_box
-            )
+        _hbox_flex_render(
+            tuple(data.flex_children),
+            frame.shrink_to(row_box),
+            row_box
         )
         at_y += data.bounding_rect.height
-    res.add_children_after(results)
-    return res

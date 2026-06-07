@@ -139,16 +139,12 @@ def _render_ansi(screen: Screen) -> str:
     return "".join(out[:-1]) if out else ""
 
 
-def result_to_str(result: ComputedResult) -> str:
-    """Convert a result to a string with ansi escapecodes that can be displayed in a terminal."""
-    screen = Screen(result.data.dimensions.width, result.data.dimensions.height)
-    screen.apply_draw_commands(result.data.measure_text, result.commands) # 20 %
-    return _render_ansi(screen) # 30 %
-
 def layout_to_str(layout: Layout, dimensions: Rect) -> str:
     """Convert a layout to a string with ansi escapecodes that can be displayed in a terminal.
 
     This is a shorthand for ``result_to_str(layout_to_result(...)))``.
     """
-    return result_to_str(layout_to_result(dimensions=dimensions, layout=layout))
+    screen = Screen(*dimensions)
+    screen.draw_layout(layout)
+    return _render_ansi(screen)
 

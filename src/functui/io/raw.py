@@ -177,10 +177,6 @@ class TerminalIO(ABC):
         self.event_queue = event_queue
         self.stdout: TextIO = stdout
 
-        x, y = self.get_terminal_size()
-        self._last_terminal_size = Rect(x, y)
-        self._screen = Screen(x, y)
-
     @abstractmethod
     def get_terminal_size(self) -> Rect:
         """Get terminal size."""
@@ -209,20 +205,13 @@ class TerminalIO(ABC):
                 return event
 
         return self.event_queue.get()
-    def display_result(self, res: ComputedResult):
+    def display_screen(self, screen: Screen):
         """Display a result generated from a :obj:`functui.classes.Layout`.
 
         The preffered way to display layouts."""
 
-        # don't recreate the screen unless forced to
-        if res.data.dimensions != self._last_terminal_size:
-            self._last_terminal_size = res.data.dimensions
-            self._screen = Screen(*self._last_terminal_size)
-        else:
-            self._screen.clear()
 
-        self._screen.apply_draw_commands(res.data.measure_text, res.commands) # 20 %
-        out_str =  _render_ansi(self._screen) # 30 %
+        out_str =  _render_ansi(screen)
         self.print("\x1b[H" + out_str + "\033[39m\033[49m")
 
 class TerminalContext(ABC):

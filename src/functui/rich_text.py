@@ -121,7 +121,6 @@ def rich_text(*string: Span | str):
         render=partial(_rich_text_render, span),
     )
 
-@lru_cache(LRU_MAX_SIZE)
 def _rich_text_render(span: Span, frame: Frame, box: Box):
     if box.width <= 4:
         return Result()
@@ -134,8 +133,8 @@ def _rich_text_render(span: Span, frame: Frame, box: Box):
             break
         dx = 0
         for segment in chain.from_iterable(g.segments for g in line):
-            res.draw_string_line(
-                frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)
+            frame.with_style(frame.default_style.apply_rule(segment.rule)).draw_string_line(
+                segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
     return res
@@ -173,7 +172,6 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
 
 
 
-@lru_cache(LRU_MAX_SIZE)
 def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame: Frame, box: Box):
     if box.width <= 1:
         return Result()
@@ -194,8 +192,8 @@ def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame:
         elif justify == Justify.CENTER:
             dx = (box.width - sum(i.length for i in line)) // 2
         for segment in chain.from_iterable(g.segments for g in line):
-            res.draw_string_line(
-                frame.with_style(frame.default_style.apply_rule(segment.rule)), segment.text, box.position + Coordinate(dx, dy)
+            frame.with_style(frame.default_style.apply_rule(segment.rule)).draw_string_line(
+                segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
     return res

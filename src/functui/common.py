@@ -63,7 +63,6 @@ __all__ = [
     # content
     'h_guage',
     'text',
-    'v_scroll_bar',
     'nothing',
 
     # bars
@@ -164,12 +163,9 @@ def text(string: str):
         render = partial(_text_render, split_string)
     )
 
-@lru_cache(LRU_MAX_SIZE)
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
-    res = Result()
     for y, line in enumerate(text):
-        res.draw_string_line(frame.shrink_to(box), line, box.position + Coordinate(0, y))
-    return res
+        frame.shrink_to(box).draw_string_line(line, box.position + Coordinate(0, y))
 
 
 #
@@ -359,11 +355,10 @@ def vbar_custom(char: str = "|"):
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_vbar_render, char)
     )
-@lru_cache(LRU_MAX_SIZE)
+
 def _vbar_render(char: str, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, char, Box(1, box.height, box.position))
-    return res
+    frame.draw_box(char, Box(1, box.height, box.position))
+
 def hbar_custom(char: str="-"):
     """Horizonatal bar build with a custom character."""
     return Layout(
@@ -371,11 +366,9 @@ def hbar_custom(char: str="-"):
         min_size=min_size_constant(Rect(1, 1)),
         render=partial(_hbar_render, char)
     )
-@lru_cache(LRU_MAX_SIZE)
+
 def _hbar_render(char: str, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, char, Box(box.width, 1, box.position))
-    return res
+    frame.draw_box(char, Box(box.width, 1, box.position))
 
 vbar = vbar_custom(BORDER_REGULAR.line_v)
 """Vertical bar."""
@@ -424,17 +417,16 @@ border_thick_dashed = custom_border(style=BORDER_THICK_DASHED)
 
 @lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position))
-    res.draw_box(frame, fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
-    res.draw_box(frame, fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
-    res.draw_pixel(frame, fill=style.corner_tl, at=box.position + Coordinate(0, 0))
-    res.draw_pixel(frame, fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
-    res.draw_pixel(frame, fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
-    res.draw_pixel(frame, fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
-    res.add_children_after([child.render(frame, box.resize(-1, -1, -1, -1))])
-    return res
+    frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position))
+    frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position))
+    frame.draw_box(fill=style.line_v, box=Box(1, box.height, box.position + Coordinate(box.width-1, 0)))
+    frame.draw_box(fill=style.line_h, box=Box(box.width, 1, box.position + Coordinate(0, box.height-1)))
+
+    frame.draw_pixel(fill=style.corner_tl, at=box.position + Coordinate(0, 0))
+    frame.draw_pixel(fill=style.corner_tr, at=box.position + Coordinate(box.width-1, 0))
+    frame.draw_pixel(fill=style.corner_br, at=box.position + Coordinate(box.width-1, box.height-1))
+    frame.draw_pixel(fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
+    child.render(frame, box.resize(-1, -1, -1, -1))
 
 @dataclass
 class BorderConnection:
@@ -681,12 +673,10 @@ def static_box(children: Iterable[Layout]) -> Layout:
         render=partial(_static_box_render, children),
     )
 def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
-    res = Result()
     for child in children:
-        res.add_children_after([child.render(frame.shrink_to(box), box)])
-    return res
+        child.render(frame.shrink_to(box), box)
 
-def vbox(children: Iterable[Layout], at_y: int=0, reverse: bool=False):
+def vbox(children: Iterable[Layout], at_y: int=0):
     """A container node that arranges its chilren verticaly.
 
     Children will be shrunk to their minimum size along the y axis.
@@ -697,35 +687,28 @@ def vbox(children: Iterable[Layout], at_y: int=0, reverse: bool=False):
             Y coordinate to start rendering children at.
             Usefull for implementing scrolling.
     """
-    if reverse:
-        children = tuple(reversed(list(children)))
-    else:
-        children = tuple(children)
     return Layout(
         func=vbox,
         min_size=min_size_vertical([i.min_size for i in children]),
         render=partial(_vbox_render, children, at_y)
     )
 
-@lru_cache(LRU_MAX_SIZE)
 def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
-    res=Result()
     for node in children:
         child_min_size = node.min_size(frame.measure_text, Rect(box.width, 9999))
         child_box = Box(box.width, child_min_size.height).offset_by(box.position + Coordinate(0, at_y))
 
         at_y += child_box.height
-        
-        # # dont do commands for boxes out of bounds who are above
-        # if at_y < 0:
-        #     continue
-        res.add_children_after([
-                node.render(frame.shrink_to(child_box.intersect(box)), child_box)
-        ])
-        # if at_y > box.height:
-        #     break
 
-    return res
+        # dont do commands for boxes out of bounds who are above
+        if at_y < 0:
+            continue
+
+        node.render(frame.shrink_to(child_box.intersect(box)), child_box)
+
+        if at_y > box.height:
+            break
+
 
 def hbox(children: Iterable[Layout], at_x: int=0):
     """A container node that arranges its chilren Horizontaly.
@@ -744,17 +727,13 @@ def hbox(children: Iterable[Layout], at_x: int=0):
         min_size=min_size_horizontal([i.min_size for i in children]),
         render=partial(_hbox_render, children, at_x)
     )
-@lru_cache(LRU_MAX_SIZE)
+
 def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
-    res=Result()
     for node in children:
         child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(child_min_size.width, box.height).offset_by(box.position + Coordinate(at_x, 0))
-        res.add_children_after([
-            node.render(frame.shrink_to(child_box.intersect(box)), child_box)
-        ])
+        node.render(frame.shrink_to(child_box.intersect(box)), child_box)
         at_x += child_box.width
-    return res
 
 def center(child: Layout):
     """Shrink and center child layout in remaining space."""
@@ -825,10 +804,8 @@ def bg_char(char: str) -> WrapperNode:
 
     return _bg_char
 def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
-    res = Result()
-    res.draw_box(frame, char, box)
-    res.add_children_after([child.render(frame, box)])
-    return res
+    frame.draw_box( char, box)
+    child.render(frame, box)
 
 bg_fill = bg_char(" ")
 """Fill background with whitespace.
@@ -983,56 +960,54 @@ def h_guage(progress: int):
         render=partial(_h_guage_render, "#", progress),
     )
 
-def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box) -> Result:
+def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box):
     start_at_pixel = box.width * progress
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = start_at_pixel - start_at_pixel_int
-    res = Result()
-    res.draw_box(frame, progress_str[0], Box(start_at_pixel_int, 1 ,box.position))
-    res.draw_pixel(frame, progress_str[(len(progress_str)-1) * start_at_progress], box.position + Coordinate(start_at_pixel_int, 0))
-    return res
+    frame.draw_box(progress_str[0], Box(start_at_pixel_int, 1 ,box.position))
+    frame.draw_pixel(progress_str[(len(progress_str)-1) * start_at_progress], box.position + Coordinate(start_at_pixel_int, 0))
 
 
 
-def v_scroll_bar(start: float, showing: float):
-    return Layout(
-        func=v_scroll_bar,
-        min_size=min_size_constant(Rect(1, 1)),
-        render=partial(_v_scroll_bar_render, start, showing)
-
-    )
-def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -> Result:
-    start_at_pixel = box.height * start
-    start_at_pixel_int = math.floor(start_at_pixel)
-    start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
-
-    end_at_pixel = box.height * start + box.height * showing # should be clampt
-    end_at_pixel_int = math.floor(end_at_pixel)
-    end_at_progress = end_at_pixel - end_at_pixel_int
-
-    match [start_at_progress > 0.33, start_at_progress > 0.66]:
-        case [True, True]:
-            start_char = "│"
-        case [True, False]:
-            start_char = "╷"
-        case _:
-            start_char = " "
-
-    match [end_at_progress > 0.33, end_at_progress > 0.66]:
-        case [True, True]:
-            end_char = "│"
-        case [True, False]:
-            end_char = "╵"
-        case _:
-            end_char = " "
-
-    res = Result()
-    for i in range(box.height):
-        if i == start_at_pixel_int:
-            res.draw_pixel(frame, start_char, box.position + Coordinate(0, i))
-        elif i == end_at_pixel_int:
-            res.draw_pixel(frame, end_char, box.position + Coordinate(0, i))
-        elif start_at_pixel_int < i < end_at_pixel_int:
-            res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
-    return res
-
+# def v_scroll_bar(start: float, showing: float):
+#     return Layout(
+#         func=v_scroll_bar,
+#         min_size=min_size_constant(Rect(1, 1)),
+#         render=partial(_v_scroll_bar_render, start, showing)
+#
+#     )
+# def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -> Result:
+#     start_at_pixel = box.height * start
+#     start_at_pixel_int = math.floor(start_at_pixel)
+#     start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
+#
+#     end_at_pixel = box.height * start + box.height * showing # should be clampt
+#     end_at_pixel_int = math.floor(end_at_pixel)
+#     end_at_progress = end_at_pixel - end_at_pixel_int
+#
+#     match [start_at_progress > 0.33, start_at_progress > 0.66]:
+#         case [True, True]:
+#             start_char = "│"
+#         case [True, False]:
+#             start_char = "╷"
+#         case _:
+#             start_char = " "
+#
+#     match [end_at_progress > 0.33, end_at_progress > 0.66]:
+#         case [True, True]:
+#             end_char = "│"
+#         case [True, False]:
+#             end_char = "╵"
+#         case _:
+#             end_char = " "
+#
+#     res = Result()
+#     for i in range(box.height):
+#         if i == start_at_pixel_int:
+#             res.draw_pixel(frame, start_char, box.position + Coordinate(0, i))
+#         elif i == end_at_pixel_int:
+#             res.draw_pixel(frame, end_char, box.position + Coordinate(0, i))
+#         elif start_at_pixel_int < i < end_at_pixel_int:
+#             res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
+#     return res
+#

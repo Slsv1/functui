@@ -172,8 +172,7 @@ def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
             ]) | flex,
         ])
         screen.clear()
-        result = layout_to_result(layout, Rect(screen_size, screen_size))
-        screen.apply_draw_commands(result.data.measure_text, result.commands)
+        screen.draw_layout(layout)
         out_str = _render_ansi(screen)
 
     assert True
