@@ -3,7 +3,7 @@ from functui.common import *
 from functui.classes import *
 from functui.flex import *
 from functui.rich_text import adaptive_text
-from functui.io.ansi import layout_to_str
+from functui.io.ansi import _render_ansi, layout_to_str
 
 
 def _adaptive_text_item(content: str):
@@ -147,4 +147,67 @@ def test_complex_layout_and_render():
     '┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛└────────────────────────────────────────────────┘'
 ]
     assert result.splitlines() == expected
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize("screen_size", [70, 100, 122]) # screensizes vere chosen so that smount of pixels increases linearly
+def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
+    screen = Screen(screen_size, screen_size)
+
+    for _ in range(60):
+        layout = hbox_flex([
+            vbox([ _text_item(str(i)) for i in range(50)]) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
+            vbox_flex([
+                vbox_flex([
+                    adaptive_text(LOREM) | padding,
+                    nothing() | flex,
+
+                    text("delete") | center | fg(Color4.RED) | border,
+                    text("complete") | center | fg(Color4.GREEN) | border,
+                    text("edit") | center | border,
+
+                ])\
+                | border_with_title(text(" [Properties] ") | center | bold, border_thick)\
+                | flex,
+                text("New Task") | center | border,
+            ]) | flex,
+        ])
+        screen.clear()
+        result = layout_to_result(layout, Rect(screen_size, screen_size))
+        screen.apply_draw_commands(result.data.measure_text, result.commands)
+        out_str = _render_ansi(screen)
+
+    assert True
+    # expected = [
+    #     '┏━━━━━━━━━━━━━━━━━━━━\x1b[1m [Items] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━━━┓┏━━━━━━━━━━━━━━━━━\x1b[1m [Properties] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━┓',
+    #     '┃┌──────────────────────────────────────────────┐┃┃ Lorem ipsum dolor sit amet, consectetur        ┃',
+    #     '┃│0                                             │┃┃ adipiscing elit, sed do eiusmod tempor         ┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃ incididunt ut labore et dolore magna aliqua.   ┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃ Ut enim ad minim veniam, quis nostrud          ┃',
+    #     '┃│1                                             │┃┃ exercitation ullamco laboris nisi ut aliquip   ┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃ ex ea commodo consequat. Duis aute irure dolor ┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃ in reprehenderit in voluptate velit esse       ┃',
+    #     '┃│2                                             │┃┃ cillum dolore eu fugiat nulla pariatur.        ┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃ Excepteur sint occaecat cupidatat non          ┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃ proident, sunt in culpa qui officia deserunt   ┃',
+    #     '┃│3                                             │┃┃ mollit anim id est laborum.                    ┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃                                                ┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃                                                ┃',
+    #     '┃│4                                             │┃┃                                                ┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃                                                ┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃                                                ┃',
+    #     '┃│5                                             │┃┃┌──────────────────────────────────────────────┐┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃│                    \x1b[38;5;1mdelete\x1b[39m                    │┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃└──────────────────────────────────────────────┘┃',
+    #     '┃│6                                             │┃┃┌──────────────────────────────────────────────┐┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃│                   \x1b[38;5;2mcomplete\x1b[39m                   │┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃└──────────────────────────────────────────────┘┃',
+    #     '┃│7                                             │┃┃┌──────────────────────────────────────────────┐┃',
+    #     '┃└──────────────────────────────────────────────┘┃┃│                     edit                     │┃',
+    #     '┃┌──────────────────────────────────────────────┐┃┃└──────────────────────────────────────────────┘┃',
+    #     '┃│8                                             │┃┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛',
+    #     '┃└──────────────────────────────────────────────┘┃┌────────────────────────────────────────────────┐',
+    #     '┃┌──────────────────────────────────────────────┐┃│                    New Task                    │',
+    #     '┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛└────────────────────────────────────────────────┘'
+    # ]
+    # assert out_str.splitlines() == expected
 
