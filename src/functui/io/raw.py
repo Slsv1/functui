@@ -46,7 +46,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any, Callable, TextIO
 from dataclasses import dataclass
-from ..classes import ComputedResult, InputEvent, Coordinate, Rect, ResultData, intersperse, Result, Screen
+from ..classes import InputEvent, Coordinate, Rect, intersperse, Screen
 from .ansi import _render_ansi
 
 from queue import SimpleQueue, Empty
@@ -205,6 +205,7 @@ class TerminalIO(ABC):
                 return event
 
         return self.event_queue.get()
+
     def display_screen(self, screen: Screen):
         """Display a result generated from a :obj:`functui.classes.Layout`.
 

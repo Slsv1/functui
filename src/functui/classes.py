@@ -20,13 +20,8 @@ __all__ = [
     'Color',
     'Color24',
     'Color4',
-    'ComputedResult',
     'ComputedStyle',
     'Coordinate',
-    'DrawBox',
-    'DrawCommand',
-    'DrawPixel',
-    'DrawStringLine',
     'Frame',
     'InputEvent',
     'LRU_MAX_SIZE',
@@ -536,7 +531,7 @@ class CharType(Enum):
     WIDE_HEAD = auto()
     WIDE_TAIL = auto()
 
-@dataclass
+@dataclass(slots=True)
 class Pixel:
     char: str = " "
     char_type: CharType = CharType.NORMAL
@@ -562,20 +557,7 @@ class Pixel:
             style,
         )
 
-class DrawPixel(NamedTuple):
-    pixel: Pixel
-    at: Coordinate = Coordinate(0, 0)
 
-class DrawBox(NamedTuple):
-    fill: Pixel
-    box: Box
-
-class DrawStringLine(NamedTuple):
-    string: tuple[Pixel]
-    """All pixels are assumed to contain the same style."""
-    at: Coordinate
-
-DrawCommand: TypeAlias = DrawPixel | DrawBox | DrawStringLine
 
 class MeasureTextFunc(Protocol):
     """A function that measures how long a string is when it is printed.
@@ -884,10 +866,6 @@ class ResultData(NamedTuple):
     dimensions: Rect
     box_data: MappingProxyType[NodeId, BoxData]
 
-@dataclass
-class ComputedResult:
-    commands: list[DrawCommand]
-    data: ResultData
 
 
 class Screen:
