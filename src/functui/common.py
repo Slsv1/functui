@@ -169,6 +169,7 @@ def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
         frame.draw_string_line(line, box.position + Coordinate(0, y))
 
 
+
 #
 # Border Elements
 #

@@ -575,7 +575,24 @@ class Frame:
     screen_rect: Rect
     default_style: ComputedStyle
     measure_text: MeasureTextFunc = field(hash=False, compare=False)
+    _boxes_by_id: dict[NodeId, BoxData]
     _screen: Screen
+
+
+    def set_box_data(self, node_id: NodeId, box: Box, view_box: Box):
+        """
+        Note:
+            May ovveride exisiting entries in this result.
+        """
+        self._boxes_by_id[node_id] = BoxData(view_box=view_box, box=box)
+
+    def try_box_data(self, node_id: NodeId) -> None | BoxData:
+        return self._boxes_by_id.get(node_id, None)
+
+    def expect_box_data(self, node_id: NodeId) -> BoxData:
+        return self._boxes_by_id[node_id]
+
+
 
     def with_style(self, style: ComputedStyle):
         return self.__class__(
@@ -584,6 +601,7 @@ class Frame:
             default_style=style,
             measure_text=self.measure_text,
             _screen=self._screen,
+            _boxes_by_id=self._boxes_by_id,
         )
 
     def shrink_to(self, other_box):
@@ -593,6 +611,7 @@ class Frame:
             default_style=self.default_style,
             measure_text=self.measure_text,
             _screen=self._screen,
+            _boxes_by_id=self._boxes_by_id,
         )
 
     def shrink_to_mutate(self, other_box):
@@ -893,10 +912,13 @@ class Screen:
         return self._data
 
     def clear(self):
-        p = Pixel()
         for y in range(self.height):
             for x in range(self.width):
-                self._data[y][x] = p
+                px = self._data[y][x]
+                px.style = ComputedStyle()
+                px.char = " "
+                px.char_type = CharType.NORMAL
+
     @property
     def dimensions(self) -> Rect:
         return Rect(self.width, self.height)
@@ -906,15 +928,21 @@ class Screen:
         layout: Layout,
         measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t),
     ):
-        result = layout.render(
-            Frame(
-                screen_rect=Rect(self.width, self.height),
+        screen_rect = Rect(self.width, self.height)
+        frame = Frame(
+                screen_rect=screen_rect,
                 view_box=Box(self.width, self.height),
                 default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
                 measure_text=measure_text,
                 _screen=self,
-            ),
-            Box(width=self.width, height=self.height),
+                _boxes_by_id={},
+            )
+        layout.render(frame, Box(*screen_rect))
+
+        return ResultData(
+            measure_text=measure_text,
+            dimensions=screen_rect,
+            box_data=MappingProxyType(frame._boxes_by_id)
         )
 
 

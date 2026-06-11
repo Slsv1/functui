@@ -102,11 +102,9 @@ def _render_interaction_area(
     child: Layout,
     frame: Frame,
     box: Box
-) -> Result:
-    res = Result()
-    res.set_box_data(node_id, box, frame.view_box)
-    res.add_children_after([child.render(frame, box)])
-    return res
+):
+    frame.set_box_data(node_id, frame.view_box, box)
+    child.render(frame, box)
 
 def v_resizable_split(
     node_id: NodeId,
@@ -156,7 +154,7 @@ def _v_resizable_split_render(
         sep_at: int | None,
         frame: Frame,
         box: Box
-) -> Result:
+):
     sep_rect = sep.min_size(frame.measure_text, box.rect)
 
     sep_at = clamp(sep_at, 0, box.width-sep_rect.width)
@@ -177,14 +175,9 @@ def _v_resizable_split_render(
         box.position + Coordinate(sep_at, 0)
     )
 
-    res = Result()
-
-    res.add_children_after([
-        left.render(frame.shrink_to(left_box), left_box),
-        sep.render(frame.shrink_to(split_box), split_box),
-        right.render(frame.shrink_to(right_box), right_box),
-    ])
-    return res
+    left.render(frame.shrink_to(left_box), left_box)
+    sep.render(frame.shrink_to(split_box), split_box)
+    right.render(frame.shrink_to(right_box), right_box)
 
 
 def v_scroll(
@@ -202,7 +195,6 @@ def v_scroll(
         if at_y is None:
             at_y = 0
 
-        a = []
         if nav.result_data is not None and container_id in nav.result_data.box_data:
             last_box_data = nav.result_data.box_data[container_id]
 
@@ -265,13 +257,11 @@ def _v_scroll_render(
     # if active_box is not None:
 
 
-    res = Result()
-    res.set_box_data(container_id, box, frame.view_box)
+    frame.set_box_data(container_id, box, frame.view_box)
     # a.append(text("final:" + str(scroll_dy)))
 
     modified_child = vbox([child], at_y=-at_y)
-    res.add_children_after([modified_child.render(frame, box)])
-    return res
+    modified_child.render(frame, box)
 
 
 @dataclass
