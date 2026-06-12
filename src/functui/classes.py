@@ -582,6 +582,19 @@ class Strip:
     def is_point_inside(self, point: int):
         return self.start <= point < (self.start + self.length)
 
+def new_strip(start: int, content: str, style: ComputedStyle, len: int):
+    new_content = []
+    for i in content:
+        new_content.append(i if wcwidth.wcwidth(i) == 1 else i*2)
+
+    return Strip(
+        start=start,
+        content="".join(new_content),
+        style=style,
+        length=len
+    )
+
+
 @dataclass
 class Frame:
     view_box: Box
@@ -634,12 +647,6 @@ class Frame:
             return 
 
         self._strips[at.y].append(Strip(at.x, fill, self.default_style, 1))
-
-    def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
-        if not self.view_box.is_point_inside(at):
-            return 
-        raise
-        # self._screen.set(at, pixel)
 
     def draw_box(
         self,
@@ -709,18 +716,33 @@ class Frame:
         required_offset = bounds.position.x - at.x
         x_content_offset = 0
         char_offset = 0
+
         if required_offset > 0:
             for char in content:
                 x_content_offset += self.measure_text(char)
-                char_offset += 0
+                char_offset += 1
                 if x_content_offset >= required_offset:
                     break
 
-        # generate output string
-        at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
+
         string = content[char_offset:]
 
-        self._strips[at.y].append(Strip(at.x, string, self.default_style, len(string)))
+        end_at = x_content_offset
+
+        # cut of extra
+        for char in string:
+            if end_at + at.x > outer_x_bound:
+                break
+            end_at += self.measure_text(char)
+
+        string = content[char_offset:end_at]
+
+        # generate output string
+        at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
+
+        self._strips[at.y].append(
+            new_strip(at.x, string, self.default_style, wcwidth.wcswidth(string))
+        )
 
 
 class MinSize(Protocol):
@@ -921,6 +943,7 @@ def layout_to_result(
 
 
 def compose_strips(strips: Sequence[Strip]):
+
     # strips is sorted by z-index (0 at beginning of list)
     if len(strips) == 0:
         return
@@ -970,7 +993,8 @@ def compose_strips(strips: Sequence[Strip]):
             continue
 
         # if not strip switching, then just yield elements
-        segment = strip.content[at_visual - strip.start]
+        at_string_index = (at_visual - strip.start)
+        segment = strip.content[at_string_index]
 
         at_visual += wcwidth.wcwidth(segment)
         yield (strip.style, segment)

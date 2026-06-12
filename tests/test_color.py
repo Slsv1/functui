@@ -1,6 +1,6 @@
-from functui.classes import hex, Color24, rgb
+from functui.classes import hex, Color24, rgb, Rect
 from functui.common import *
-from functui import *
+from functui.io.ansi import layout_to_str
 
 def test_rgb_to_hex():
     v = rgb(50, 100, 200)
