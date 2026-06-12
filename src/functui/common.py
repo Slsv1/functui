@@ -359,7 +359,7 @@ def vbar_custom(char: str = "|"):
     )
 
 def _vbar_render(char: str, frame: Frame, box: Box):
-    frame.draw_line_v(fill=char, at=box.position, len=box.width)
+    frame.draw_line_v(fill=char, at=box.position, len=box.height)
 
 def hbar_custom(char: str="-"):
     """Horizonatal bar build with a custom character."""
@@ -370,7 +370,7 @@ def hbar_custom(char: str="-"):
     )
 
 def _hbar_render(char: str, frame: Frame, box: Box):
-    frame.draw_line_h(fill=char, at=box.position, len=box.height)
+    frame.draw_line_h(fill=char, at=box.position, len=box.width)
 
 vbar = vbar_custom(BORDER_REGULAR.line_v)
 """Vertical bar."""

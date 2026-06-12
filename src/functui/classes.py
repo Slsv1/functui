@@ -577,10 +577,7 @@ class Strip:
     start: int
     content: str
     style: ComputedStyle
-
-    @property
-    def length(self):
-        return len(self.content)
+    length: int
 
     def is_point_inside(self, point: int):
         return self.start <= point < (self.start + self.length)
@@ -607,7 +604,6 @@ class Frame:
 
     def expect_box_data(self, node_id: NodeId) -> BoxData:
         return self._boxes_by_id[node_id]
-
 
 
     def with_style(self, style: ComputedStyle):
@@ -637,7 +633,7 @@ class Frame:
         if not self.view_box.is_point_inside(at):
             return 
 
-        self._strips[at.y].append(Strip(at.x, fill, self.default_style))
+        self._strips[at.y].append(Strip(at.x, fill, self.default_style, 1))
 
     def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
         if not self.view_box.is_point_inside(at):
@@ -653,7 +649,7 @@ class Frame:
         box = box.intersect(self.view_box)
         for y in range(box.position.y, box.position.y + box.height):
             self._strips[y].append(
-                Strip(box.position.x, fill*box.width, self.default_style)
+                Strip(box.position.x, fill*box.width, self.default_style, box.width)
             )
 
     def draw_line_h(
@@ -681,7 +677,7 @@ class Frame:
             return
 
         for y in range(at.y, clamp(at.y + len, self.view_box.position.y, self.view_box.position.y + self.view_box.height)):
-            self._strips[y].append(Strip(at.x, fill, self.default_style))
+            self._strips[y].append(Strip(at.x, fill, self.default_style, 1))
 
     def draw_string_line(
         self,
@@ -721,10 +717,10 @@ class Frame:
                     break
 
         # generate output string
-        delta_x = 0
         at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
+        string = content[char_offset:]
 
-        self._strips[at.y].append(Strip(at.x, content[char_offset:], self.default_style))
+        self._strips[at.y].append(Strip(at.x, string, self.default_style, len(string)))
 
 
 class MinSize(Protocol):
@@ -939,7 +935,8 @@ def compose_strips(strips: Sequence[Strip]):
     # refers to the strip_index_sorted_by_start list
     curr_start_index = 0
 
-    at = 0
+    # at defined in visual space
+    at_visual = 0
 
     while True:
         strip = strips[strip_index]
@@ -949,7 +946,7 @@ def compose_strips(strips: Sequence[Strip]):
             next_strip = strips[strip_index_sorted_by_start[curr_start_index+1]]
 
         # look for next
-        if next_strip is not None and next_strip.start <= at:
+        if next_strip is not None and next_strip.start <= at_visual:
 
             # advance to next strip, and upate strip_index to point to the new strip
             curr_start_index += 1
@@ -963,7 +960,7 @@ def compose_strips(strips: Sequence[Strip]):
             continue
 
         # if current is too little
-        if not strip.is_point_inside(at):
+        if not strip.is_point_inside(at_visual):
 
             # go back one in depth
             if strip_index == 0:
@@ -973,8 +970,9 @@ def compose_strips(strips: Sequence[Strip]):
             continue
 
         # if not strip switching, then just yield elements
-        segment = strip.content[at - strip.start]
-        at += wcwidth.wcwidth(segment) #TODO: wcwidth
+        segment = strip.content[at_visual - strip.start]
+
+        at_visual += wcwidth.wcwidth(segment)
         yield (strip.style, segment)
 
 class Screen:
