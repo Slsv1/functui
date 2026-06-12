@@ -23,6 +23,7 @@ __all__ = [
     'ComputedStyle',
     'Coordinate',
     'Frame',
+    'Strip',
     'InputEvent',
     'LRU_MAX_SIZE',
     'Layout',
@@ -56,6 +57,8 @@ __all__ = [
     'rule_reverse',
     'rule_strike_through',
     'rule_underline',
+    'layout_to_result',
+    'compose_strips',
 ]
 
 LRU_MAX_SIZE = 0
@@ -569,6 +572,19 @@ class MeasureTextFunc(Protocol):
     def __call__(self, string: str, /) -> int:
         ...
 
+@dataclass(frozen=True)
+class Strip:
+    start: int
+    content: str
+    style: ComputedStyle
+
+    @property
+    def length(self):
+        return len(self.content)
+
+    def is_point_inside(self, point: int):
+        return self.start <= point < (self.start + self.length)
+
 @dataclass
 class Frame:
     view_box: Box
@@ -576,7 +592,7 @@ class Frame:
     default_style: ComputedStyle
     measure_text: MeasureTextFunc = field(hash=False, compare=False)
     _boxes_by_id: dict[NodeId, BoxData]
-    _screen: Screen
+    _strips: list[list[Strip]]
 
 
     def set_box_data(self, node_id: NodeId, box: Box, view_box: Box):
@@ -600,7 +616,7 @@ class Frame:
             screen_rect=self.screen_rect,
             default_style=style,
             measure_text=self.measure_text,
-            _screen=self._screen,
+            _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
         )
 
@@ -610,7 +626,7 @@ class Frame:
             screen_rect=self.screen_rect,
             default_style=self.default_style,
             measure_text=self.measure_text,
-            _screen=self._screen,
+            _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
         )
 
@@ -620,14 +636,14 @@ class Frame:
     def draw_pixel(self, fill: str, at: Coordinate):
         if not self.view_box.is_point_inside(at):
             return 
-        px = self._screen.get(at)
-        px.char = fill
-        px.style = self.default_style
+
+        self._strips[at.y].append(Strip(at.x, fill, self.default_style))
 
     def draw_custom_pixel(self, pixel: Pixel, at: Coordinate):
         if not self.view_box.is_point_inside(at):
             return 
-        self._screen.set(at, pixel)
+        raise
+        # self._screen.set(at, pixel)
 
     def draw_box(
         self,
@@ -635,11 +651,10 @@ class Frame:
         box: Box,
     ):
         box = box.intersect(self.view_box)
-        for x in range(box.position.x, box.position.x + box.width):
-            for y in range(box.position.y, box.position.y + box.height):
-                px = self._screen.get(Coordinate(x, y))
-                px.char = fill
-                px.style = self.default_style
+        for y in range(box.position.y, box.position.y + box.height):
+            self._strips[y].append(
+                Strip(box.position.x, fill*box.width, self.default_style)
+            )
 
     def draw_line_h(
         self,
@@ -647,14 +662,15 @@ class Frame:
         at: Coordinate,
         len: int,
     ):
-        if not self.view_box.position.y <= at.y < (self.view_box.position.y + self.view_box.height):
-            return
+        self.draw_box(fill, Box(width=len, height=1, position=at).intersect(self.view_box))
+        # if not self.view_box.position.y <= at.y < (self.view_box.position.y + self.view_box.height):
+        #     return
+        #
+        # actuall_len = clamp(at.x + len, self.view_box.position.x, self.view_box.position.x + self.view_box.width)
+        # self._strips[at.y].append(
+        #     Strip(at.x, fill*actuall_len, self.default_style)
+        # )
 
-        for x in range(at.x, clamp(at.x + len, self.view_box.position.x, self.view_box.position.x + self.view_box.width)):
-            px = self._screen.get(Coordinate(x, at.y))
-            px.char = fill
-            px.style = self.default_style
-            
     def draw_line_v(
         self,
         fill: str,
@@ -665,9 +681,7 @@ class Frame:
             return
 
         for y in range(at.y, clamp(at.y + len, self.view_box.position.y, self.view_box.position.y + self.view_box.height)):
-            px = self._screen.get(Coordinate(at.x, y))
-            px.char = fill
-            px.style = self.default_style
+            self._strips[y].append(Strip(at.x, fill, self.default_style))
 
     def draw_string_line(
         self,
@@ -709,30 +723,8 @@ class Frame:
         # generate output string
         delta_x = 0
         at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
-        for char in content[char_offset:]:
-            char_width = self.measure_text(char)
-            x_content_offset += char_width
-            if x_content_offset + at.x > outer_x_bound:
-                break
-            if char_width == 1:
-                px = self._screen.get(at + Coordinate(delta_x, 0))
-                px.char = char
-                px.style = self.default_style
-                delta_x += 1
-            else:
-                px = self._screen.get(at + Coordinate(delta_x, 0))
-                px.char = char
-                px.style = self.default_style
-                px.char_type=CharType.WIDE_HEAD
-                delta_x += 1
 
-                px = self._screen.get(at + Coordinate(delta_x, 0))
-                px.char = ""
-                px.style = self.default_style
-                px.char_type=CharType.WIDE_TAIL
-                delta_x += 1
-
-
+        self._strips[at.y].append(Strip(at.x, content[char_offset:], self.default_style))
 
 
 class MinSize(Protocol):
@@ -885,7 +877,105 @@ class ResultData(NamedTuple):
     dimensions: Rect
     box_data: MappingProxyType[NodeId, BoxData]
 
+@dataclass
+class ComputedResult:
+    strips: list[list[Strip]]
+    data: ResultData
 
+def layout_to_result(
+        layout: Layout,
+        dimensions: Rect,
+        measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
+) -> ComputedResult:
+    """Converts a layout to a result that can be converted to desired output type.
+
+    See Also:
+        To see what to do with the result, read :doc:`../user_guide/io`.
+    """
+    frame = Frame(
+        screen_rect=dimensions,
+        view_box=Box(dimensions.width, dimensions.height),
+        default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
+        measure_text=measure_text,
+        _strips = [[] for _ in range(dimensions.height)],
+        _boxes_by_id = {},
+    )
+    layout.render(
+        frame, Box(width=dimensions.width, height=dimensions.height),
+    )
+    return ComputedResult(frame._strips, ResultData(
+        dimensions=dimensions,
+        measure_text=measure_text,
+        box_data=MappingProxyType(frame._boxes_by_id)
+    ))
+
+#
+#          yyy    -- z-index 3
+#            jjj  -- z-index 2
+#   iii           -- z-index 1 
+# xxxxxxxxxxxxxxx -- z-index 0
+# | |      | |
+# | |      | start at 3
+# | |      |
+# | |      start at 2
+# | |
+# | start at 1
+# |
+# start at 0
+
+
+def compose_strips(strips: Sequence[Strip]):
+    # strips is sorted by z-index (0 at beginning of list)
+    if len(strips) == 0:
+        return
+
+    strip_index_sorted_by_start = list(range(len(strips)))
+    strip_index_sorted_by_start.sort(key=lambda x: strips[x].start)
+
+
+    # refers to the strips list
+    strip_index = strip_index_sorted_by_start[0]
+
+    # refers to the strip_index_sorted_by_start list
+    curr_start_index = 0
+
+    at = 0
+
+    while True:
+        strip = strips[strip_index]
+        if curr_start_index == len(strip_index_sorted_by_start) - 1:
+            next_strip = None
+        else:
+            next_strip = strips[strip_index_sorted_by_start[curr_start_index+1]]
+
+        # look for next
+        if next_strip is not None and next_strip.start <= at:
+
+            # advance to next strip, and upate strip_index to point to the new strip
+            curr_start_index += 1
+            maybe_strip_index = strip_index_sorted_by_start[curr_start_index]
+
+            if maybe_strip_index < strip_index:
+                continue # if next strip is at a lower depth then don't switch yet
+            
+            strip_index = maybe_strip_index
+
+            continue
+
+        # if current is too little
+        if not strip.is_point_inside(at):
+
+            # go back one in depth
+            if strip_index == 0:
+                return
+            strip_index -= 1
+
+            continue
+
+        # if not strip switching, then just yield elements
+        segment = strip.content[at - strip.start]
+        at += wcwidth.wcwidth(segment) #TODO: wcwidth
+        yield (strip.style, segment)
 
 class Screen:
     """Represents the text grid of a screen."""
@@ -922,28 +1012,6 @@ class Screen:
     @property
     def dimensions(self) -> Rect:
         return Rect(self.width, self.height)
-
-    def draw_layout(
-        self,
-        layout: Layout,
-        measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t),
-    ):
-        screen_rect = Rect(self.width, self.height)
-        frame = Frame(
-                screen_rect=screen_rect,
-                view_box=Box(self.width, self.height),
-                default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
-                measure_text=measure_text,
-                _screen=self,
-                _boxes_by_id={},
-            )
-        layout.render(frame, Box(*screen_rect))
-
-        return ResultData(
-            measure_text=measure_text,
-            dimensions=screen_rect,
-            box_data=MappingProxyType(frame._boxes_by_id)
-        )
 
 
 

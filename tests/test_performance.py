@@ -19,7 +19,7 @@ TEST_FOR_AMOUNTS = [10, 100, 1000]
 def test_layout_with_adaptive_text_creation_and_render(n):
     layout = vbox([
         _adaptive_text_item(str(i)) for i in range(n)
-    ]) | border
+    ]) | border | bg_fill
 
     result = layout_to_str(layout, Rect(100, 20))
     expected = """┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -50,7 +50,7 @@ def test_layout_with_adaptive_text_creation_and_render(n):
 def test_layout_with_text_and_render(n):
     layout = vbox([
         _text_item(str(i)) for i in range(n)
-    ]) | border
+    ]) | border | bg_fill
 
     result = layout_to_str(layout, Rect(100, 20))
     expected = """┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -112,7 +112,7 @@ def test_complex_layout_and_render():
             | flex,
             text("New Task") | center | border,
         ]) | flex,
-    ])
+    ]) | bg_char(" ")
     result = layout_to_str(layout, Rect(100, 30))
     expected = [
     '┏━━━━━━━━━━━━━━━━━━━━\x1b[1m [Items] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━━━┓┏━━━━━━━━━━━━━━━━━\x1b[1m [Properties] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━┓',
@@ -151,7 +151,6 @@ def test_complex_layout_and_render():
 @pytest.mark.benchmark
 @pytest.mark.parametrize("screen_size", [70, 100, 122]) # screensizes vere chosen so that smount of pixels increases linearly
 def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
-    screen = Screen(screen_size, screen_size)
 
     for _ in range(60):
         layout = hbox_flex([
@@ -170,10 +169,9 @@ def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
                 | flex,
                 text("New Task") | center | border,
             ]) | flex,
-        ])
-        screen.clear()
-        screen.draw_layout(layout)
-        out_str = _render_ansi(screen)
+        ]) | bg_fill
+        res = layout_to_result(layout, Rect(screen_size, screen_size))
+        foo = _render_ansi(res.strips)
 
     assert True
     # expected = [

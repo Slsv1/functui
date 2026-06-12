@@ -1,6 +1,6 @@
 """Functions to convert layouts to styled strings that can be rendered in a terminal."""
 from ..classes import *
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 
@@ -79,11 +79,10 @@ ANSI_RESET_STYLES = "\033[0m"
 #             out.append(pixel.char)
 #         out.append("\n")
 #     return "".join(out[:-1]) # -1 to remove the \n on the end
-def _render_ansi(screen: Screen) -> str:
+def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
     out = []
-    lines = screen.split_by_lines()
 
-    curr_style = StyleAttr(0)
+    curr_attrs = StyleAttr(0)
     curr_fg = Color4.RESET
     curr_bg = Color4.RESET
     
@@ -91,43 +90,43 @@ def _render_ansi(screen: Screen) -> str:
     reset_fg_ansi = default_color_to_fg_ansi(Color4.RESET)
     reset_bg_ansi = default_color_to_bg_ansi(Color4.RESET)
 
-    for line in lines:
-        for pixel in line:
-            pixel_style = pixel.style.attrs
+    for line in strips:
+        for (pixel_style, pixel_char) in compose_strips(line):
+            pixel_attrs = pixel_style.attrs
             
             # 1. Handle Style Changes
-            if curr_style != pixel_style:
-                style_changes = curr_style ^ pixel_style
-                new_style = style_changes & pixel_style
-                removed_style = bool(style_changes & curr_style)
-                curr_style = pixel_style
+            if curr_attrs != pixel_attrs:
+                attr_changes = curr_attrs ^ pixel_attrs
+                new_attrs = attr_changes & pixel_attrs
+                removed_style = bool(attr_changes & curr_attrs)
+                curr_attrs = pixel_attrs
                 
                 if removed_style:
                     out.append(ANSI_RESET_STYLES)
-                    out.append(style_to_ansi(pixel_style))
+                    out.append(style_to_ansi(pixel_attrs))
                     out.append(default_color_to_fg_ansi(curr_fg))
                     out.append(default_color_to_bg_ansi(curr_bg))
                 else:
-                    out.append(style_to_ansi(new_style))
+                    out.append(style_to_ansi(new_attrs))
 
             # 2. Handle Foreground Color Changes
-            p_fg = pixel.style.fg
+            p_fg = pixel_style.fg
             if curr_fg != p_fg and p_fg is not None:
                 curr_fg = p_fg
                 out.append(default_color_to_fg_ansi(curr_fg))
 
             # 3. Handle Background Color Changes
-            p_bg = pixel.style.bg
+            p_bg = pixel_style.bg
             if curr_bg != p_bg and p_bg is not None:
                 curr_bg = p_bg
                 out.append(default_color_to_bg_ansi(curr_bg))
 
             # 4. Append the character
-            out.append(pixel.char)
+            out.append(pixel_char)
             
         # reset style at the end of each row
-        if curr_style != StyleAttr(0) or curr_fg != Color4.RESET or curr_bg != Color4.RESET:
-            curr_style = StyleAttr(0)
+        if curr_attrs != StyleAttr(0) or curr_fg != Color4.RESET or curr_bg != Color4.RESET:
+            curr_attrs = StyleAttr(0)
             curr_fg = Color4.RESET
             curr_bg = Color4.RESET
             out.append(ANSI_RESET_STYLES)
@@ -144,7 +143,5 @@ def layout_to_str(layout: Layout, dimensions: Rect) -> str:
 
     This is a shorthand for ``result_to_str(layout_to_result(...)))``.
     """
-    screen = Screen(*dimensions)
-    screen.draw_layout(layout)
-    return _render_ansi(screen)
+    return _render_ansi(layout_to_result(layout, dimensions).strips)
 

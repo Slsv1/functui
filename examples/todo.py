@@ -181,7 +181,7 @@ def view(m: Model):
             ]),
         ),
         text_widget
-    ])
+    ]) | bg_fill
 
 # adaptive_styled_text([
 #     "hejsan", styled("hehejsan", fg=Color.RED), "hej hej hej"
@@ -195,12 +195,10 @@ m = Model(
 )
 
 with terminal() as term:
-    screen = Screen(*term.get_terminal_size())
     while True:
         # render
-        screen.clear()
-        res = screen.draw_layout(view(m))
-        term.display_screen(screen)
+        res = layout_to_result(view(m), term.get_terminal_size())
+        term.display_layout(res)
 
         # wait for input
         event = term.block_until_input()
@@ -208,5 +206,5 @@ with terminal() as term:
         # update
         if event.key_event == "ctrl+c":
             break
-        update(event, res, m)
+        update(event, res.data, m)
 
