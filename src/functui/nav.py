@@ -23,8 +23,6 @@ __all__ = [
 
     # nodes
     "hoverable",
-    "v_scroll",
-    "v_resizable_split"
 ]
 
 class NavAction(Enum):

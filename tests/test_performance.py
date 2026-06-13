@@ -112,7 +112,7 @@ def test_complex_layout_and_render():
             | flex,
             text("New Task") | center | border,
         ]) | flex,
-    ]) | bg_char(" ")
+    ])
     result = layout_to_str(layout, Rect(100, 30))
     expected = [
     '┏━━━━━━━━━━━━━━━━━━━━\x1b[1m [Items] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━━━┓┏━━━━━━━━━━━━━━━━━\x1b[1m [Properties] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━┓',
@@ -152,6 +152,7 @@ def test_complex_layout_and_render():
 @pytest.mark.parametrize("screen_size", [70, 100, 122]) # screensizes vere chosen so that smount of pixels increases linearly
 def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
 
+    screen = Screen()
     for _ in range(60):
         layout = hbox_flex([
             vbox([ _text_item(str(i)) for i in range(50)]) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
@@ -169,9 +170,9 @@ def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
                 | flex,
                 text("New Task") | center | border,
             ]) | flex,
-        ]) | bg_fill
-        res = layout_to_result(layout, Rect(screen_size, screen_size))
-        foo = _render_ansi(res.strips)
+        ])
+        res = screen.clear_and_render(layout, Rect(screen_size, screen_size))
+        foo = _render_ansi(screen.strips)
 
     assert True
     # expected = [

@@ -25,7 +25,6 @@ __all__ = [
     'Frame',
     'Strip',
     'InputEvent',
-    'LRU_MAX_SIZE',
     'Layout',
     'MeasureTextFunc',
     'MinSize',
@@ -57,11 +56,9 @@ __all__ = [
     'rule_reverse',
     'rule_strike_through',
     'rule_underline',
-    'layout_to_result',
     'compose_strips',
 ]
 
-LRU_MAX_SIZE = 0
 
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
@@ -432,6 +429,8 @@ class Color4(IntEnum):
     RESET = -1
 
 
+# Some functuionality of this class has been copied over from the textual project.
+# https://github.com/Textualize/textual/blob/main/src/textual/color.py
 class Color24(NamedTuple):
     """Represent a 24 bit color.
 
@@ -439,16 +438,19 @@ class Color24(NamedTuple):
         r: Red value, an integer from 0 to 255 inclusive.
         g: Green value, an integer from 0 to 255 inclusive.
         b: Blue value, an integer from 0 to 255 inclusive.
+        a: Alpha value, a float from 0 to 1.0 inclusive.
     """
     r: int
     g: int
     b: int
+    a: float = 1.0
 
     @property
     @cache
     def hex(self) -> int:
         """Convert to an integer represeting this colors hexadecimal value."""
         return (0 | self.r << 16 | self.g << 8 | self.b)
+
     @cache
     def to_nearest_8bit(self) -> int:
         distance_to_color = {_color_distance_fast(hex(k), self): v for k, v in HEX_TO_XTERM256_DEFINED_COLORS.items()}
@@ -458,6 +460,34 @@ class Color24(NamedTuple):
     @cache
     def hex_str(self) -> str:
         return f"#{self.hex:06x}"
+
+    @property
+    def normalized(self) -> tuple[float, float, float]:
+        return (self.r / 255, self.g / 255, self.b / 255)
+
+    @cache
+    def overlay(self, other: Self):
+        r1, g1, b1, a1 = self
+        r2, g2, b2, a2 = other
+
+        return Color24(
+            int(r1 + (r2 - r1) * a2),
+            int(g1 + (g2 - g1) * a2),
+            int(b1 + (b2 - b1) * a2),
+            a1,
+        )
+    @property
+    def brightness(self) -> float:
+        """The human perceptual brightness.
+
+        A value of 1 is returned for pure white, and 0 for pure black.
+        Other colors lie on a gradient between the two extremes.
+        """
+
+        r, g, b = self.normalized
+        brightness = (299 * r + 587 * g + 114 * b) / 1000
+        return brightness
+
 
 def _color_distance_fast(a: Color24, b: Color24) -> int:
     return (a.r - b.r)**2 + (a.g - b.g)**2 + (a.b - b.b)**2
@@ -469,10 +499,8 @@ def rgb(r: int, g: int, b: int, /):
 
 def hsl(h: float, s: float, l: float, /):
     """Create a new :obj:`Color24` from hsl parameters."""
-    
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     return Color24(int(r*255), int(g*255), int(b*255))
-
 
 def hex(value: int, /):
     """Create a new :obj:`Color24` from a hexodecimal integer."""
@@ -823,6 +851,7 @@ def min_size_union(
             max(heights),
         ) if children_sizes else Rect(0, 0)
     return _min_size_union
+
 def min_size_constant(return_value: Rect) -> MinSize:
     return lambda measure_text, available: return_value
 
@@ -897,37 +926,87 @@ class ResultData(NamedTuple):
     dimensions: Rect
     box_data: MappingProxyType[NodeId, BoxData]
 
-@dataclass
-class ComputedResult:
-    strips: list[list[Strip]]
-    data: ResultData
 
-def layout_to_result(
+@dataclass
+class Screen:
+    strips: list[list[Strip]] = field(default_factory=list)
+    dimensions: Rect = Rect(0, 0)
+
+
+    def clear_and_render(
+        self,
         layout: Layout,
         dimensions: Rect,
         measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
-) -> ComputedResult:
-    """Converts a layout to a result that can be converted to desired output type.
+    ) -> ResultData:
 
-    See Also:
-        To see what to do with the result, read :doc:`../user_guide/io`.
-    """
-    frame = Frame(
-        screen_rect=dimensions,
-        view_box=Box(dimensions.width, dimensions.height),
-        default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
-        measure_text=measure_text,
-        _strips = [[] for _ in range(dimensions.height)],
-        _boxes_by_id = {},
-    )
-    layout.render(
-        frame, Box(width=dimensions.width, height=dimensions.height),
-    )
-    return ComputedResult(frame._strips, ResultData(
-        dimensions=dimensions,
-        measure_text=measure_text,
-        box_data=MappingProxyType(frame._boxes_by_id)
-    ))
+        if self.dimensions != dimensions:
+            background_strip = Strip(
+                start=0,
+                content=" "*dimensions.width,
+                style=ComputedStyle(),
+                length=dimensions.width
+            )
+            self.strips = [[background_strip] for _ in range(dimensions.height)]
+        else:
+            for line in self.strips:
+                line = line[0:1]
+
+        frame = Frame(
+            screen_rect=dimensions,
+            view_box=Box(dimensions.width, dimensions.height),
+            default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
+            measure_text=measure_text,
+            _strips = self.strips,
+            _boxes_by_id = {},
+        )
+        layout.render(
+            frame, Box(width=dimensions.width, height=dimensions.height),
+        )
+
+        return ResultData(
+            dimensions=dimensions,
+            measure_text=measure_text,
+            box_data=MappingProxyType(frame._boxes_by_id)
+        )
+
+
+
+# def layout_to_result(
+#         layout: Layout,
+#         dimensions: Rect,
+#         measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
+# ) -> ComputedResult:
+#     """Converts a layout to a result that can be converted to desired output type.
+#
+#     See Also:
+#         To see what to do with the result, read :doc:`../user_guide/io`.
+#     """
+#     background_strip = Strip(
+#         start=0,
+#         content=" "*dimensions.width,
+#         style=ComputedStyle(),
+#         length=dimensions.width
+#     )
+#     frame = Frame(
+#         screen_rect=dimensions,
+#         view_box=Box(dimensions.width, dimensions.height),
+#         default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
+#         measure_text=measure_text,
+#         _strips = [[background_strip] for _ in range(dimensions.height)],
+#         _boxes_by_id = {},
+#     )
+#     layout.render(
+#         frame, Box(width=dimensions.width, height=dimensions.height),
+#     )
+#     return ComputedResult(frame._strips, ResultData(
+#         dimensions=dimensions,
+#         measure_text=measure_text,
+#         box_data=MappingProxyType(frame._boxes_by_id)
+#     ))
+
+
+
 
 #
 #          yyy    -- z-index 3
@@ -1069,85 +1148,6 @@ def compose_strips(strips: Sequence[Strip]):
         at_visual += wcwidth.wcwidth(segment)
         yield (strip.style, segment)
 
-class Screen:
-    """Represents the text grid of a screen."""
-    def __init__(self, width: int, height: int):
-        self.width = width
-        self.height = height
-        self.wide_char_cutoff = "#"
-
-        # array of unicode characters
-        self._data: list[list[Pixel]] = [[Pixel() for _ in range(width)] for _ in range(height)]
-        # self._char_data: array =  array("w", [" " for _ in range(width * height)])
-        # self._bg_data: array = array("I", [0 for _ in range(width * height)])
-        # self._fg_data: array = array("I", [0 for _ in range(width * height)])
-
-    def get(self, pos: Coordinate) -> Pixel:
-        return self._data[pos.y][pos.x]
-
-    def set(self, pos: Coordinate, data: Pixel) -> None:
-        """may error if out of range!!!"""
-        self._data[pos.y][pos.x] = data
-
-    def split_by_lines(self) -> Sequence[Sequence[Pixel]]:
-        """do NOT modify what this function returns!"""
-        return self._data
-
-    def clear(self):
-        for y in range(self.height):
-            for x in range(self.width):
-                px = self._data[y][x]
-                px.style = ComputedStyle()
-                px.char = " "
-                px.char_type = CharType.NORMAL
-
-    @property
-    def dimensions(self) -> Rect:
-        return Rect(self.width, self.height)
-
-
-
-    def _clean_up_wide_chars(self):
-        # print("".join(str(i.char_type) for i in self._data))
-        for line in self._data:
-            for i, pixel in enumerate(line):
-                if ((i+1) % self.width) == 0: # if on last char of line
-                    continue
-                next_pixel = line[i+1]
-                # print("comparing", pixel.char_type, next_pixel.char_type)
-                match (pixel.char_type, next_pixel.char_type):
-                    case (CharType.NORMAL, CharType.NORMAL)\
-                        | (CharType.WIDE_TAIL, CharType.NORMAL)\
-                        | (CharType.WIDE_HEAD, CharType.WIDE_TAIL)\
-                        | (CharType.NORMAL, CharType.WIDE_HEAD)\
-                        | (CharType.WIDE_TAIL, CharType.WIDE_HEAD):
-                        continue
-                    case (CharType.WIDE_HEAD, CharType.WIDE_HEAD)\
-                        | (CharType.WIDE_HEAD, CharType.NORMAL):
-                        line[i] = pixel.with_char_type(CharType.NORMAL)\
-                            .with_char(self.wide_char_cutoff)
-                    case _: # [NORMAL, WIDE_TAIL] | [WIDE_TAIL, WIDE_TAIL]
-                        line[i+1] = next_pixel.with_char_type(CharType.NORMAL)\
-                            .with_char(self.wide_char_cutoff)
-        # print("".join(str(i.char_type) for i in self._data))
-
-
-
-# if last char is wide_head, meake it normal
-
-# N N -> N N
-# T N -> T N
-# H T -> H T
-# N H -> N H
-# T H -> T H
-
-# convert next to normal
-# N T -> N N
-# T T -> T N
-
-# convert current to normal (notice it is only head that can be converted)
-# H H -> N H
-# H N -> N N
 
 class InputEvent(NamedTuple):
     key_event: str | None = None

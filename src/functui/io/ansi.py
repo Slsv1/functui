@@ -143,5 +143,7 @@ def layout_to_str(layout: Layout, dimensions: Rect) -> str:
 
     This is a shorthand for ``result_to_str(layout_to_result(...)))``.
     """
-    return _render_ansi(layout_to_result(layout, dimensions).strips)
+    screen = Screen()
+    screen.clear_and_render(layout, dimensions)
+    return _render_ansi(screen.strips)
 

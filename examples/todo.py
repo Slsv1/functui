@@ -179,7 +179,7 @@ def view(m: Model):
             ]),
         ),
         text_widget
-    ]) | bg_fill
+    ])
 
 # adaptive_styled_text([
 #     "hejsan", styled("hehejsan", fg=Color.RED), "hej hej hej"
@@ -192,11 +192,29 @@ m = Model(
     tasks_ids=[],
 )
 
+# # alt 1
+# with terminal() as term:
+#     while True:
+#         # render
+#         res = layout_to_result(view(m), term.get_terminal_size())
+#         term.display_layout(res)
+#
+#         # wait for input
+#         event = term.block_until_input()
+#
+#         # update
+#         if event.key_event == "ctrl+c":
+#             break
+#         update(event, res.data, m)
+
+# alt 2
+# (clear reuse of resources)
 with terminal() as term:
+    screen = Screen()
     while True:
         # render
-        res = layout_to_result(view(m), term.get_terminal_size())
-        term.display_layout(res)
+        res = screen.clear_and_render(view(m), term.get_terminal_size())
+        term.display_layout(screen)
 
         # wait for input
         event = term.block_until_input()
@@ -204,5 +222,4 @@ with terminal() as term:
         # update
         if event.key_event == "ctrl+c":
             break
-        update(event, res.data, m)
-
+        update(event, res, m)

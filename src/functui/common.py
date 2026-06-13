@@ -417,7 +417,6 @@ border_rounded_dashed = custom_border(style=BORDER_ROUNDED_DASHED)
 border_thick_dashed = custom_border(style=BORDER_THICK_DASHED)
 """Puts a rounded dashed border around a layout."""
 
-@lru_cache(LRU_MAX_SIZE)
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
     frame.draw_line_v(fill=style.line_v, at=box.position, len=box.height)
     frame.draw_line_h(fill=style.line_h, at=box.position, len=box.width)
@@ -909,7 +908,6 @@ def offset(x: int=0, y: int=0) -> WrapperNode:
     return _offset
 
 
-@lru_cache(LRU_MAX_SIZE)
 def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
     return node.render(frame, box.offset_by(by))
 
