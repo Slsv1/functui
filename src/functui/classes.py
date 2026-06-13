@@ -93,6 +93,8 @@ def intersperse[T](iterable: Iterable[T], sep: T) -> Iterable[T]:
 #
 
 
+type NodeId = Hashable
+
 class Coordinate(NamedTuple):
     """An immutable coordinate in 2d space
 
@@ -357,6 +359,15 @@ class Box(NamedTuple):
         """
         return (self.position.x <= point.x < (self.position.x + self.width))\
             and (self.position.y <= point.y < (self.position.y + self.height)) 
+
+class BoxData(NamedTuple):
+    view_box: Box
+    box: Box
+
+    @property
+    @cache
+    def visible_box(self):
+        return self.view_box.intersect(self.box)
 
 class StyleAttr(Flag):
     """Flags representing different syles.
@@ -815,16 +826,7 @@ def min_size_union(
 def min_size_constant(return_value: Rect) -> MinSize:
     return lambda measure_text, available: return_value
 
-type NodeId = Hashable
 
-class BoxData(NamedTuple):
-    view_box: Box
-    box: Box
-
-    @property
-    @cache
-    def visible_box(self):
-        return self.view_box.intersect(self.box)
 
 @dataclass(unsafe_hash=True)
 class Result:
@@ -970,43 +972,43 @@ def compose_strips(strips: Sequence[Strip]):
     #  go down
 
     # refers to the strips list
-    strip_index = strip_index_sorted_by_start[0]
-
-    while True:
-        strip = strips[strip_index]
-        next_strip = strips[strip_index_sorted_by_start[curr_start_index+1]]
-
-        strip_end_at = strip.length + strip.start
-
-        # case 1: at end of strip
-        #
-        # aaaaa|
-        # bbbbb|bbbb
-
-        if strip_end_at < next_strip.start:
-            split_point = strip_end_at
-
-            found_depth = None
-            for depth in range(strip_index, 0, -1):
-                potential_strip = strips[depth]
-                if potential_strip.start + potential_strip.length < split_point:
-                    found_depth = depth
-                    break
-
-            strip_index = found_depth
-        # case 2: at begginign of next
-        #
-        #      |aaaa
-        # bbbbb|bbbb
-
-        else:
-            split_point = next_strip.start
-            curr_start_index += 1
-
-            maybe_strip_index = strip_index_sorted_by_start[curr_start_index]
-
-            if maybe_strip_index < strip_index:
-                continue # if next strip is at a lower depth then don't switch yet
+    # strip_index = strip_index_sorted_by_start[0]
+    #
+    # while True:
+    #     strip = strips[strip_index]
+    #     next_strip = strips[strip_index_sorted_by_start[curr_start_index+1]]
+    #
+    #     strip_end_at = strip.length + strip.start
+    #
+    #     # case 1: at end of strip
+    #     #
+    #     # aaaaa|
+    #     # bbbbb|bbbb
+    #
+    #     if strip_end_at < next_strip.start:
+    #         split_point = strip_end_at
+    #
+    #         found_depth = None
+    #         for depth in range(strip_index, 0, -1):
+    #             potential_strip = strips[depth]
+    #             if potential_strip.start + potential_strip.length < split_point:
+    #                 found_depth = depth
+    #                 break
+    #
+    #         strip_index = found_depth
+    #     # case 2: at begginign of next
+    #     #
+    #     #      |aaaa
+    #     # bbbbb|bbbb
+    #
+    #     else:
+    #         split_point = next_strip.start
+    #         curr_start_index += 1
+    #
+    #         maybe_strip_index = strip_index_sorted_by_start[curr_start_index]
+    #
+    #         if maybe_strip_index < strip_index:
+    #             continue # if next strip is at a lower depth then don't switch yet
 
 
 

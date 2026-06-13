@@ -15,7 +15,7 @@ from functui.classes import *
 from functui.flex import vbox_flex, flex
 from functui.textfield import create_text_input_event, default_text_input_bindings, TextInput, start_text_input
 from functui.rich_text import adaptive_text
-from functui.nav import DEFAULT_NAV_BINDINGS, NavContainer, NavState, hoverable, v_scroll, v_resizable_split, vnav, hnav
+from functui.nav import DEFAULT_NAV_BINDINGS, NavContainer, NavState, hoverable, vnav, hnav
 from functui.io.raw import terminal
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -157,13 +157,11 @@ def view(m: Model):
             | center
 
     return static_box([
-        v_resizable_split(
-            nav=m.nav,
+        nav.v_resizable_split(
             node_id="resizable-split",
-            left=vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | v_scroll(
+            left=vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | nav.v_scroll(
                 container_id="task-container",
                 children=m.tasks_ids,
-                nav=nav,
             ) | border_with_title(text(" [Items] ") | bold | center, border_thick),
 
             right=vbox_flex([

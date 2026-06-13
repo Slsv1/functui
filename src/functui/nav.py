@@ -73,7 +73,7 @@ SCROLL_ACTION = [NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, 
 @dataclass
 class NavContainer:
     direction: Direction 
-    children: tuple[NodeId | NavContainer, ...]
+    children: tuple[NodeId | Self, ...]
     remember: bool
     container_id: NodeId | None
 
@@ -106,46 +106,6 @@ def _render_interaction_area(
     frame.set_box_data(node_id, frame.view_box, box)
     child.render(frame, box)
 
-def v_resizable_split(
-    node_id: NodeId,
-    nav: NavState,
-    left: Layout,
-    right: Layout,
-    sep: Layout = vbar,
-    sep_id: NodeId | None = None
-):
-    sep_id = sep_id if sep_id is not None else (node_id, "separator")
-
-    sep_at = 10
-
-    if nav.result_data is not None and sep_id in nav.result_data.box_data:
-        sep_box = nav.result_data.box_data[sep_id].box 
-        box = nav.result_data.box_data[node_id].box
-
-        sep_at = nav._split_data.get(node_id, -1)
-
-        # if no no previous sep set, then place it in the middle
-        if sep_at == -1:
-            sep_at = box.width//2 - sep_box.width//2
-
-        if nav.is_held_down(sep_id):
-            sep_at += nav.get_mouse_drag_difference().x
-
-        sep_at = clamp(sep_at, 0, box.width-sep_box.width)
-        nav._split_data[node_id] = sep_at
-
-
-    return Layout(
-        v_resizable_split,
-        min_size_horizontal([left.min_size, right.min_size, sep.min_size]),
-        partial(
-            _v_resizable_split_render,
-            left,
-            right,
-            sep | hoverable(sep_id),
-            sep_at,
-        )
-    ) | hoverable(node_id)
 
 def _v_resizable_split_render(
         left: Layout,
@@ -180,70 +140,6 @@ def _v_resizable_split_render(
     right.render(frame.shrink_to(right_box), right_box)
 
 
-def v_scroll(
-    container_id: NodeId,
-    nav: NavState,
-    children: Sequence[NodeId] = (),
-    scroll_ovveride: Iterable[NodeId] = (),
-    scrolling_speed:int=1,
-):
-    """Allow vertical scrolling if child does not fit into available space."""
-
-    def _v_scroll(child: Layout):
-        at_y = nav._scrolling_data.get(container_id, None)
-
-        if at_y is None:
-            at_y = 0
-
-        if nav.result_data is not None and container_id in nav.result_data.box_data:
-            last_box_data = nav.result_data.box_data[container_id]
-
-            if nav._keyboard_nav.active is not None\
-                and (active_box := nav.result_data.box_data.get(nav._keyboard_nav.active.id, None)) is not None\
-                and nav.action in KEYBOARD_NAV_ACTION\
-                and nav._keyboard_nav.active.id in children: 
-
-                selected_at_y = active_box.box.position.y - last_box_data.box.position.y # to local space
-                start = 0 # including
-                end = last_box_data.box.height # excluding
-                if nav.action == NavAction.NAV_UP:
-                    # aproach form below
-
-                    if not (start <= selected_at_y < end):
-                        at_y += (selected_at_y)
-                else:
-
-                    # aproach from above
-                    if not (start <= (selected_at_y + active_box.box.height) < end):
-                        at_y += (selected_at_y - last_box_data.box.height + active_box.box.height)
-            else:
-                # make sure scrolling does nothing when child gets scrolled
-                child_interaction = False
-                for c in scroll_ovveride:
-                    if (child_box_data := nav.result_data.box_data.get(c, None)) is not None:
-                        child_interaction = child_box_data.visible_box.is_overlaping(last_box_data.visible_box) and child_box_data.visible_box.is_point_inside(nav.mouse_position)
-                        if child_interaction: break
-                if last_box_data.view_box.is_point_inside(nav.mouse_position) and not child_interaction:
-                    at_y += nav.get_scrolling_difference() * scrolling_speed
-
-            at_y = clamp(at_y,
-                0,
-                child.min_size(nav.result_data.measure_text, Rect(last_box_data.box.width, 9999)).height - last_box_data.visible_box.height
-            )
-
-        nav._scrolling_data[container_id] = at_y
-
-        return Layout(
-            func=v_scroll,
-            min_size=child.min_size,
-            render=partial(
-                _v_scroll_render,
-                at_y,
-                container_id,
-                child,
-            )
-        )
-    return _v_scroll
 
 def _v_scroll_render(
     at_y: int,
@@ -266,7 +162,7 @@ def _v_scroll_render(
 
 @dataclass
 class KeyboardNav:
-    active: _ActiveData | None = None
+    active: "_ActiveData | None" = None
     _remembered_data: dict[tuple[int, ...], int] = field(default_factory=dict)
 
     class _ActiveData(NamedTuple):
@@ -476,6 +372,111 @@ class NavState:
 
 
         return self
+
+    def v_scroll(
+        self,
+        container_id: NodeId,
+        children: Sequence[NodeId] = (),
+        scroll_ovveride: Iterable[NodeId] = (),
+        scrolling_speed:int=1,
+    ):
+        """Allow vertical scrolling if child does not fit into available space."""
+
+        def _v_scroll(child: Layout):
+            at_y = self._scrolling_data.get(container_id, None)
+
+            if at_y is None:
+                at_y = 0
+
+            if self.result_data is not None and container_id in self.result_data.box_data:
+                last_box_data = self.result_data.box_data[container_id]
+
+                if self._keyboard_nav.active is not None\
+                    and (active_box := self.result_data.box_data.get(self._keyboard_nav.active.id, None)) is not None\
+                    and self.action in KEYBOARD_NAV_ACTION\
+                    and self._keyboard_nav.active.id in children: 
+
+                    selected_at_y = active_box.box.position.y - last_box_data.box.position.y # to local space
+                    start = 0 # including
+                    end = last_box_data.box.height # excluding
+                    if self.action == NavAction.NAV_UP:
+                        # aproach form below
+
+                        if not (start <= selected_at_y < end):
+                            at_y += (selected_at_y)
+                    else:
+
+                        # aproach from above
+                        if not (start <= (selected_at_y + active_box.box.height) < end):
+                            at_y += (selected_at_y - last_box_data.box.height + active_box.box.height)
+                else:
+                    # make sure scrolling does nothing when child gets scrolled
+                    child_interaction = False
+                    for c in scroll_ovveride:
+                        if (child_box_data := self.result_data.box_data.get(c, None)) is not None:
+                            child_interaction = child_box_data.visible_box.is_overlaping(last_box_data.visible_box) and child_box_data.visible_box.is_point_inside(self.mouse_position)
+                            if child_interaction: break
+                    if last_box_data.view_box.is_point_inside(self.mouse_position) and not child_interaction:
+                        at_y += self.get_scrolling_difference() * scrolling_speed
+
+                at_y = clamp(at_y,
+                    0,
+                    child.min_size(self.result_data.measure_text, Rect(last_box_data.box.width, 9999)).height - last_box_data.visible_box.height
+                )
+
+            self._scrolling_data[container_id] = at_y
+
+            return Layout(
+                func=self.v_scroll,
+                min_size=child.min_size,
+                render=partial(
+                    _v_scroll_render,
+                    at_y,
+                    container_id,
+                    child,
+                )
+            )
+        return _v_scroll
+    def v_resizable_split(
+        self,
+        node_id: NodeId,
+        left: Layout,
+        right: Layout,
+        sep: Layout = vbar,
+        sep_id: NodeId | None = None
+    ):
+        sep_id = sep_id if sep_id is not None else (node_id, "separator")
+
+        sep_at = 10
+
+        if self.result_data is not None and sep_id in self.result_data.box_data:
+            sep_box = self.result_data.box_data[sep_id].box 
+            box = self.result_data.box_data[node_id].box
+
+            sep_at = self._split_data.get(node_id, -1)
+
+            # if no no previous sep set, then place it in the middle
+            if sep_at == -1:
+                sep_at = box.width//2 - sep_box.width//2
+
+            if self.is_held_down(sep_id):
+                sep_at += self.get_mouse_drag_difference().x
+
+            sep_at = clamp(sep_at, 0, box.width-sep_box.width)
+            self._split_data[node_id] = sep_at
+
+
+        return Layout(
+            self.v_resizable_split,
+            min_size_horizontal([left.min_size, right.min_size, sep.min_size]),
+            partial(
+                _v_resizable_split_render,
+                left,
+                right,
+                sep | hoverable(sep_id),
+                sep_at,
+            )
+        ) | hoverable(node_id)
 
 
 DEFAULT_NAV_BINDINGS = {
