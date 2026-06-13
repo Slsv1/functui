@@ -434,8 +434,22 @@ def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
     frame.draw_pixel(fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
     child.render(frame, box.resize(-1, -1, -1, -1))
 
-    # connections = frame.intermediate_data.expect_data(BorderConnection)
-    # for conne
+    connections = frame.intermediate_data.expect_data(BorderConnection)
+    for connection in connection:
+        if Box(box.width-2, 1, box.position.right(1))\
+                .is_point_inside(connection.position):
+            frame.draw_pixel()
+        elif Box(box.width-2, 1, box.position + Coordinate(1, box.height))\
+                .is_point_inside(connection.position)
+            frame.draw_pixel()
+        elif Box(1, box.height, box.position.down(1))\
+                .is_point_inside(connection.position)
+            frame.draw_pixel()
+        elif Box(1, box.height, box.position + Coordinate(box.width, 1))\
+                .is_point_inside(connection.position)
+            frame.draw_pixel()
+
+
 
 
 # def _connecting_border_render(

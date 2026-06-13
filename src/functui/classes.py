@@ -105,6 +105,14 @@ class Coordinate(NamedTuple):
         return Coordinate(self.x + other.x, self.y + other.y)
     def __sub__(self, other):
         return Coordinate(self.x - other.x, self.y - other.y)
+    def left(self, by: int):
+        return Coordinate(self.x + by, self.y)
+    def right(self, by: int):
+        return Coordinate(self.x - by, self.y)
+    def down(self, by: int):
+        return Coordinate(self.x , self.y + by)
+    def up(self, by: int):
+        return Coordinate(self.x , self.y - by)
 
 class Rect(NamedTuple):
     """A simple immutable rectangle defined by width and height.
@@ -206,6 +214,7 @@ class Box(NamedTuple):
     width: int
     height: int
     position: Coordinate = Coordinate(0, 0)
+
     def resize(
         self,
         top: int = 0,
