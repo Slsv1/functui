@@ -633,6 +633,25 @@ def new_strip(start: int, content: str, style: ComputedStyle, len: int):
         length=len
     )
 
+@dataclass
+class IntermediateData():
+    _type_to_data: dict[Any, list[Any]] = field(default_factory=dict)
+
+    def try_data[T](self, t: type[T]) -> Iterable[T] | None:
+        return self._type_to_data.get(t, None)
+
+    def expect_data[T](self, t: type[T]) -> Iterable[T]:
+        return self._type_to_data[t]
+
+    def delete_data(self ,t: type[Any]):
+        del self._type_to_data[t]
+
+    def set_data(self, data):
+        key = type(data)
+        if key in self._type_to_data:
+            self._type_to_data[key].append(data)
+        else:
+            self._type_to_data[key] = [data]
 
 @dataclass
 class Frame:
@@ -642,6 +661,7 @@ class Frame:
     measure_text: MeasureTextFunc = field(hash=False, compare=False)
     _boxes_by_id: dict[NodeId, BoxData]
     _strips: list[list[Strip]]
+    intermediate_data: IntermediateData = field(default_factory=IntermediateData)
 
 
     def set_box_data(self, node_id: NodeId, box: Box, view_box: Box):
@@ -666,6 +686,7 @@ class Frame:
             measure_text=self.measure_text,
             _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
+            intermediate_data=self.intermediate_data,
         )
 
     def shrink_to(self, other_box):
@@ -676,6 +697,7 @@ class Frame:
             measure_text=self.measure_text,
             _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
+            intermediate_data=self.intermediate_data,
         )
 
     def shrink_to_mutate(self, other_box):
@@ -1021,6 +1043,9 @@ class Screen:
 # | start at 1
 # |
 # start at 0
+
+
+
 
 
 def compose_strips(strips: Sequence[Strip]):

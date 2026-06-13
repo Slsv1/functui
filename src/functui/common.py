@@ -182,15 +182,17 @@ class WeightMap(NamedTuple):
     right: int
 
 
-def _overlay_weight_maps(*maps: WeightMap) -> WeightMap:
+def overlay_weight_maps(*maps: WeightMap) -> WeightMap:
     return WeightMap(*(max(dir) for dir in zip(*maps))) # pick highest weights along cardinal direction
 
 
 class _GetIntersection(Protocol):
     def __call__(self, weight_map: WeightMap, /) -> str | None:
         ...
+
 def _get_default_intersection(weight_map: WeightMap, /):
     return INTERSECTION_MAP.get(weight_map, None)
+
 
 @dataclass(frozen=True, eq=True)
 class BorderStyle:
@@ -205,6 +207,9 @@ class BorderStyle:
     # weight_map: WeightMap
     # get_intersection: GetIntersection
 
+class BorderConnection(NamedTuple):
+    position: Coordinate
+    weight_map: WeightMap
 
 INTERSECTION_MAP = {
     WeightMap(1, 1, 0, 1): "├",
@@ -429,10 +434,9 @@ def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
     frame.draw_pixel(fill=style.corner_bl, at=box.position + Coordinate(0, box.height-1))
     child.render(frame, box.resize(-1, -1, -1, -1))
 
-@dataclass
-class BorderConnection:
-    position: Coordinate
-    weight_map: WeightMap
+    # connections = frame.intermediate_data.expect_data(BorderConnection)
+    # for conne
+
 
 # def _connecting_border_render(
 #     weight_map: WeightMap,
@@ -478,22 +482,6 @@ class BorderConnection:
 #
 # Styling Elements
 #
-# def styled(elem: Applicable[Node, Node], child: fg:Color|None=None, bg:Color|None=None, style: CharStyle):
-#     return Node(
-#         func=styled,
-#         hash=(elem, fg, bg, style),
-#         min_size=child.min_size,
-#         render=lambda f, b: elem()
-#     )
-
-# def _set_pixel_style(child, fg, bg, style):
-#     return Node(
-#         func=_set_pixel_style,
-#         min_size=child.min_size,
-#         render=partial()
-#     )
-
-# def _set_pixel_style_render()
 
 
 def _push_rule(rule: StyleRule, child: Layout):
@@ -582,16 +570,6 @@ def blink(node: Layout):
     """
     return _push_rule(rule_dim, node)
 
-
-# def _fg_render(color: Any, child: Node, frame: Frame, box: Box) -> Result:
-#         return child.render(
-#             frame.with_style(Style(
-#                 fg_color=color,
-#                 bg_color=frame.default_pixel.bg_color,
-#                 style=frame.default_pixel.style
-#             )),
-#             box
-#         )
 def fg(color: Color) -> WrapperNode:
     """Style all descendants with specified foreground.
 
@@ -639,6 +617,8 @@ def _styled_render(child: Layout, node: WrapperNode, rule: StyleRule, frame, box
             _force_style(frame.default_style, child)
         )
     ).render(frame, box)
+
+
 #
 # Containers
 #
@@ -679,6 +659,8 @@ def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
     for child in children:
         child.render(frame.shrink_to(box), box)
 
+CONTAINER_MARGIN_BEFORE_INVISIBLE = 10
+
 def vbox(children: Iterable[Layout], at_y: int=0):
     """A container node that arranges its chilren verticaly.
 
@@ -704,12 +686,12 @@ def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
         at_y += child_box.height
 
         # dont do commands for boxes out of bounds who are above
-        if at_y < 0:
+        if at_y < -CONTAINER_MARGIN_BEFORE_INVISIBLE:
             continue
 
         node.render(frame.shrink_to(child_box.intersect(box)), child_box)
 
-        if at_y > box.height:
+        if at_y > box.height + CONTAINER_MARGIN_BEFORE_INVISIBLE:
             break
 
 
@@ -736,12 +718,12 @@ def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
         child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(child_min_size.width, box.height).offset_by(box.position + Coordinate(at_x, 0))
 
-        if at_x < 0:
+        if at_x < CONTAINER_MARGIN_BEFORE_INVISIBLE:
             continue
 
         node.render(frame.shrink_to(child_box.intersect(box)), child_box)
 
-        if at_x > box.width:
+        if at_x > box.width + CONTAINER_MARGIN_BEFORE_INVISIBLE:
             break
 
         at_x += child_box.width
@@ -954,8 +936,6 @@ def min_height(value: int):
             render=child.render
         )
     return _min_height
-
-
 
 #
 # V_PROGRESS = " ▁▂▃▄▅▆▇█"
