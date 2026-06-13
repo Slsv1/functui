@@ -943,13 +943,81 @@ def layout_to_result(
 
 
 def compose_strips(strips: Sequence[Strip]):
-
     # strips is sorted by z-index (0 at beginning of list)
     if len(strips) == 0:
         return
 
     strip_index_sorted_by_start = list(range(len(strips)))
     strip_index_sorted_by_start.sort(key=lambda x: strips[x].start)
+
+    # find next split----
+    # because beggining
+    #   keep left of lower
+    # find next split ----
+    # because at end
+    #  keep list upper
+    #  go down
+    # find next split ----
+    # because in middle
+    #  nooping
+    # find next pplit ----
+    # because at end
+    #  keep last upper
+    #  go down
+    # find next split ----
+    # becuase at end
+    #  keep last upper
+    #  go down
+
+    # refers to the strips list
+    strip_index = strip_index_sorted_by_start[0]
+
+    while True:
+        strip = strips[strip_index]
+        next_strip = strips[strip_index_sorted_by_start[curr_start_index+1]]
+
+        strip_end_at = strip.length + strip.start
+
+        # case 1: at end of strip
+        #
+        # aaaaa|
+        # bbbbb|bbbb
+
+        if strip_end_at < next_strip.start:
+            split_point = strip_end_at
+
+            found_depth = None
+            for depth in range(strip_index, 0, -1):
+                potential_strip = strips[depth]
+                if potential_strip.start + potential_strip.length < split_point:
+                    found_depth = depth
+                    break
+
+            strip_index = found_depth
+        # case 2: at begginign of next
+        #
+        #      |aaaa
+        # bbbbb|bbbb
+
+        else:
+            split_point = next_strip.start
+            curr_start_index += 1
+
+            maybe_strip_index = strip_index_sorted_by_start[curr_start_index]
+
+            if maybe_strip_index < strip_index:
+                continue # if next strip is at a lower depth then don't switch yet
+
+
+
+
+
+
+
+
+
+
+
 
 
     # refers to the strips list
