@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial, reduce
 from .classes import *
-from .common import fg, vbox, offset, vbar, static_box, text, border, bg_char, shrink
+from .common import BORDER_THICK, BorderStyle, fg, nothing, vbox, offset, vbar, static_box, text, border, bg_char, shrink, nothing
 from time import sleep
+import math
 
 __all__ = [
     "NavAction",
@@ -269,6 +270,14 @@ class KeyboardNav:
             stack[-1] = stack[-1] + (-1 if backwards else 1)
             has_incemented = True
 
+class _ScrollingData(NamedTuple):
+    at_y: int
+    max_at_y: int
+    content_height: int
+
+    @property
+    def visible_height(self):
+        return self.content_height - self.max_at_y
 
 @dataclass
 class NavState:
@@ -289,7 +298,7 @@ class NavState:
     # state keps between updates
 
     _held_down: tuple[NodeId, ...] = ()
-    _scrolling_data: dict[NodeId, int] = field(default_factory=dict)
+    _scrolling_data: dict[NodeId, _ScrollingData] = field(default_factory=dict)
     _split_data: dict[NodeId, int] = field(default_factory=dict)
 
     # keyboard nav data
@@ -367,9 +376,8 @@ class NavState:
         self.mouse_position = mouse_position if mouse_position is not None else self.mouse_position
         self.result_data = res
 
-
-
         return self
+
 
     def v_scroll(
         self,
@@ -381,9 +389,13 @@ class NavState:
         """Allow vertical scrolling if child does not fit into available space."""
 
         def _v_scroll(child: Layout):
-            at_y = self._scrolling_data.get(container_id, None)
-
-            if at_y is None:
+            if (data := self._scrolling_data.get(container_id, None)) is not None:
+                at_y = data.at_y
+                max_at_y = 0 # will get reset later
+                content_height = 1 # will get reset later
+            else:
+                max_at_y = 1
+                content_height = 1
                 at_y = 0
 
             if self.result_data is not None and container_id in self.result_data.box_data:
@@ -417,12 +429,13 @@ class NavState:
                     if last_box_data.view_box.is_point_inside(self.mouse_position) and not child_interaction:
                         at_y += self.get_scrolling_difference() * scrolling_speed
 
+                content_height = child.min_size(self.result_data.measure_text, Rect(last_box_data.box.width, 9999)).height
+                max_at_y = content_height - last_box_data.visible_box.height
                 at_y = clamp(at_y,
-                    0,
-                    child.min_size(self.result_data.measure_text, Rect(last_box_data.box.width, 9999)).height - last_box_data.visible_box.height
+                    0, max_at_y
                 )
 
-            self._scrolling_data[container_id] = at_y
+            self._scrolling_data[container_id] = _ScrollingData(at_y, max_at_y, content_height)
 
             return Layout(
                 func=self.v_scroll,
@@ -435,6 +448,7 @@ class NavState:
                 )
             )
         return _v_scroll
+
     def v_resizable_split(
         self,
         node_id: NodeId,
@@ -476,6 +490,34 @@ class NavState:
             )
         ) | hoverable(node_id)
 
+    def v_scroll_bar(
+        self,
+        container_id: NodeId,
+        scrollbar_id: NodeId | None = None,
+        hide_if_unnecessary: bool = False,
+    ):
+        scrollbar_id = (container_id, "scrollbar") if scrollbar_id is None else scrollbar_id
+
+        if self.result_data is None:
+            return nothing()
+        if container_id not in self._scrolling_data:
+            return nothing()
+
+        scrolling_data = self._scrolling_data[container_id]
+
+        start_percent = scrolling_data.at_y / scrolling_data.content_height
+        visible_percent = scrolling_data.visible_height / scrolling_data.content_height
+
+        if hide_if_unnecessary and visible_percent >= 1.0:
+            return nothing()
+
+        return Layout(
+            func=self.v_scroll_bar,
+            min_size=min_size_constant(Rect(1, 1)),
+            render=partial(_v_scroll_bar_render, start_percent, visible_percent)
+
+        )
+
 
 DEFAULT_NAV_BINDINGS = {
     "h": NavAction.NAV_LEFT,
@@ -501,3 +543,40 @@ DEFAULT_NAV_BINDINGS = {
     "mouse wheel up": NavAction.SCROLL_UP
 }
 """A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
+
+
+
+def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
+    start_at_pixel = box.height * start
+    start_at_pixel_int = math.floor(start_at_pixel)
+    start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
+
+    end_at_pixel = box.height * start + box.height * showing # should be clampt
+    end_at_pixel_int = math.floor(end_at_pixel)
+    end_at_progress = end_at_pixel - end_at_pixel_int
+
+
+    match [start_at_progress > 0.33, start_at_progress > 0.66]:
+        case [True, True]:
+            start_char = None
+        case [True, False]:
+            start_char = "╷"
+        case _:
+            start_char = "│"
+
+    match [end_at_progress > 0.33, end_at_progress > 0.66]:
+        case [True, True]:
+            end_char = "│"
+        case [True, False]:
+            end_char = "╵"
+        case _:
+            end_char = None
+
+
+    frame.draw_line_v("│", box.position.down(start_at_pixel_int), (end_at_pixel_int - start_at_pixel_int))
+    if start_char:
+        frame.draw_pixel(start_char, box.position.down(start_at_pixel_int))
+    if end_char:
+        frame.draw_pixel(end_char, box.position.down(end_at_pixel_int))
+
+

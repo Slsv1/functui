@@ -12,7 +12,7 @@ import sys
 from functui import *
 from functui.common import *
 from functui.classes import *
-from functui.flex import vbox_flex, flex
+from functui.flex import vbox_flex, flex, hbox_flex
 from functui.textfield import create_text_input_event, default_text_input_bindings, TextInput, start_text_input
 from functui.rich_text import adaptive_text
 from functui.nav import DEFAULT_NAV_BINDINGS, NavContainer, NavState, hoverable, vnav, hnav
@@ -159,10 +159,14 @@ def view(m: Model):
     return static_box([
         nav.v_resizable_split(
             node_id="resizable-split",
-            left=vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)]) | nav.v_scroll(
-                container_id="task-container",
-                children=m.tasks_ids,
-            ) | border_with_title(text(" [Items] ") | bold | center, border_thick),
+            left=hbox_flex([
+                vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)])\
+                    | nav.v_scroll(
+                        container_id="task-container",
+                        children=m.tasks_ids,
+                    ) | flex,
+                nav.v_scroll_bar("task-container", hide_if_unnecessary=True)
+            ]) | border_with_title(text(" [Items] ") | bold | center, border_thick),
 
             right=vbox_flex([
                 (vbox_flex([
