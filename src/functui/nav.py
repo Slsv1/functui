@@ -385,6 +385,7 @@ class NavState:
         children: Sequence[NodeId] = (),
         scroll_ovveride: Iterable[NodeId] = (),
         scrolling_speed:int=1,
+        scrollbar_id: NodeId | None = None,
     ):
         """Allow vertical scrolling if child does not fit into available space."""
 
@@ -431,6 +432,17 @@ class NavState:
 
                 content_height = child.min_size(self.result_data.measure_text, Rect(last_box_data.box.width, 9999)).height
                 max_at_y = content_height - last_box_data.visible_box.height
+
+
+                # scrolling
+
+                s_id = (container_id, "scrollbar") if scrollbar_id is None else scrollbar_id
+                if self.is_held_down(s_id):
+                    scrollbar_max_height = self.result_data.box_data[s_id].box.height
+                    dy_scroll_bar_space = self.get_mouse_drag_difference().y
+                    dy = dy_scroll_bar_space * (content_height / scrollbar_max_height)
+                    at_y += int(dy)
+
                 at_y = clamp(at_y,
                     0, max_at_y
                 )
@@ -503,7 +515,14 @@ class NavState:
         if container_id not in self._scrolling_data:
             return nothing()
 
+        # update based on weather it is selected
+
+
+
+        # calculate data needed for visual
+
         scrolling_data = self._scrolling_data[container_id]
+
 
         start_percent = scrolling_data.at_y / scrolling_data.content_height
         visible_percent = scrolling_data.visible_height / scrolling_data.content_height
@@ -516,7 +535,7 @@ class NavState:
             min_size=min_size_constant(Rect(1, 1)),
             render=partial(_v_scroll_bar_render, start_percent, visible_percent)
 
-        )
+        ) | hoverable(scrollbar_id)
 
 
 DEFAULT_NAV_BINDINGS = {
