@@ -166,6 +166,7 @@ def view(m: Model):
                         children=m.tasks_ids,
                     ) | flex,
                 nav.v_scroll_bar("task-container", hide_if_unnecessary=True)
+                | (bg(Color4.BLUE) if nav.is_held_down(("task_container", "scrollbar")) else empty)
             ]) | border_with_title(text(" [Items] ") | bold | center, border_thick),
 
             right=vbox_flex([
