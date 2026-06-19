@@ -750,11 +750,7 @@ class Frame:
         at: Coordinate,
         len: int,
     ):
-        if not self.view_box.is_point_inside(at):
-            return
-
-        for y in range(at.y, clamp(at.y + len, self.view_box.position.y, self.view_box.position.y + self.view_box.height)):
-            self._strips[y].append(Strip(at.x, fill, self.default_style, 1))
+        self.draw_box(fill, Box(width=1, height=len, position=at).intersect(self.view_box))
 
     def draw_string_line(
         self,
@@ -960,8 +956,8 @@ class ResultData(NamedTuple):
 
 @dataclass
 class Screen:
-    strips: list[list[Strip]] = field(default_factory=list)
     dimensions: Rect = Rect(0, 0)
+    strips: list[list[Strip]] = field(default_factory=list)
 
 
     def clear_and_render(
@@ -971,7 +967,7 @@ class Screen:
         measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
     ) -> ResultData:
 
-        if self.dimensions != dimensions:
+        if self.dimensions != dimensions or not len(self.strips):
             background_strip = Strip(
                 start=0,
                 content=" "*dimensions.width,
@@ -979,9 +975,10 @@ class Screen:
                 length=dimensions.width
             )
             self.strips = [[background_strip] for _ in range(dimensions.height)]
+            self.dimensions = dimensions
         else:
-            for line in self.strips:
-                line = line[0:1]
+            for i, line in enumerate(self.strips):
+                self.strips[i] = line[:1]
 
         frame = Frame(
             screen_rect=dimensions,

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial, reduce
 from .classes import *
-from .common import BORDER_THICK, BorderStyle, fg, nothing, vbox, offset, vbar, static_box, text, border, bg_char, shrink, nothing
+from .common import BORDER_THICK, BorderStyle, debug_overlay, fg, nothing, vbox, offset, vbar, static_box, text, border, bg_char, shrink, nothing, empty
 from time import sleep
 import math
 
@@ -83,8 +83,6 @@ def vnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId|N
 def hnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId|None=None):
     return NavContainer(Direction.HORIZONTAL, tuple(ids), remember, container_id)
 
-
-
 def hoverable(node_id: NodeId):
     """A wrapper node that marks its child layout as interactive."""
     def _out(child: Layout):
@@ -102,7 +100,7 @@ def _render_interaction_area(
     frame: Frame,
     box: Box
 ):
-    frame.set_box_data(node_id, frame.view_box, box)
+    frame.set_box_data(node_id, view_box=frame.view_box, box=box)
     child.render(frame, box)
 
 
@@ -137,26 +135,6 @@ def _v_resizable_split_render(
     left.render(frame.shrink_to(left_box), left_box)
     sep.render(frame.shrink_to(split_box), split_box)
     right.render(frame.shrink_to(right_box), right_box)
-
-
-
-def _v_scroll_render(
-    at_y: int,
-    container_id: NodeId,
-    child: Layout,
-    frame: Frame, 
-    box: Box
-):
-    # move to selected if selected out of bounds
-
-    # if active_box is not None:
-
-
-    frame.set_box_data(container_id, box, frame.view_box)
-    # a.append(text("final:" + str(scroll_dy)))
-
-    modified_child = vbox([child], at_y=-at_y)
-    modified_child.render(frame, box)
 
 
 @dataclass
@@ -390,75 +368,86 @@ class NavState:
         """Allow vertical scrolling if child does not fit into available space."""
 
         def _v_scroll(child: Layout):
-            if (data := self._scrolling_data.get(container_id, None)) is not None:
-                at_y = data.at_y
-                max_at_y = 0 # will get reset later
-                content_height = 1 # will get reset later
-            else:
-                max_at_y = 1
-                content_height = 1
-                at_y = 0
 
-            if self.result_data is not None and container_id in self.result_data.box_data:
-                last_box_data = self.result_data.box_data[container_id]
+            # if container's size is unknown then we cant do much
+            if self.result_data is None or container_id not in self.result_data.box_data:
+                data = self._scrolling_data.get(container_id, None)
+                if data is None:
+                    data = _ScrollingData(
+                        at_y=0,
+                        max_at_y=1,
+                        content_height=1,
+                    ) if data is None else data
+                    self._scrolling_data[container_id] =  data
 
-                if self._keyboard_nav.active is not None\
-                    and (active_box := self.result_data.box_data.get(self._keyboard_nav.active.id, None)) is not None\
-                    and self.action in KEYBOARD_NAV_ACTION\
-                    and self._keyboard_nav.active.id in children: 
+                return vbox([child], at_y=-data.at_y) | hoverable(container_id)
 
-                    selected_at_y = active_box.box.position.y - last_box_data.box.position.y # to local space
-                    start = 0 # including
-                    end = last_box_data.box.height # excluding
-                    if self.action == NavAction.NAV_UP:
-                        # aproach form below
+            data = self._scrolling_data[container_id] # here we can assume that container_id is in data thanks to to previous if check
+            at_y = data.at_y
+            s_id = (container_id, "scrollbar") if scrollbar_id is None else scrollbar_id
 
-                        if not (start <= selected_at_y < end):
-                            at_y += (selected_at_y)
-                    else:
+            container_box_data = self.result_data.box_data[container_id]
 
-                        # aproach from above
-                        if not (start <= (selected_at_y + active_box.box.height) < end):
-                            at_y += (selected_at_y - last_box_data.box.height + active_box.box.height)
+            content_height = child.min_size(self.result_data.measure_text, Rect(container_box_data.box.width, 9999)).height
+            max_at_y = content_height - container_box_data.visible_box.height
+
+            dbg = empty
+
+            # change at_y based on keyboard navigation
+            if self._keyboard_nav.active is not None\
+                and (active_box := self.result_data.box_data.get(self._keyboard_nav.active.id, None)) is not None\
+                and self.action in KEYBOARD_NAV_ACTION\
+                and self._keyboard_nav.active.id in children: 
+
+
+                # offset from where scroll box starts
+                selected_at_y_offset = active_box.box.position.y - container_box_data.box.position.y 
+                start = 0 # including
+                end = container_box_data.box.height # excluding
+
+
+                if self.action == NavAction.NAV_UP:
+                    # aproach form below
+                    if not (start <= selected_at_y_offset < end):
+                        at_y += (selected_at_y_offset)
                 else:
-                    # make sure scrolling does nothing when child gets scrolled
-                    child_interaction = False
-                    for c in scroll_ovveride:
-                        if (child_box_data := self.result_data.box_data.get(c, None)) is not None:
-                            child_interaction = child_box_data.visible_box.is_overlaping(last_box_data.visible_box) and child_box_data.visible_box.is_point_inside(self.mouse_position)
-                            if child_interaction: break
-                    if last_box_data.view_box.is_point_inside(self.mouse_position) and not child_interaction:
-                        at_y += self.get_scrolling_difference() * scrolling_speed
 
-                content_height = child.min_size(self.result_data.measure_text, Rect(last_box_data.box.width, 9999)).height
-                max_at_y = content_height - last_box_data.visible_box.height
+                    # aproach from above
+                    if not (start <= (selected_at_y_offset + active_box.box.height) < end):
+                        at_y += (selected_at_y_offset - container_box_data.box.height + active_box.box.height)
 
-
-                # scrolling
-
-                s_id = (container_id, "scrollbar") if scrollbar_id is None else scrollbar_id
-                if self.is_held_down(s_id):
-                    scrollbar_max_height = self.result_data.box_data[s_id].box.height
-                    dy_scroll_bar_space = self.get_mouse_drag_difference().y
-                    dy = dy_scroll_bar_space * (content_height / scrollbar_max_height)
-                    at_y += int(dy)
-
-                at_y = clamp(at_y,
-                    0, max_at_y
+                dbg = debug_overlay(
+                    selected_at_y_offset=selected_at_y_offset,
+                    active_box=active_box.box,
+                    active_id=self._keyboard_nav.active.id,
+                    at_y=at_y,
                 )
 
+            # change at_y based on mouse navigation
+            elif container_box_data.view_box.is_point_inside(self.mouse_position) and (scrolling_difference := self.get_scrolling_difference()) != 0:
+                # make sure scrolling does nothing when child gets scrolled
+                child_interaction = False
+                for c in scroll_ovveride:
+                    if (child_box_data := self.result_data.box_data.get(c, None)) is not None:
+                        child_interaction = child_box_data.visible_box.is_overlaping(container_box_data.visible_box) and child_box_data.visible_box.is_point_inside(self.mouse_position)
+                        if child_interaction: break
+                if  not child_interaction:
+                    at_y += scrolling_difference * scrolling_speed
+
+            # change at_y by scrolling a scrollbar
+            elif self.is_held_down(s_id):
+                scrollbar_max_height = self.result_data.box_data[s_id].box.height
+                dy_scroll_bar_space = self.get_mouse_drag_difference().y
+                dy = dy_scroll_bar_space * (content_height / scrollbar_max_height)
+                at_y += int(dy)
+
+
+            # finalizing
+
+            at_y = clamp(at_y, 0, max_at_y)
             self._scrolling_data[container_id] = _ScrollingData(at_y, max_at_y, content_height)
 
-            return Layout(
-                func=self.v_scroll,
-                min_size=child.min_size,
-                render=partial(
-                    _v_scroll_render,
-                    at_y,
-                    container_id,
-                    child,
-                )
-            )
+            return vbox([child], -at_y) | hoverable(container_id) | dbg
         return _v_scroll
 
     def v_resizable_split(
@@ -515,17 +504,17 @@ class NavState:
         if container_id not in self._scrolling_data:
             return nothing()
 
-        # update based on weather it is selected
-
-
-
         # calculate data needed for visual
 
         scrolling_data = self._scrolling_data[container_id]
 
+        if scrolling_data.content_height == 0:
+            start_percent = 0
+            visible_percent = 1.0
+        else:
+            start_percent = scrolling_data.at_y / scrolling_data.content_height
+            visible_percent = scrolling_data.visible_height / scrolling_data.content_height
 
-        start_percent = scrolling_data.at_y / scrolling_data.content_height
-        visible_percent = scrolling_data.visible_height / scrolling_data.content_height
 
         if hide_if_unnecessary and visible_percent >= 1.0:
             return nothing()

@@ -88,6 +88,7 @@ __all__ = [
     'border_thick_dashed',
     'border_dashed',
     'border_rounded_dashed',
+    'debug_overlay'
 ]
 
 
@@ -658,7 +659,7 @@ def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
     for child in children:
         child.render(frame.shrink_to(box), box)
 
-CONTAINER_MARGIN_BEFORE_INVISIBLE = 10
+CONTAINER_MARGIN_BEFORE_INVISIBLE = 0
 
 def vbox(children: Iterable[Layout], at_y: int=0):
     """A container node that arranges its chilren verticaly.
@@ -678,20 +679,36 @@ def vbox(children: Iterable[Layout], at_y: int=0):
     )
 
 def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
+    visible_box = frame.view_box.intersect(box)
+
+    start = visible_box.position.y
+    end = start + visible_box.height
+
+    at_y += box.position.y
+
     for node in children:
         child_min_size = node.min_size(frame.measure_text, Rect(box.width, 9999))
-        child_box = Box(box.width, child_min_size.height).offset_by(box.position + Coordinate(0, at_y))
+
+        child_box = Box(
+            box.width,
+            child_min_size.height,
+            Coordinate(box.position.x, at_y)
+        )
+
+        # out = 0
+        if (at_y + child_box.height) < (start-CONTAINER_MARGIN_BEFORE_INVISIBLE):
+            # out = 1
+            at_y += child_box.height
+            continue
+        elif at_y >= (end + CONTAINER_MARGIN_BEFORE_INVISIBLE):
+            # out = 1
+            break
+
+        node.render(frame.shrink_to(child_box.intersect(visible_box)), child_box)
+        # (node | fg(Color4.RED) if out else node).render(frame.shrink_to(frame.view_box), child_box)
+
 
         at_y += child_box.height
-
-        # dont do commands for boxes out of bounds who are above
-        if at_y < -CONTAINER_MARGIN_BEFORE_INVISIBLE:
-            continue
-
-        node.render(frame.shrink_to(child_box.intersect(box)), child_box)
-
-        if at_y > box.height + CONTAINER_MARGIN_BEFORE_INVISIBLE:
-            break
 
 
 def hbox(children: Iterable[Layout], at_x: int=0):
@@ -717,7 +734,7 @@ def _hbox_render(children: Iterable[Layout], at_x: int, frame: Frame, box: Box):
         child_min_size = node.min_size(frame.measure_text, box.rect)
         child_box = Box(child_min_size.width, box.height).offset_by(box.position + Coordinate(at_x, 0))
 
-        if at_x < CONTAINER_MARGIN_BEFORE_INVISIBLE:
+        if at_x < -CONTAINER_MARGIN_BEFORE_INVISIBLE:
             continue
 
         node.render(frame.shrink_to(child_box.intersect(box)), child_box)
@@ -957,6 +974,18 @@ def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box):
     frame.draw_pixel(progress_str[(len(progress_str)-1) * start_at_progress], box.position + Coordinate(start_at_pixel_int, 0))
 
 
+def debug_overlay(**values):
+    def _debug_overlay(child):
+        return static_box([
+            child,
+            vbox([
+                hbox([
+                    text(f"{k}: ") | fg(Color4.RED),
+                    text(str(v)) | fg(Color4.GREEN)
+                ]) for (k, v) in values.items()
+            ]) | shrink,
+        ])
+    return _debug_overlay
 
 # def v_scroll_bar(start: float, showing: float):
 #     return Layout(

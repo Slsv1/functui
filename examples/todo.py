@@ -159,6 +159,7 @@ def view(m: Model):
     return static_box([
         nav.v_resizable_split(
             node_id="resizable-split",
+            sep=vbar_custom("X") | dim,
             left=hbox_flex([
                 vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)])\
                     | nav.v_scroll(
@@ -168,7 +169,6 @@ def view(m: Model):
                 nav.v_scroll_bar("task-container", hide_if_unnecessary=True)
                 | (bg(Color4.BLUE) if nav.is_held_down(("task_container", "scrollbar")) else empty)
             ]) | border_with_title(text(" [Items] ") | bold | center, border_thick),
-
             right=vbox_flex([
                 (vbox_flex([
                     adaptive_text(m.tasks[m.selected_task_index].description)\

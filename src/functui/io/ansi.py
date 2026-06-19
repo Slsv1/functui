@@ -145,5 +145,10 @@ def layout_to_str(layout: Layout, dimensions: Rect) -> str:
     """
     screen = Screen()
     screen.clear_and_render(layout, dimensions)
+    print("strips: ----------------")
+    for s in screen.strips:
+        for ss in s:
+            print(ss.content)
+    print("end --------------------")
     return _render_ansi(screen.strips)
 
