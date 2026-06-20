@@ -257,6 +257,7 @@ class _ScrollingData(NamedTuple):
     def visible_height(self):
         return self.content_height - self.max_at_y
 
+
 @dataclass
 class NavState:
 
@@ -362,7 +363,7 @@ class NavState:
         container_id: NodeId,
         children: Sequence[NodeId] = (),
         scroll_ovveride: Iterable[NodeId] = (),
-        scrolling_speed:int=1,
+        scrolling_speed: int=1,
         scrollbar_id: NodeId | None = None,
     ):
         """Allow vertical scrolling if child does not fit into available space."""
@@ -391,37 +392,36 @@ class NavState:
             content_height = child.min_size(self.result_data.measure_text, Rect(container_box_data.box.width, 9999)).height
             max_at_y = content_height - container_box_data.visible_box.height
 
-            dbg = empty
 
             # change at_y based on keyboard navigation
             if self._keyboard_nav.active is not None\
-                and (active_box := self.result_data.box_data.get(self._keyboard_nav.active.id, None)) is not None\
                 and self.action in KEYBOARD_NAV_ACTION\
                 and self._keyboard_nav.active.id in children: 
 
+                active_box = self.result_data.box_data.get(self._keyboard_nav.active.id, None)
 
-                # offset from where scroll box starts
-                selected_at_y_offset = active_box.box.position.y - container_box_data.box.position.y 
-                start = 0 # including
-                end = container_box_data.box.height # excluding
-
-
-                if self.action == NavAction.NAV_UP:
-                    # aproach form below
-                    if not (start <= selected_at_y_offset < end):
-                        at_y += (selected_at_y_offset)
+                if active_box is None:
+                    # move by fixed amount
+                    move_by = container_box_data.box.height//2 + 1
+                    at_y += (-move_by) if self.action == NavAction.NAV_UP else (move_by)
                 else:
+                    # move exactly to beggining of next
 
-                    # aproach from above
-                    if not (start <= (selected_at_y_offset + active_box.box.height) < end):
-                        at_y += (selected_at_y_offset - container_box_data.box.height + active_box.box.height)
+                    # offset from where scroll box starts
+                    selected_at_y_offset = active_box.box.position.y - container_box_data.box.position.y 
+                    start = 0 # including
+                    end = container_box_data.box.height # excluding
 
-                dbg = debug_overlay(
-                    selected_at_y_offset=selected_at_y_offset,
-                    active_box=active_box.box,
-                    active_id=self._keyboard_nav.active.id,
-                    at_y=at_y,
-                )
+
+                    if self.action == NavAction.NAV_UP:
+                        # aproach form below
+                        if not (start <= selected_at_y_offset < end):
+                            at_y += (selected_at_y_offset)
+                    else:
+
+                        # aproach from above
+                        if not (start <= (selected_at_y_offset + active_box.box.height) < end):
+                            at_y += (selected_at_y_offset - container_box_data.box.height + active_box.box.height)
 
             # change at_y based on mouse navigation
             elif container_box_data.view_box.is_point_inside(self.mouse_position) and (scrolling_difference := self.get_scrolling_difference()) != 0:
@@ -447,7 +447,7 @@ class NavState:
             at_y = clamp(at_y, 0, max_at_y)
             self._scrolling_data[container_id] = _ScrollingData(at_y, max_at_y, content_height)
 
-            return vbox([child], -at_y) | hoverable(container_id) | dbg
+            return vbox([child], -at_y) | hoverable(container_id)
         return _v_scroll
 
     def v_resizable_split(
@@ -587,4 +587,10 @@ def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
     if end_char:
         frame.draw_pixel(end_char, box.position.down(end_at_pixel_int))
 
+"""
+
+
+
+constraint(max_width=2, max_height=2, hmax=2, hmin=3)
+"""
 

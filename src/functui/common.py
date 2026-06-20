@@ -659,7 +659,7 @@ def _static_box_render(children: tuple[Layout, ...], frame: Frame, box: Box):
     for child in children:
         child.render(frame.shrink_to(box), box)
 
-CONTAINER_MARGIN_BEFORE_INVISIBLE = 0
+CONTAINER_MARGIN_BEFORE_INVISIBLE = 2
 
 def vbox(children: Iterable[Layout], at_y: int=0):
     """A container node that arranges its chilren verticaly.
@@ -696,10 +696,11 @@ def _vbox_render(children: Iterable[Layout], at_y: int, frame: Frame, box: Box):
         )
 
         # out = 0
-        if (at_y + child_box.height) < (start-CONTAINER_MARGIN_BEFORE_INVISIBLE):
+        if (at_y + child_box.height) <= (start-CONTAINER_MARGIN_BEFORE_INVISIBLE):
             # out = 1
             at_y += child_box.height
             continue
+
         elif at_y >= (end + CONTAINER_MARGIN_BEFORE_INVISIBLE):
             # out = 1
             break
