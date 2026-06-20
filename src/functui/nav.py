@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial, reduce
 from .classes import *
-from .common import BORDER_THICK, BorderStyle, debug_overlay, fg, nothing, vbox, offset, vbar, static_box, text, border, bg_char, shrink, nothing, empty
+from .nodes import BORDER_THICK, BorderStyle, debug_overlay, fg, nothing, vbox, offset, vbar, static_box, text, border, bg_char, shrink, nothing, empty
 from time import sleep
 import math
 

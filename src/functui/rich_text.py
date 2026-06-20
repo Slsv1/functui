@@ -123,10 +123,9 @@ def rich_text(*string: Span | str):
 
 def _rich_text_render(span: Span, frame: Frame, box: Box):
     if box.width <= 4:
-        return Result()
+        return
 
     lines = _span_to_lines(span, frame.measure_text)
-    res = Result()
 
     for dy, line in enumerate(lines):
         if dy == box.height:
@@ -137,7 +136,6 @@ def _rich_text_render(span: Span, frame: Frame, box: Box):
                 segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
-    return res
 
 def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = "-"):
     """A data node for text that can be wrapped and styled.
@@ -174,10 +172,9 @@ def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = 
 
 def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame: Frame, box: Box):
     if box.width <= 1:
-        return Result()
+        return
 
     groups = _span_to_lines(span, frame.measure_text)
-    res = Result()
     lines = list(
         chain.from_iterable(
             wrap_line_default(line, box.width, frame.measure_text, soft_hyphen) for line in groups
@@ -199,7 +196,6 @@ def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame:
                 segment.text, box.position + Coordinate(dx, dy)
             )
             dx += frame.measure_text(segment.text)
-    return res
 
 
 # adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")

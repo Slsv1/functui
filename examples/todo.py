@@ -10,13 +10,13 @@
 # change to using pipes
 import sys
 from functui import *
-from functui.common import *
+from functui.nodes import *
 from functui.classes import *
 from functui.flex import vbox_flex, flex, hbox_flex
 from functui.textfield import create_text_input_event, default_text_input_bindings, TextInput, start_text_input
 from functui.rich_text import adaptive_text
 from functui.nav import DEFAULT_NAV_BINDINGS, NavContainer, NavState, hoverable, vnav, hnav
-from functui.io.raw import terminal
+from functui.io import open_terminal, render, InputEvent
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
@@ -214,12 +214,10 @@ m = Model(
 
 # alt 2
 # (clear reuse of resources)
-with terminal() as term:
+with open_terminal() as term:
     screen = Screen()
     while True:
-        # render
-        res = screen.clear_and_render(view(m), term.get_terminal_size())
-        term.display_layout(screen)
+        res = render(term, screen, view(m))
 
         # wait for input
         event = term.block_until_input()
