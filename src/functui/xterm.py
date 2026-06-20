@@ -488,17 +488,6 @@ class ByteParser:
 # RAWINPUT PARSER =============================================================
 #
 
-def _intersperse[T](iterable: Iterable[T], sep: T) -> Iterable[T]:
-    iterator = iter(iterable)
-    try:
-        first = next(iterator)
-    except StopIteration:
-        return
-    yield first
-    for item in iterator:
-        yield sep
-        yield item
-
 class InputEvent(NamedTuple):
     key_event: str | None = None
     """Represents both key and mouse button events.
@@ -797,12 +786,9 @@ class UnixTerminalIO(TerminalIO):
         size = shutil.get_terminal_size()
         return Rect(size.columns, size.lines)
     def print(self, ansi_data: str):
-        ansi_data = "".join(_intersperse(ansi_data.split("\n"), sep="\n\r"))
+        ansi_data = "\n\r".join(ansi_data.splitlines())
         self.stdout.write(ansi_data)
         self.stdout.flush()
-
-
-
 
 
 def open_terminal(features: TerminalFeatures = APPLICATION_MODE_FEATURES) -> TerminalContext:

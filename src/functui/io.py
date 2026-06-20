@@ -126,7 +126,6 @@ def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
 
             # 4. Append the character
             out.append(pixel_char)
-            
         # reset style at the end of each row
         if curr_attrs != StyleAttr(0) or curr_fg != Color4.RESET or curr_bg != Color4.RESET:
             curr_attrs = StyleAttr(0)
@@ -135,7 +134,6 @@ def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
             out.append(ANSI_RESET_STYLES)
             out.append(reset_fg_ansi)
             out.append(reset_bg_ansi)
-            
         out.append("\n")
 
     return "".join(out[:-1]) if out else ""
