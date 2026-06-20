@@ -89,12 +89,12 @@ def hoverable(node_id: NodeId):
         return Layout(
             func=hoverable,
             min_size=child.min_size,
-            render=partial(_render_interaction_area, node_id, child)
+            render=partial(_render_hoverable, node_id, child)
         )
     return _out
 
 
-def _render_interaction_area(
+def _render_hoverable(
     node_id: NodeId,
     child: Layout,
     frame: Frame,
@@ -104,7 +104,7 @@ def _render_interaction_area(
     child.render(frame, box)
 
 
-def _v_resizable_split_render(
+def _vsplit_render(
         left: Layout,
         right: Layout,
         sep: Layout,
@@ -358,7 +358,7 @@ class NavState:
         return self
 
 
-    def v_scroll(
+    def vscrollable(
         self,
         container_id: NodeId,
         children: Sequence[NodeId] = (),
@@ -450,7 +450,7 @@ class NavState:
             return vbox([child], -at_y) | hoverable(container_id)
         return _v_scroll
 
-    def v_resizable_split(
+    def vsplit(
         self,
         node_id: NodeId,
         left: Layout,
@@ -480,10 +480,10 @@ class NavState:
 
 
         return Layout(
-            self.v_resizable_split,
+            self.vsplit,
             min_size_horizontal([left.min_size, right.min_size, sep.min_size]),
             partial(
-                _v_resizable_split_render,
+                _vsplit_render,
                 left,
                 right,
                 sep | hoverable(sep_id),
@@ -491,7 +491,7 @@ class NavState:
             )
         ) | hoverable(node_id)
 
-    def v_scroll_bar(
+    def vscroll_bar(
         self,
         container_id: NodeId,
         scrollbar_id: NodeId | None = None,
@@ -520,9 +520,9 @@ class NavState:
             return nothing()
 
         return Layout(
-            func=self.v_scroll_bar,
+            func=self.vscroll_bar,
             min_size=min_size_constant(Rect(1, 1)),
-            render=partial(_v_scroll_bar_render, start_percent, visible_percent)
+            render=partial(_vscroll_bar_render, start_percent, visible_percent)
 
         ) | hoverable(scrollbar_id)
 
@@ -554,7 +554,7 @@ DEFAULT_NAV_BINDINGS = {
 
 
 
-def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
+def _vscroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
     start_at_pixel = box.height * start
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)

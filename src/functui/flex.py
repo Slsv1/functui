@@ -8,7 +8,7 @@ __all__ = [
     "flex_custom",
     "vbox_flex",
     "hbox_flex",
-    "hbox_flex_wrap"
+    "hbox_wrap"
 ]
 
 @dataclass(frozen=True, eq=True)
@@ -292,7 +292,7 @@ def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measu
             current_flex_data.flex_children.append(flex)
     return flex_by_lines
 
-def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
+def hbox_wrap(children: Iterable[Flex | Layout]) -> Layout:
     """A container node that allows children to wrap vertically.
 
     Modeled of the CSS flexbox layout model. If all children can't fit into the
@@ -310,13 +310,13 @@ def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
             height=sum(i.bounding_rect.height for i in lines),
         )
     return Layout(
-        func=hbox_flex_wrap,
+        func=hbox_wrap,
         min_size=min_size,
-        render=partial(_hbox_flex_wrap_render, children)
+        render=partial(_hbox_wrap_render, children)
     )
 
 
-def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
+def _hbox_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
     #
     # split by 'lines'
     #

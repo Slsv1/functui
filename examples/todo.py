@@ -138,10 +138,10 @@ def button(id, nav: NavState):
 
 def item(item, m: Model, id, nav: NavState):
     return adaptive_text(item.description)\
-        | padding\
+        | hpadding\
         | (combine(strike_through, fg(Colors.done)) if item.done else empty)\
         | styled(border, get_border_rule(nav, id))\
-        | clamp_height(5)\
+        | constrain(vmax=5)\
         | (fg(Colors.was_active) if m.tasks[m.selected_task_index] is item else empty)\
         | hoverable(id)
 
@@ -153,26 +153,26 @@ def view(m: Model):
         text_widget = adaptive_text(m.current_text_input.view_as_span())\
             | bg_fill\
             | border_with_title(text("Input") | center, border_double)\
-            | custom_padding(2, 2, 2, 2)\
+            | padding(2, 2, 2, 2)\
             | center
 
     return static_box([
-        nav.v_resizable_split(
+        nav.vsplit(
             node_id="resizable-split",
             sep=vbar_custom("X") | dim,
             left=hbox_flex([
                 vbox([item(task, m, id, nav) for id, task in zip(m.tasks_ids, m.tasks)])\
-                    | nav.v_scroll(
+                    | nav.vscrollable(
                         container_id="task-container",
                         children=m.tasks_ids,
                     ) | flex,
-                nav.v_scroll_bar("task-container", hide_if_unnecessary=True)
+                nav.vscroll_bar("task-container", hide_if_unnecessary=True)
                 | (bg(Color4.BLUE) if nav.is_held_down(("task_container", "scrollbar")) else empty)
             ]) | border_with_title(text(" [Items] ") | bold | center, border_thick),
             right=vbox_flex([
                 (vbox_flex([
                     adaptive_text(m.tasks[m.selected_task_index].description)\
-                        | padding | flex,
+                        | hpadding | flex,
                     text("delete") | center | fg(Color4.RED) | button(NodeIds.BUTTON_DELETE, nav),
                     text("complete") | center | fg(Color4.GREEN) | button(NodeIds.BUTTON_COMPLETE, nav),
                     text("edit") | center | button(NodeIds.BUTTON_EDIT, nav),

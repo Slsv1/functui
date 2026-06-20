@@ -19,6 +19,7 @@ __all__ = [
 
     # util
     'combine',
+    'empty',
 
     # containers
     'hbox',
@@ -27,22 +28,21 @@ __all__ = [
 
     # size manipulations
     'center',
-    'center_x',
-    'center_y',
-    'clamp',
-    'clamp_height',
-    'clamp_width',
+    'hcenter',
+    'vcenter',
     'offset',
+    'hpadding',
     'padding',
-    'custom_padding',
-    'push_rule',
     'shrink',
-    'shrink_x',
-    'shrink_y',
-    'min_width',
-    'min_height',
+    'hshrink',
+    'vshrink',
+    'constrain',
 
     # styling
+    'style',
+    'styled',
+
+    # quick styling
     'underline',
     'italic',
     'dim',
@@ -50,18 +50,16 @@ __all__ = [
     'blink',
     'strike_through',
     'reverse',
-
-    'styled',
-
     'fg',
     'bg',
+
+    # background
     'bg_char',
     'bg_fill',
 
-    'empty',
 
     # content
-    'h_guage',
+    'hguage',
     'text',
     'nothing',
 
@@ -84,10 +82,12 @@ __all__ = [
     'border_thick',
     'border_with_title',
     'border_ascii',
-    'custom_border',
+    'border_custom',
     'border_thick_dashed',
     'border_dashed',
     'border_rounded_dashed',
+
+    # debug
     'debug_overlay'
 ]
 
@@ -351,10 +351,6 @@ BORDER_ROUNDED_DASHED = BorderStyle(
     corner_br="╯",
 )
 
-#┏━
-#
-#
-#
 
 def vbar_custom(char: str = "|"):
     """Vertical bar build with a custom character."""
@@ -395,32 +391,32 @@ hbar_double = hbar_custom(BORDER_DOUBLE.line_h)
 hbar_ascii = hbar_custom(BORDER_REGULAR.line_h)
 """An ascii horizontal bar."""
 
-def custom_border(style: BorderStyle) -> WrapperNode:
+def border_custom(style: BorderStyle) -> WrapperNode:
     """Puts a border around a layout in a custom style."""
     def _custom_border(child: Layout):
         return Layout(
-            func=custom_border,
+            func=border_custom,
             min_size=min_size_expand(child.min_size, 2, 2),
             render=partial(_border_render, style, child),
         )
     return _custom_border
 
 
-border = custom_border(style=BORDER_REGULAR)
+border = border_custom(style=BORDER_REGULAR)
 """Puts a border around a layout."""
-border_rounded = custom_border(style=BORDER_ROUNDED)
+border_rounded = border_custom(style=BORDER_ROUNDED)
 """Puts a rounded border around a layout."""
-border_thick = custom_border(style=BORDER_THICK)
+border_thick = border_custom(style=BORDER_THICK)
 """Puts a thick border around a layout."""
-border_double = custom_border(style=BORDER_DOUBLE)
+border_double = border_custom(style=BORDER_DOUBLE)
 """Puts a double border around a layout."""
-border_ascii = custom_border(style=BORDER_ASCII)
+border_ascii = border_custom(style=BORDER_ASCII)
 """Puts a border consisting of ascii characters around a layout."""
-border_dashed = custom_border(style=BORDER_DASHED)
+border_dashed = border_custom(style=BORDER_DASHED)
 """Puts a dashed border around a layout."""
-border_rounded_dashed = custom_border(style=BORDER_ROUNDED_DASHED)
+border_rounded_dashed = border_custom(style=BORDER_ROUNDED_DASHED)
 """Puts a rounded dashed border around a layout."""
-border_thick_dashed = custom_border(style=BORDER_THICK_DASHED)
+border_thick_dashed = border_custom(style=BORDER_THICK_DASHED)
 """Puts a rounded dashed border around a layout."""
 
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
@@ -496,7 +492,7 @@ def _push_rule_render(child: Layout, rule: StyleRule, frame: Frame, box: Box):
         frame,
         box
     )
-def push_rule(rule: StyleRule) -> WrapperNode:
+def style(rule: StyleRule) -> WrapperNode:
     """Use style rule for this wrapper node's descendants unless overriden."""
     return partial(_push_rule, rule)
 
@@ -766,14 +762,14 @@ def _center_render(child: Layout, frame: Frame, box: Box):
             right=-empty_space_x[1]
         )
     )
-def center_y(child: Layout):
+def vcenter(child: Layout):
     """Shrink and center child layout along the y axis."""
     return Layout(
-        func=center_y,
+        func=vcenter,
         min_size=child.min_size,
-        render=partial(_center_y_render, child)
+        render=partial(_vcenter_render, child)
     )
-def _center_y_render(child: Layout, frame: Frame, box: Box):
+def _vcenter_render(child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
     empty_space_y = even_divide(box.height - min_size.height, 2)
     return child.render(
@@ -783,15 +779,15 @@ def _center_y_render(child: Layout, frame: Frame, box: Box):
             bottom=-empty_space_y[1],
         )
     )
-def center_x(child: Layout):
+def hcenter(child: Layout):
     """Shrink and center child layout along the x axis."""
     return Layout(
-        func=center_x,
+        func=hcenter,
         min_size=child.min_size,
-        render=partial(_center_x_render, child)
+        render=partial(_hcenter_render, child)
     )
 
-def _center_x_render(child: Layout, frame: Frame, box: Box):
+def _hcenter_render(child: Layout, frame: Frame, box: Box):
     min_size = child.min_size(frame.measure_text, box.rect)
     empty_space_x = even_divide(box.width - min_size.width, 2)
     return child.render(
@@ -832,7 +828,7 @@ def border_with_title(title: Layout, border_node=border):
     def _border_with_title(child: Layout):
         return static_box([
             border_node(child),
-            shrink_y(custom_padding(0, 0, 1, 1)(title)),
+            vshrink(padding(0, 0, 1, 1)(title)),
         ])
     return _border_with_title
 
@@ -862,13 +858,13 @@ def _shrink_render(x: bool, y: bool, child: Layout, frame: Frame, box: Box):
 shrink = _shrink_custom(True, True)
 """Shrink child layout to its minimum size"""
 
-shrink_y = _shrink_custom(False, True)
+vshrink = _shrink_custom(False, True)
 """Shrink child layout to its minimum size along the y axis"""
 
-shrink_x = _shrink_custom(True, False)
+hshrink = _shrink_custom(True, False)
 """Shrink child layout to its minimum size along the x axis"""
 
-def custom_padding(
+def padding(
     top: int = 0,
     bottom: int = 0,
     left: int = 0,
@@ -877,7 +873,7 @@ def custom_padding(
     """Add padding / Shrink a layout by differences"""
     def _custom_padding(child: Layout):
         return Layout(
-            func=custom_padding,
+            func=padding,
             min_size=min_size_expand(child.min_size, left+right, top+bottom),
             render=partial(_custom_padding_render, top, bottom, left, right ,child),
         )
@@ -886,73 +882,35 @@ def custom_padding(
 def _custom_padding_render(top, bottom, left, right, child, frame: Frame, box: Box):
     return child.render(frame, box.resize(-top, -bottom, -left, -right))
 
-padding = custom_padding(left=1, right=1)
+hpadding = padding(left=1, right=1)
 """Add padding to left and right of a child layout.
 
 Eqivelent to :obj:`custom_padding```(left=1, right=1)``."""
 
 
-def offset(x: int=0, y: int=0) -> WrapperNode:
-    """Offset layout by a difference
+offset = padding
 
-    Positive values move down and right.
-    Negative values of move up and left."""
-    coord = Coordinate(x, y)
-    def _offset(child: Layout):
+def constrain(
+    hmin: int = 0, 
+    vmin: int = 0, 
+    hmax: int = 9999,
+    vmax: int = 9999,
+):
+    def _constrain(child: Layout):
+        min_rect = Rect(hmin, vmin)
+        max_rect = Rect(hmax, vmax)
         return Layout(
-            func=offset,
-            min_size=min_size_expand(child.min_size, x, y),
-            render=partial(_offset_render, coord, child),
+            func=constrain,
+            min_size=lambda mtf, r: child.min_size(
+                mtf,
+                r.clamp(Rect(hmax, hmin)),
+            ).union(min_rect).clamp(max_rect),
+            render=partial(_constrain_render,hmax, vmax, child)
         )
-    return _offset
+    return _constrain
 
-
-def _offset_render(by: Coordinate, node: Layout, frame: Frame, box: Box):
-    return node.render(frame, box.offset_by(by))
-
-
-def clamp_width(width: int):
-    """Limit width of a child layout."""
-    def _clamp_width(child: Layout):
-        return Layout(
-            func=clamp_width,
-            min_size=lambda mtf, r: child.min_size(mtf, r.clamp_width(width)).clamp_width(width),
-            render=partial(_clamp_width_render, width, child),
-        )
-    return _clamp_width
-def _clamp_width_render(width, child, frame, box):
-    return child.render(frame, box.using_rect(box.rect.clamp_width(width)))
-
-def clamp_height(height: int):
-    """Limit height of a child layout."""
-    def _clamp_height(child: Layout):
-        return Layout(
-            func=clamp_height,
-            min_size=lambda mtf, r: child.min_size(mtf, r.clamp_height(height)).clamp_height(height),
-            render=partial(_clamp_height_render, height, child)
-        )
-    return _clamp_height
-def _clamp_height_render(height, child, frame, box):
-    return child.render(frame, box.using_rect(box.rect.clamp_height(height)))
-
-def min_width(value: int):
-    """Set a minimum width."""
-    def _min_width(child: Layout):
-        return Layout(
-            func=min_width,
-            min_size=lambda mtf, r: child.min_size(mtf, r).union(Rect(value, 0)),
-            render=child.render
-        )
-    return _min_width
-def min_height(value: int):
-    """Set a minimum height."""
-    def _min_height(child: Layout):
-        return Layout(
-            func=min_height,
-            min_size=lambda mtf, r: child.min_size(mtf, r).union(Rect(0, value)),
-            render=child.render
-        )
-    return _min_height
+def _constrain_render(hmax: int, vmax: int, child: Layout, frame: Frame, box: Box):
+    return child.render(frame, box.using_rect(box.rect.clamp(Rect(hmax, vmax))))
 
 #
 # V_PROGRESS = " ▁▂▃▄▅▆▇█"
@@ -960,14 +918,14 @@ def min_height(value: int):
 
 # # ╵╷│
 #
-def h_guage(progress: int):
+def hguage(progress: int):
     return Layout(
-        func=h_guage,
+        func=hguage,
         min_size=min_size_constant(Rect(1, 1)),
-        render=partial(_h_guage_render, "#", progress),
+        render=partial(_hguage_render, "#", progress),
     )
 
-def _h_guage_render(progress_str: str, progress: int, frame: Frame, box: Box):
+def _hguage_render(progress_str: str, progress: int, frame: Frame, box: Box):
     start_at_pixel = box.width * progress
     start_at_pixel_int = math.floor(start_at_pixel)
     start_at_progress = start_at_pixel - start_at_pixel_int
@@ -987,46 +945,3 @@ def debug_overlay(**values):
             ]) | shrink,
         ])
     return _debug_overlay
-
-# def v_scroll_bar(start: float, showing: float):
-#     return Layout(
-#         func=v_scroll_bar,
-#         min_size=min_size_constant(Rect(1, 1)),
-#         render=partial(_v_scroll_bar_render, start, showing)
-#
-#     )
-# def _v_scroll_bar_render(start: float, showing: float, frame: Frame, box: Box) -> Result:
-#     start_at_pixel = box.height * start
-#     start_at_pixel_int = math.floor(start_at_pixel)
-#     start_at_progress = abs(start_at_pixel - start_at_pixel_int -1)
-#
-#     end_at_pixel = box.height * start + box.height * showing # should be clampt
-#     end_at_pixel_int = math.floor(end_at_pixel)
-#     end_at_progress = end_at_pixel - end_at_pixel_int
-#
-#     match [start_at_progress > 0.33, start_at_progress > 0.66]:
-#         case [True, True]:
-#             start_char = "│"
-#         case [True, False]:
-#             start_char = "╷"
-#         case _:
-#             start_char = " "
-#
-#     match [end_at_progress > 0.33, end_at_progress > 0.66]:
-#         case [True, True]:
-#             end_char = "│"
-#         case [True, False]:
-#             end_char = "╵"
-#         case _:
-#             end_char = " "
-#
-#     res = Result()
-#     for i in range(box.height):
-#         if i == start_at_pixel_int:
-#             res.draw_pixel(frame, start_char, box.position + Coordinate(0, i))
-#         elif i == end_at_pixel_int:
-#             res.draw_pixel(frame, end_char, box.position + Coordinate(0, i))
-#         elif start_at_pixel_int < i < end_at_pixel_int:
-#             res.draw_pixel(frame, "│", box.position + Coordinate(0, i))
-#     return res
-#

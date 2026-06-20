@@ -100,7 +100,7 @@ def test_complex_layout_and_render():
         vbox([ _text_item(str(i)) for i in range(50)]) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
         vbox_flex([
             vbox_flex([
-                adaptive_text(LOREM) | padding,
+                adaptive_text(LOREM) | hpadding,
                 nothing() | flex,
 
                 text("delete") | center | fg(Color4.RED) | border,
@@ -158,7 +158,7 @@ def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
             vbox([ _text_item(str(i)) for i in range(50)]) | border_with_title(text(" [Items] ") | bold | center, border_thick) | flex,
             vbox_flex([
                 vbox_flex([
-                    adaptive_text(LOREM) | padding,
+                    adaptive_text(LOREM) | hpadding,
                     nothing() | flex,
 
                     text("delete") | center | fg(Color4.RED) | border,
