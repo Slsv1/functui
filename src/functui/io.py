@@ -82,7 +82,7 @@ ANSI_RESET_STYLES = "\033[0m"
 #             out.append(pixel.char)
 #         out.append("\n")
 #     return "".join(out[:-1]) # -1 to remove the \n on the end
-def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
+def render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
     out = []
 
     curr_attrs = StyleAttr(0)
@@ -152,10 +152,10 @@ def layout_to_str(layout: Layout, dimensions: Rect) -> str:
     #     for ss in s:
     #         print(ss.content)
     # print("end --------------------")
-    return _render_ansi(screen.strips)
+    return render_ansi(screen.strips)
 
 
-def render(terminal: TerminalIO, screen: Screen, layout: Layout) -> ResultData:
+def render_fit_terminal(terminal: TerminalIO, screen: Screen, layout: Layout) -> ResultData:
     terminal_dimensions = terminal.get_terminal_size()
 
     if screen.dimensions != terminal_dimensions:
@@ -163,6 +163,13 @@ def render(terminal: TerminalIO, screen: Screen, layout: Layout) -> ResultData:
 
     screen.clear()
     res = screen.overlay_layout(layout)
-    ansi_str = _render_ansi(screen.strips)
+    ansi_str = render_ansi(screen.strips)
+    terminal.print("\x1b[H" + ansi_str + "\033[39m\033[49m")
+    return res
+
+def render_fit_screen(terminal: TerminalIO, screen: Screen, layout: Layout):
+    screen.clear()
+    res = screen.overlay_layout(layout)
+    ansi_str = render_ansi(screen.strips)
     terminal.print("\x1b[H" + ansi_str + "\033[39m\033[49m")
     return res

@@ -16,7 +16,7 @@ from functui.flex import vbox_flex, flex, hbox_flex
 from functui.textfield import create_text_input_event, default_text_input_bindings, TextInput, start_text_input
 from functui.rich_text import adaptive_text
 from functui.nav import DEFAULT_NAV_BINDINGS, NavContainer, NavState, hoverable, vnav, hnav
-from functui.io import open_terminal, render, InputEvent
+from functui.io import open_terminal, render_fit_screen, render_fit_terminal, InputEvent
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
@@ -216,8 +216,9 @@ m = Model(
 # (clear reuse of resources)
 with open_terminal() as term:
     screen = Screen()
+    screen.set_dimensions(Rect(50, 20))
     while True:
-        res = render(term, screen, view(m))
+        res = render_fit_terminal(term, screen, view(m))
 
         # wait for input
         event = term.block_until_input()

@@ -1,8 +1,8 @@
 from functui.flex import flex, flex_custom, vbox_flex, hbox_flex
-from functui.common import _bg_char_render, bg_char, text, border_ascii, shrink
+from functui.nodes import _bg_char_render, bg_char, text, border_ascii, shrink
 
 from functui.classes import Rect
-from functui.io.ansi import layout_to_str
+from functui.io import layout_to_str
 from functui.rich_text import adaptive_text
 
 def item(s: str):

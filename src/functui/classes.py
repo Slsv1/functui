@@ -466,6 +466,7 @@ class Frame:
     ):
         bounds = self.view_box
 
+        # discard if outside vertically
         #       content
         #         #---#
         #         |   |
@@ -474,47 +475,61 @@ class Frame:
         if (at.y < bounds.position.y) or (at.y >= bounds.position.y + bounds.height):
             return
 
-        content_len = self.measure_text(content)
+        visual_len = self.measure_text(content)
         outer_x_bound = bounds.position.x + bounds.width
+
+        # discard if outside horizontally
         #         #---#
         # content |   | content
         #         #---#
-        if (at.x +content_len < bounds.position.x) or (at.x >= outer_x_bound):
+        if (at.x + visual_len < bounds.position.x) or (at.x >= outer_x_bound):
             return
 
         # find initial x offset
         #         #---#
         #    content  |
         #    ^^^^^#---#
-        required_offset = bounds.position.x - at.x
-        x_content_offset = 0
-        char_offset = 0
+        required_visual_offset = bounds.position.x - at.x
+        x_visual_offset = 0
+        index_offset = 0
 
-        if required_offset > 0:
+        if required_visual_offset > 0:
             for char in content:
-                x_content_offset += self.measure_text(char)
-                char_offset += 1
-                if x_content_offset >= required_offset:
+                x_visual_offset += self.measure_text(char)
+                index_offset += 1
+                if x_visual_offset >= required_visual_offset:
                     break
 
-
-        string = content[char_offset:]
-
-        end_at = x_content_offset
+        end_at_index = index_offset
 
         # cut of extra
-        for char in string:
-            if end_at + at.x > outer_x_bound:
-                break
-            end_at += self.measure_text(char)
+        #         #---#
+        #         |  content
+        #         #---#^^^^^
 
-        string = content[char_offset:end_at]
+        if at.x + visual_len >= outer_x_bound:
+            end_visual_offset_global = at.x + x_visual_offset
+            for char in content[index_offset:]:
+                if end_visual_offset_global >= outer_x_bound:
+                    break
+
+                end_visual_offset_global += self.measure_text(char)
+                end_at_index += 1
+            string = content[index_offset:end_at_index]
+        else:
+            string = content[index_offset:]
+
 
         # generate output string
-        at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
+        at_final = at + Coordinate(x_visual_offset, 0)
 
         self._strips[at.y].append(
-            Strip.from_widechar_string(at.x, string, self.default_style, wcwidth.wcswidth(string))
+            Strip.from_widechar_string(
+                at_final.x,
+                string,
+                self.default_style,
+                wcwidth.wcswidth(string)
+            )
         )
 
 
