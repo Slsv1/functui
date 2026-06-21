@@ -319,17 +319,20 @@ class Strip:
     length: int
 
 
-def new_strip(start: int, content: str, style: ComputedStyle, len: int):
-    new_content = []
-    for i in content:
-        new_content.append(i if wcwidth.wcwidth(i) == 1 else i*2)
+    @classmethod
+    def from_widechar_string(cls, start: int, content: str, style: ComputedStyle, len: int):
+        new_content = []
+        for i in content:
+            new_content.append(i)
+            if wcwidth.wcwidth(i) == 2:
+                new_content.append(" ")
 
-    return Strip(
-        start=start,
-        content="".join(new_content),
-        style=style,
-        length=len
-    )
+        return cls(
+            start=start,
+            content="".join(new_content),
+            style=style,
+            length=len
+        )
 
 @dataclass
 class IntermediateData():
@@ -511,7 +514,7 @@ class Frame:
         at = at + Coordinate(required_offset if required_offset > 0 else 0, 0)
 
         self._strips[at.y].append(
-            new_strip(at.x, string, self.default_style, wcwidth.wcswidth(string))
+            Strip.from_widechar_string(at.x, string, self.default_style, wcwidth.wcswidth(string))
         )
 
 
@@ -727,9 +730,6 @@ class Screen:
 # start at 0
 
 
-
-
-
 def compose_strips(strips: Sequence[Strip]):
     # strips is sorted by z-index (0 at beginning of list)
     if len(strips) == 0:
@@ -770,7 +770,7 @@ def compose_strips(strips: Sequence[Strip]):
             continue
 
         # if current is too little (outside of strip range)
-        if at_visual >= (strip.start + strip.length):
+        if not (strip.start <= at_visual < (strip.start + strip.length)):
 
             # go back one in depth
             if strip_index == 0:
