@@ -6,10 +6,6 @@ being very old, there have been added multiple ways of styling, without the
 ability to remove legacy styling options due to backwards compatibility.
 
 
-.. seealso::
-
-    A list for all styling nodes can be found here: :doc:`nodes`.
-
 3 Color Formats
 ---------------
 

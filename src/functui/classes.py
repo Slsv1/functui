@@ -53,6 +53,9 @@ __all__ = [
     'rule_strike_through',
     'rule_underline',
     'compose_strips',
+
+    'ColorTheme',
+    'DRACULA_COLOR_THEME'
 ]
 
 
@@ -160,6 +163,7 @@ class Color4(IntEnum):
 
     RESET = -1
 
+class ColorParseError(Exception): pass
 
 # Some functuionality of this class has been copied over from the textual project.
 # https://github.com/Textualize/textual/blob/main/src/textual/color.py
@@ -176,6 +180,59 @@ class Color24(NamedTuple):
     g: int
     b: int
     a: float = 1.0
+
+    @classmethod
+    def parse(cls, color: str):
+        """Create a new color from a string.
+
+        The following formats will be parsed:
+         - ``#RRGGBB``
+         - ``#RRGGBBAA``
+         - ``rgb(R, G, B)`` where R, G, B are integers between 0 and 255
+         - ``rgb(R, G, B, A)`` where A is a float between 0.0 and 1.0
+        """
+        color = color.strip()
+        if color.startswith("#"): # parse hex
+            if len(color) == 7:
+                return cls(
+                    int(color[1:3], 16),
+                    int(color[3:5], 16),
+                    int(color[5:7], 16),
+                    1.0
+                )
+            elif len(color) == 9:
+                return cls(
+                    int(color[1:3], 16),
+                    int(color[3:5], 16),
+                    int(color[5:7], 16),
+                    int(color[7:9], 16) / 255,
+                )
+            raise ColorParseError(f"Expected #rrggbb or #rrggbbaa, got '{color}'")
+
+        elif color.startswith("rgb("):
+            parts = [p.strip() for p in color[4:-1].split(",")]
+            if len(parts) != 3:
+                raise ColorParseError(f"Expected rgb(rrr, ggg, bbb), got '{color}'")
+
+            return cls(
+                int(parts[0]),
+                int(parts[1]),
+                int(parts[2]),
+                1.0,
+            )
+        elif color.startswith("rgba("):
+            parts = [p.strip() for p in color[5:-1].split(",")]
+            if len(parts) != 4:
+                raise ColorParseError(f"Expected rgba(rrr, ggg, bbb, a.a), got '{color}'")
+            return cls(
+                int(parts[0]),
+                int(parts[1]),
+                int(parts[2]),
+                float(parts[3]),
+            )
+        raise ColorParseError(f"Invalid color format, got '{color}'")
+
+
 
     @property
     @cache
@@ -198,11 +255,11 @@ class Color24(NamedTuple):
         return (self.r / 255, self.g / 255, self.b / 255)
 
     @cache
-    def overlay(self, other: Self):
+    def overlay(self, other: Self) -> Self:
         r1, g1, b1, a1 = self
         r2, g2, b2, a2 = other
 
-        return Color24(
+        return self.__class__(
             int(r1 + (r2 - r1) * a2),
             int(g1 + (g2 - g1) * a2),
             int(b1 + (b2 - b1) * a2),
@@ -220,6 +277,16 @@ class Color24(NamedTuple):
         brightness = (299 * r + 587 * g + 114 * b) / 1000
         return brightness
 
+    def with_alpha(self, alpha: float, /) -> Self:
+        r, g, b, _ = self
+        return self.__class__(r, g, b, alpha)
+
+    def distance_value_to(self, other: Self) -> int:
+        """ignoring alpha"""
+        a = self
+        b = other
+        return (a.r - b.r)**2 + (a.g - b.g)**2 + (a.b - b.b)**2
+
 
 def _color_distance_fast(a: Color24, b: Color24) -> int:
     return (a.r - b.r)**2 + (a.g - b.g)**2 + (a.b - b.b)**2
@@ -228,6 +295,10 @@ def _color_distance_fast(a: Color24, b: Color24) -> int:
 def rgb(r: int, g: int, b: int, /):
     """Create a new :obj:`Color24` from rgb parameters."""
     return Color24(r, g, b)
+
+def rgba(r: int, g: int, b: int, a: float, /):
+    """Create a new :obj:`Color24` from rgba parameters."""
+    return Color24(r, g, b, a)
 
 def hsl(h: float, s: float, l: float, /):
     """Create a new :obj:`Color24` from hsl parameters."""
@@ -241,6 +312,194 @@ def hex(value: int, /):
 
 type Color = int | Color24
 
+# design requirements
+# 
+# color values
+# brand colors
+# background colors
+#
+# muted colors
+# (darken and lighten colors?)
+#
+# widgets may link into theme, should update when change changes. () 
+
+
+@dataclass
+class ColorTheme:
+    # color values
+    # red: Color
+    # yellow: Color
+    # orange: Color
+    # green: Color
+    # blue: Color
+    # cyan: Color
+    # purple: Color
+    # white: Color
+    # black: Color
+    #
+    # primary: Color
+    # secondary: Color
+    # accent: Color
+    #
+    # foreground: Color
+    # background: Color
+    # surface: Color
+    # panel: Color
+    #
+    # warning: Color
+    # error: Color
+    # success: Color
+    #
+    # # mutued versions
+    # red_muted: Color
+    # yellow_muted: Color
+    # orange_muted: Color
+    # green_muted: Color
+    # blue_muted: Color
+    # cyan_muted: Color
+    # purple_muted: Color
+    #
+    # # white_muted: Color
+    # # black_muted: Color
+    #
+    # primary_muted: Color
+    # secondary_muted: Color
+    # accent_muted: Color
+    #
+    # # foreground_muted: Color
+    # # background_muted: Color
+    # # surface_muted: Color
+    # # panel_muted: Color
+    #
+    # warning_muted: Color
+    # error_muted: Color
+    # success_muted: Color
+
+    def __init__(
+        self,
+        *,
+        red: Color,
+        yellow: Color,
+        orange: Color,
+        green: Color,
+        blue: Color,
+        cyan: Color,
+        purple: Color,
+
+        white: Color,
+        black: Color,
+
+        primary: Color | None = None,
+        secondary: Color | None = None,
+        accent: Color | None = None,
+
+        foreground: Color | None = None,
+        background: Color | None = None,
+        surface: Color,
+        panel: Color,
+
+        warning: Color | None = None,
+        error: Color | None = None,
+        success: Color | None = None,
+    ):
+        background = background if background is not None else black
+
+        def _create_muted(color: Color):
+            # dont do anything if we are in ansi land
+            if isinstance(color, int) or isinstance(background, int):
+                return color
+
+            return background.overlay(color.with_alpha(0.7))
+
+        # plain colors
+        self.red=red
+        self.yellow=yellow
+        self.orange=orange
+        self.green=green
+        self.blue=blue
+        self.cyan=cyan
+        self.purple=purple
+        self.white=white
+        self.black=black
+
+        # foreground
+        self.foreground=foreground if foreground is not None else white
+
+        # backgrounds
+        self.background=background
+        self.surface=surface
+        self.panel=panel
+
+        # special
+        self.primary=primary if primary is not None else blue
+        self.secondary=secondary if secondary is not None else cyan
+        self.accent=accent if accent is not None else purple
+        self.warning=warning if warning is not None else orange
+        self.error=error if error is not None else yellow
+        self.success=success if success is not None else green
+
+        # muted colors
+        self.red_muted=_create_muted(red)
+        self.yellow_muted=_create_muted(yellow)
+        self.orange_muted=_create_muted(orange)
+        self.green_muted=_create_muted(green)
+        self.blue_muted=_create_muted(blue)
+        self.cyan_muted=_create_muted(cyan)
+        self.purple_muted=_create_muted(purple)
+
+        # muted foreground
+        self.foreground_muted=_create_muted(self.foreground)
+
+        # muted special
+        self.primary_muted=_create_muted(self.primary)
+        self.secondary_muted=_create_muted(self.secondary)
+        self.accent_muted=_create_muted(self.accent)
+        self.warning_muted=_create_muted(self.warning)
+        self.error_muted=_create_muted(self.error)
+        self.success_muted=_create_muted(self.success)
+
+
+DRACULA_COLOR_THEME = ColorTheme(
+    cyan=Color24.parse("#8be9fd"),
+    green=Color24.parse("#50fa7b"),
+    orange=Color24.parse("#ffb86c"),
+    purple=Color24.parse("#ff79c6"),
+    blue=Color24.parse("#bd93f9"),
+    red=Color24.parse("#ff5555"),
+    yellow=Color24.parse("#f1fa8c"),
+
+    secondary=Color24.parse("#6272a4"),
+
+    white=Color24.parse("#f8f8f2"),
+    black=Color24.parse("#282a36"),
+
+    surface=Color24.parse("#2b2e3b"),
+    panel=Color24.parse("#44475a"),
+)
+
+class DerivedTheme:
+    theme: ColorTheme
+    def derived(self, name: str):
+        return property(lambda self: )
+
+# "gruvbox": Theme(
+#         name="gruvbox",
+#         primary="#85A598",
+#         secondary="#A89A85",
+#         warning="#fe8019",
+#         error="#fb4934",
+#         success="#b8bb26",
+#         accent="#fabd2f",
+#         foreground="#fbf1c7",
+#         background="#282828",
+#         surface="#3c3836",
+#         panel="#504945",
+#         variables={
+#             "block-cursor-foreground": "#fbf1c7",
+#             "input-selection-background": "#689d6a40",
+#             "button-color-foreground": "#282828",
+#         },
+#     ),
 
 class StyleRule(NamedTuple):
     """An immutable dataclass for style attributes.

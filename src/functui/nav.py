@@ -21,6 +21,7 @@ __all__ = [
     "vnav",
     "hnav",
     "DEFAULT_NAV_BINDINGS",
+    "parse_key_press",
 
     # nodes
     "hoverable",
@@ -552,6 +553,8 @@ DEFAULT_NAV_BINDINGS = {
 }
 """A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
 
+def parse_key_press(key_press: str):
+    return DEFAULT_NAV_BINDINGS.get(key_press, None)
 
 
 def _vscroll_bar_render(start: float, showing: float, frame: Frame, box: Box):

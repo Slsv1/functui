@@ -1,7 +1,7 @@
 import pytest
 from functui.io import layout_to_str
 from functui.classes import Color4, StyleRule, Rect
-from functui.rich_text import _span_to_lines, Segment, Span, wrap_line_default, Group
+from functui.rich_text import _span_to_lines, Segment, Span, wrap_line_default, Group, adaptive_text
 from wcwidth import wcswidth
 
 
@@ -194,32 +194,71 @@ def test_wrap_line_default_word_too_long_and_segment_after():
     ]
 
 
-# def test_adaptive_text_wrapping_remove_white_space():
-#     layout = adaptive_text("12345   12 456 123")
-#     assert layout_to_str(layout, Rect(6, 3)) == "\n".join([
-#         "12345 ",
-#         "12 456",
-#         "123   ",
-#     ])
+def test_adaptive_text_wrapping_remove_white_space():
+    layout = adaptive_text("12345   12 456 123")
+    assert layout_to_str(layout, Rect(6, 3)) == "\n".join([
+        "12345 ",
+        "12 456",
+        "123   ",
+    ])
+
+def test_adaptive_text_wrapping_word():
+    layout = adaptive_text("1234567")
+    assert layout_to_str(layout, Rect(6, 2)) == "\n".join([
+        "12345-",
+        "67    ",
+    ])
+
+def test_adaptive_text_wrapping_word_multiple():
+    layout = adaptive_text("1234567")
+    assert layout_to_str(layout, Rect(3, 3)) == "\n".join([
+        "12-",
+        "34-",
+        "567",
+    ])
+
+
+# def test_wrap_multiline_trim():
+#     t = StyledText("abc de")
+#     lines = list(wrap_text(t, 3)):
 #
-# def test_adaptive_text_wrapping_word():
-#     layout = adaptive_text("1234567")
-#     assert layout_to_str(layout, Rect(6, 2)) == "\n".join([
-#         "12345-",
-#         "67    ",
-#     ])
+#     assert lines == [
+#         ["abc"]
+#         ["de"]
+#     ]
 #
-# def test_adaptive_text_wrapping_word_multiple():
-#     layout = adaptive_text("1234567")
-#     assert layout_to_str(layout, Rect(3, 2)) == "\n".join([
-#         "12-",
-#         "34-",
-#         "567",
-#     ])
-# def test_adaptive_text_terminator():
-#     layout = adaptive_text("1234 12345 123")
-#     assert layout_to_str(layout, Rect(4, 2)) == "\n".join([
-#         "1234",
-#         "1...",
-#     ])
+# def test_wrap_trim():
+#     t = StyledText(" abc ")
+#     lines = list(wrap_text(t, 3)):
 #
+#     assert lines == [
+#         ["abc"]
+#     ]
+#
+# def test_wrap_trim_newline():
+#     t = StyledText("\nabc\n ")
+#     lines = list(wrap_text(t, 3)):
+#
+#     assert lines == [
+#         [""]
+#         ["abc"]
+#     ]
+#
+# def test_wrap_newline_character():
+#     t = StyledText("abc\nefg")
+#     lines = list(wrap_text(t, 10)):
+#
+#     assert lines == [
+#         ["abc"]
+#         ["efg"]
+#     ]
+#
+# def test_wrap_multiple_newline_characters():
+#     t = StyledText("abc\n\nefg")
+#     lines = list(wrap_text(t, 10)):
+#
+#     assert lines == [
+#         ["abc"]
+#         [""]
+#         ["efg"]
+#     ]

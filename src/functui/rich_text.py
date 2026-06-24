@@ -25,6 +25,7 @@ class Justify(Enum):
     RIGHT = auto()
 
 
+
 @dataclass(frozen=True)
 class Span:
     text: tuple[str | Self, ...]
@@ -318,7 +319,7 @@ def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: Measu
                     continuation_str,
                     measure_text
                 )
-                
+
                 curr_len = out[-1][-1].length if len(out[-1]) else 0
                 continue
             # start new line, if it does not start with space
