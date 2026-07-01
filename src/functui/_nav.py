@@ -81,7 +81,10 @@ def _vsplit_render(
 ):
     sep_rect = sep.min_size(frame.measure_text, box.rect)
 
-    sep_at = clamp(sep_at, 0, box.width-sep_rect.width)
+    if sep_at is None:
+        sep_at = box.width//2 - sep_rect.width//2
+    else:
+        sep_at = clamp(sep_at, 0, box.width-sep_rect.width)
 
     left_box = Box(
         sep_at,
@@ -427,16 +430,16 @@ class NavState:
     ):
         sep_id = sep_id if sep_id is not None else (node_id, "separator")
 
-        sep_at = 10
+        sep_at = None # if nonw, then assumed middle of box in the render function
 
         if self.result_data is not None and sep_id in self.result_data.box_data:
             sep_box = self.result_data.box_data[sep_id].box 
             box = self.result_data.box_data[node_id].box
 
-            sep_at = self._split_data.get(node_id, -1)
+            sep_at = self._split_data.get(node_id, None)
 
             # if no no previous sep set, then place it in the middle
-            if sep_at == -1:
+            if sep_at == None:
                 sep_at = box.width//2 - sep_box.width//2
 
             if self.is_held_down(sep_id):
