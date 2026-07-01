@@ -6,28 +6,11 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial, reduce
 from ._classes import *
-from ._common import vbox, nothing
+from ._common import vbox, nothing, hoverable
 from ._border import vbar
 from time import sleep
 import math
 
-__all__ = [
-    "NavAction",
-    "KeyboardNavAction",
-    "ScrollAction",
-
-    "Direction",
-
-    "NavState",
-
-    "vnav",
-    "hnav",
-    "DEFAULT_NAV_BINDINGS",
-    "parse_key_press",
-
-    # nodes
-    "hoverable",
-]
 
 class NavAction(Enum):
     """An action that is meant to be sent to :obj:`NavData.update`.
@@ -86,25 +69,6 @@ def vnav(*ids: NodeID | NavContainer, remember:bool=False, container_id:NodeID|N
 def hnav(*ids: NodeID | NavContainer, remember:bool=False, container_id:NodeID|None=None):
     return NavContainer(Direction.HORIZONTAL, tuple(ids), remember, container_id)
 
-def hoverable(node_id: NodeID):
-    """A wrapper node that marks its child layout as interactive."""
-    def _out(child: Layout):
-        return Layout(
-            func=hoverable,
-            min_size=child.min_size,
-            render=partial(_render_hoverable, node_id, child)
-        )
-    return _out
-
-
-def _render_hoverable(
-    node_id: NodeID,
-    child: Layout,
-    frame: Frame,
-    box: Box
-):
-    frame.set_box_data(node_id, view_box=frame.view_box, box=box)
-    child.render(frame, box)
 
 
 def _vsplit_render(

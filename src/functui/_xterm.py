@@ -495,6 +495,10 @@ class InputEvent(NamedTuple):
     mouse_position_event: Coordinate | None = None
     """New mouse position.
     Is set to None if mouse position was not changed."""
+    @property
+    def is_bracketed_paste(self):
+        if self.key_event is None: return
+        return self.key_event[0] == "[" and self.key_event[-1] == "]"
 
 class RawInputParserState(Enum):
     GROUND = auto()
@@ -588,10 +592,12 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
         stdout.write("\x1b[?2004h") # set bracketed paste mode, xterm.
     else:
         stdout.write("\x1b[?2004l") # reset bracketed paste mode, xterm.
+
     if features.line_wrap:
         stdout.write("\x1b[?7h")
     else:
         stdout.write("\x1b[?7l")
+
     if features.hidden_cursor:
         stdout.write("\x1b[?25l")
     else:

@@ -25,8 +25,9 @@ from ._common import style, styled, styled_bg, styled_fg, underline, italic, dim
 # debug
 from ._common import debug_overlay
 
-# nav
-from ._nav import hoverable
+# interactive
+from ._common import hoverable
+from ._textfield import view_text_input
 
 __all__ = (
     # util
@@ -111,6 +112,7 @@ __all__ = (
 
     # interactive
     'hoverable',
+    'view_text_input',
 
     # debug
     'debug_overlay'

@@ -1,20 +1,25 @@
 from enum import Enum, auto
+from functools import partial
 import itertools
-from typing import Generator, Iterable, NamedTuple, Self
+from typing import Callable, Generator, Iterable, NamedTuple, Self
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from warnings import warn
 
 from functui._geometry import Coordinate
 from functui._nav import NavState
-from functui._classes import StyleAttr, StyleRule, measure_char, measure_text
+from functui._classes import NodeID, StyleAttr, StyleRule, clamp, measure_char, measure_text
 from functui._rich_text import Span, span
+from functui._xterm import InputEvent
+from functui._common import vbox, text, hbox, style, hoverable, empty
 
 class TextActionChar(NamedTuple):
     char: str
 
+class TextActionPaste(NamedTuple):
+    content: str
+
 class TextAction(Enum):
-    SUBMIT = auto()
     DELETE_CHAR = auto()
     DELETE_LINE = auto()
     DELETE_WORD_BEFORE_CURSOR = auto()
@@ -29,14 +34,12 @@ class TextAction(Enum):
 
     SELECT_THOUGH_MOUSE = auto()
 
-class TextFormat(Enum):
+class TextInputStyle(Enum):
     DEFAULT = auto()
     CURSOR = auto()
 
 DEFAULT_TEXT_INPUT_BINDINGS = MappingProxyType({
-    "escape": TextAction.SUBMIT,
     "enter": TextAction.NEW_LINE,
-    "backspace": TextAction.DELETE_CHAR,
     "left mouse": TextAction.SELECT_THOUGH_MOUSE,
 
     # cursor
@@ -47,110 +50,83 @@ DEFAULT_TEXT_INPUT_BINDINGS = MappingProxyType({
 
     "ctrl+a": TextAction.CURSOR_JUMP_LINE_START,
     "ctrl+e": TextAction.CURSOR_JUMP_LINE_END,
+
+    # deletion
+    "backspace": TextAction.DELETE_CHAR,
     "ctrl+u": TextAction.DELETE_LINE,
     "ctrl+w": TextAction.DELETE_WORD_BEFORE_CURSOR,
 })
 
-def create_text_input_event(key_event: str | None, bindings = DEFAULT_TEXT_INPUT_BINDINGS):
-    if key_event is None:
+def text_input_parse_event(bindings: MappingProxyType[str, TextAction], event: InputEvent):
+    if event.key_event is None:
         return
-    if len(key_event)== 1:
-        return TextActionChar(key_event)
-    if key_event in bindings.keys():
-        return bindings[key_event]
-
-class WrappedLineSegment(NamedTuple):
-    start_at: int
-    content: str
-
-def line_wrap_no_newlines(line: str, max: int) -> Generator[WrappedLineSegment]:
-    if line == "":
-        yield WrappedLineSegment(start_at=0, content="")
-    curr_line = []
-    dx = 0
-    last_line_ended_at_index = 0
-
-    for index, letter in enumerate(line):
-        letter_width = measure_char(letter)
-
-        # wrap to next line
-        if letter_width + dx > max:
-            yield WrappedLineSegment(
-                start_at=last_line_ended_at_index,
-                content="".join(curr_line)
-            )
-            last_line_ended_at_index = index
-            curr_line.clear()
-            dx = 0
-
-        curr_line.append(letter)
-        dx += letter_width
-
-    if curr_line:
-        yield WrappedLineSegment(
-            start_at=last_line_ended_at_index,
-            content="".join(curr_line)
-        )
+    if len(event.key_event)== 1:
+        return TextActionChar(event.key_event)
+    if event.is_bracketed_paste:
+        return TextActionPaste(event.key_event[1:-1])
+    if event.key_event in bindings.keys():
+        return bindings[event.key_event]
 
 def _select_through_mouse(
     relative_mouse_pos: Coordinate,
-    wrapped_lines: Iterable[Iterable[WrappedLineSegment]]
+    lines: Iterable[str]
 ) -> None | tuple[int, int]:
 
-    dy = 0
-    for line_i, segments in enumerate(wrapped_lines):
-        for cursor_index_offset, line_segment in segments:
+    for line_i, line in enumerate(lines):
+        if line_i != relative_mouse_pos.y:
+            continue
 
-            if dy != relative_mouse_pos.y:
-                dy += 1
-                continue
+        dx = 0
+        char_i = 0
+        for char_i, char in enumerate(line):
+            char_width = measure_char(char)
+            if dx == relative_mouse_pos.x or dx+char_width-1 == relative_mouse_pos.x:
+                return (line_i, char_i)
 
-            dx = 0
-            char_i = 0
-            for char_i, char in enumerate(line_segment):
-                dx += measure_char(char)
-
-                if Coordinate(dx, dy) == relative_mouse_pos:
-                    return (line_i, cursor_index_offset + char_i + 1)
-            # even if we click of the line, then select at end of line
-            return (line_i, cursor_index_offset + char_i + 1)
+            dx += char_width
+        # even if we click of the line, then select at end of line
+        return (line_i, char_i + 1)
 
 @dataclass
 class TextInput:
     lines: list[str]
+    node_id: NodeID | None = None
     cursor_index: int = 0
     cursor_line: int = 0
-    submitted: int = False
-    _wrapped_lines: list[list[WrappedLineSegment]] = field(default_factory=list)
+
+    @property
+    def cursor_clamped_index(self):
+        return clamp(self.cursor_index, 0, len(self.lines[self.cursor_line]))
 
     # maybe nav_data instead for nav, node_id?
-    def update(self, action: TextAction | TextActionChar | None, nav: NavState, node_id):
-
-        # create _wrapped_lines
-
-        if self.submitted:
-            return
+    def update[T](
+        self,
+        event: T,
+        nav: NavState,
+        parse_event_func: Callable[[T], TextAction | TextActionPaste | TextActionChar | None]\
+         = partial(text_input_parse_event, DEFAULT_TEXT_INPUT_BINDINGS)
+    ):
+        action = parse_event_func(event)
 
         curr_line = self.lines[self.cursor_line]
         match action:
             case TextAction.SELECT_THOUGH_MOUSE: # set cursor_line and pos to approprita place
-                if nav.result_data is not None and nav.is_hovered(node_id):
-                    box_data = nav.result_data.box_data[node_id]
+                if nav.result_data is not None and nav.is_hovered(self.node_id):
+                    box_data = nav.result_data.box_data[self.node_id]
 
                     # defined in local space
                     mouse_pos = nav.mouse_position - box_data.box.position
-                    res = _select_through_mouse(mouse_pos, self._wrapped_lines)
+                    res = _select_through_mouse(mouse_pos, self.lines)
                     if res is not None:
                         self.cursor_line, self.cursor_index = res
 
-            case TextAction.SUBMIT:
-                self.submitted = True
-
             case TextAction.CURSOR_RIGHT:
-                if self.cursor_index != len(curr_line):
+                if self.cursor_index < len(curr_line):
                     self.cursor_index += 1
 
             case TextAction.CURSOR_LEFT:
+                self.cursor_index = self.cursor_clamped_index
+
                 if self.cursor_index != 0:
                     self.cursor_index -= 1
 
@@ -158,107 +134,106 @@ class TextInput:
                 if self.cursor_line < len(self.lines) -1:
                     self.cursor_line += 1
 
-                # adjust corsor pos if out of bounds
-                new_line = self.lines[self.cursor_line]
-                if self.cursor_index >= len(new_line):
-                    self.cursor_index = len(new_line)
-
             case TextAction.CURSOR_UP:
                 if self.cursor_line != 0:
                     self.cursor_line -= 1
 
-                # adjust corsor pos if out of bounds
-                new_line = self.lines[self.cursor_line]
-                if self.cursor_index >= len(new_line):
-                    self.cursor_index = len(new_line)
-
             case TextAction.DELETE_CHAR:
+                self.cursor_index = self.cursor_clamped_index
+
                 if self.cursor_index != 0 and len(curr_line):
                     self.lines[self.cursor_line] = "".join([curr_line[:self.cursor_index-1], curr_line[self.cursor_index:]])
                     self.cursor_index -= 1
+                elif len(self.lines) > 1:
+                    del self.lines[self.cursor_line]
+                    self.cursor_line += 0 if self.cursor_line == 0 else -1
+                    self.cursor_index = len(self.lines[self.cursor_line])
 
             case TextAction.DELETE_LINE:
                 self.lines[self.cursor_line] = ""
                 self.cursor_index = 0
 
-            case TextAction.NEW_LINE:
+            case TextAction.CURSOR_JUMP_LINE_END:
+                self.cursor_index = len(curr_line)
 
-                self.lines.insert(self.cursor_line+1, "")
-                self.cursor_line += 1
+            case TextAction.CURSOR_JUMP_LINE_START:
+                self.cursor_index = 0
+
+            case TextAction.NEW_LINE:
+                if self.cursor_index < len(curr_line):
+                    self.lines[self.cursor_line] = curr_line[:self.cursor_index]
+                    self.lines.insert(self.cursor_line+1, curr_line[self.cursor_index:])
+                    self.cursor_line += 1
+                    self.cursor_index = 0
+                else:
+                    self.lines.insert(self.cursor_line+1, "")
+                    self.cursor_line += 1
 
         if isinstance(action, TextActionChar):
             if action.char == "\n":
                 raise AssertionError("lol")
 
             # add to current line, unless newline_char
-            self.lines[self.cursor_line] = "".join([curr_line[:self.cursor_index], action.char, curr_line[self.cursor_index:]])
-            self.cursor_index += 1
+            self.cursor_index = self.cursor_clamped_index
 
-        if nav.result_data is not None and node_id in nav.result_data.box_data:
-            width = nav.result_data.box_data[node_id].box.width
-            self._wrapped_lines.clear()
-            for line in self.lines:
-                self._wrapped_lines.append(list(line_wrap_no_newlines(line, width)))
+            self.lines[self.cursor_line] = "".join([
+                curr_line[:self.cursor_index],
+                action.char,
+                curr_line[self.cursor_index:]]
+            )
+            self.cursor_index += 1
+        elif isinstance(action, TextActionPaste):
+            # just in case, ramove all \n
+            content = action.content.replace("\n", "")
+
+            self.cursor_index = self.cursor_clamped_index
+            self.lines[self.cursor_line] = "".join([
+                curr_line[:self.cursor_index],
+                content,
+                curr_line[self.cursor_index + len(content):]]
+            )
+            self.cursor_index += len(content)
+
 
     def _get_cursor_visual_position(self) -> Coordinate:
-        y = x = 0
-
-        for i in range(0, self.cursor_line):
-            segments = self._wrapped_lines[i]
-            y += len(segments)
-
-        if self.cursor_line < len(self._wrapped_lines):
-            line = self._wrapped_lines[self.cursor_line]
-        else:
-            return Coordinate(0, 0)
-
-        for i, segment in enumerate(line):
-            if (i+1 != len(line))\
-                and (next_segment := line[i+1])\
-                and (next_segment.start_at < self.cursor_index):
-                continue
-
-            x += measure_text(segment.content[segment.start_at:self.cursor_index])
-            break
+        y = self.cursor_line
+        line = self.lines[self.cursor_line]
+        x = measure_text(line[0:self.cursor_clamped_index])
         return Coordinate(x, y)
 
     @property
     def cursor_visual_offset(self):
         return self._get_cursor_visual_position()
 
-    def view_lines(self) -> Generator[tuple[tuple[TextFormat, str], ...]]:
+    def view_lines(self) -> Generator[tuple[tuple[TextInputStyle, str], ...]]:
         x, y = self.cursor_visual_offset
 
-        dy = 0
-        for line in self._wrapped_lines:
-            for segment in line:
-                if dy != y:
-                    yield ((TextFormat.DEFAULT, segment.content),)
+        for dy, content in enumerate(self.lines):
+            if dy != y:
+                yield ((TextInputStyle.DEFAULT, content),)
+                continue
 
-                    dy += 1
-                    continue
-
-                content = segment.content
-                if measure_text(content) == x:
-                    content += " "
+            if measure_text(content) == x:
+                content += " "
 
 
-                yield (
-                    (TextFormat.DEFAULT, content[:x]),
-                    (TextFormat.CURSOR, content[x]),
-                    (TextFormat.DEFAULT, content[x+1:]),
-                )
-                dy += 1
+            # find where to cut for cursor
+            dx = 0
+            x_index = 0
+            for x_index, char in enumerate(content):
+                char_width = measure_char(char)
+                if dx >= x: break
+                dx += char_width
 
-    # def view_as_span(self, cursor_style: StyleRule=StyleRule(add_attrs=StyleAttr.REVERSE)) -> Span:
-    #     curr_line = self.lines[self.cursor_line]
-    #
-    #     if self.cursor_pos == len(curr_line):
-    #         curr_line += " "
-    #
-    #     return span(
-    #         v[:self.cursor_pos],
-    #         span(v[self.cursor_pos], rule=cursor_style),
-    #         v[self.cursor_pos+1:],
-    #         rule=StyleRule()
-    #     )
+            yield (
+                (TextInputStyle.DEFAULT, content[:x_index]),
+                (TextInputStyle.CURSOR, content[x_index]),
+                (TextInputStyle.DEFAULT, content[x_index+1:]),
+            )
+
+def view_text_input(text_in: TextInput, cursor_style = StyleRule(add_attrs=StyleAttr.REVERSE)):
+    return vbox([
+        text(l[0][1]) if len(l) == 1 else hbox([
+            text(t[1]) if t[0] == TextInputStyle.DEFAULT else text(t[1]) | style(cursor_style) for t in l
+        ]) for l in text_in.view_lines()
+    ]) | (hoverable(text_in.node_id) if text_in.node_id is not None else empty)

@@ -2,13 +2,12 @@
 from functools import reduce, partial, lru_cache
 from enum import Enum, auto, IntFlag
 from types import MappingProxyType
-from typing import NamedTuple, Protocol, Any, Iterable
+from typing import TYPE_CHECKING, NamedTuple, Protocol, Any, Iterable
 from dataclasses import dataclass, field
 import re
 import math
 
 from ._classes import *
-
 
 
 
@@ -610,3 +609,25 @@ def debug_overlay(**values):
             ]) | shrink,
         ])
     return _debug_overlay
+
+def hoverable(node_id: NodeID):
+    """A wrapper node that marks its child layout as interactive."""
+    def _out(child: Layout):
+        return Layout(
+            func=hoverable,
+            min_size=child.min_size,
+            render=partial(_render_hoverable, node_id, child)
+        )
+    return _out
+
+
+def _render_hoverable(
+    node_id: NodeID,
+    child: Layout,
+    frame: Frame,
+    box: Box
+):
+    frame.set_box_data(node_id, view_box=frame.view_box, box=box)
+    child.render(frame, box)
+
+
