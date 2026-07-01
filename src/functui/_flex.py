@@ -1,15 +1,8 @@
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from typing import Callable, Iterable
-from .classes import *
+from ._classes import *
 
-__all__ = [
-    "flex",
-    "flex_custom",
-    "vbox_flex",
-    "hbox_flex",
-    "hbox_wrap"
-]
 
 @dataclass(frozen=True, eq=True)
 class Flex:

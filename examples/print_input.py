@@ -1,8 +1,5 @@
-from functui.classes import *
-from functui.common import *
-from functui.flex import hbox_flex, flex
-from functui.nav import NavState, DEFAULT_NAV_BINDINGS, hoverable
-from functui.io.raw import terminal
+from functui.nodes import *
+from functui import NavState, DEFAULT_NAV_BINDINGS, InputEvent, ResultData, Coordinate, open_terminal, render_fit_terminal, Screen
 
 from dataclasses import dataclass, field
 
@@ -40,14 +37,13 @@ def update(input: InputEvent, res: ResultData, m: Model):
 def view(m: Model):
     layout = hbox_flex([
         vbox(
-            [text(f"<{i}>") | padding for i in m.keycodes],
-            reverse=True
+            [text(f"<{i}>") | hpadding for i in reversed(m.keycodes)],
         ) | border_with_title(text("[key event]") | center) | flex,
         vbox(
-            [text(f"<{repr(i)}>") | padding for i in m.mouse_positions],
-            reverse=True
+            [text(f"<{repr(i)}>") | hpadding for i in reversed(m.mouse_positions)],
         ) | border_with_title(text("[mouse position event]") | center)| flex,
-    ]) | padding
+    ]) | hpadding
+
     return layout
 
 
@@ -56,16 +52,15 @@ m = Model(
 )
 
 
-with terminal() as term:
+with open_terminal() as term:
+    screen = Screen()
     while True:
         # render
-        res = layout_to_result(view(m), term.get_terminal_size())
-        term.display_result(res)
-
+        res = render_fit_terminal(term, screen, view(m))
         # wait for input
         event = term.block_until_input()
 
         # update
         if event.key_event == "ctrl+c":
             break
-        update(event, res.data, m)
+        update(event, res, m)

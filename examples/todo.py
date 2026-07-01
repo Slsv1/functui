@@ -8,19 +8,11 @@
 # simple grid layout
 #
 # change to using pipes
-import sys
 from functui import *
 from functui.nodes import *
-from functui.classes import *
-from functui.flex import vbox_flex, flex, hbox_flex
-from functui.textfield import create_text_input_event, default_text_input_bindings, TextInput, start_text_input
-from functui.rich_text import adaptive_text
-from functui.nav import DEFAULT_NAV_BINDINGS, NavContainer, NavState, hoverable, vnav, hnav
-from functui.io import open_terminal, render_fit_screen, render_fit_terminal, InputEvent
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import SimpleNamespace
-from typing import Iterable
 
 #
 # Data
@@ -41,7 +33,7 @@ class Task():
 
 class Colors(SimpleNamespace):
     was_active = Color4.CYAN
-    active = Color24(50, 100, 200)
+    active = Color(50, 100, 200)
     done = Color4.GREEN
 
 @dataclass
@@ -49,11 +41,11 @@ class Model():
     nav: NavState
     tasks: list[Task]
     selected_task_index: int
-    tasks_ids: list[NodeId]
+    tasks_ids: list[NodeID]
     nav_tree: NavContainer | None = None
     current_text_input: TextInput | None = None
 
-def get_border_rule(nav: NavState, id: NodeId):
+def get_border_rule(nav: NavState, id: NodeID):
     return StyleRule(
         fg=Colors.active if nav.is_hovered(id) else None,
         bg=Colors.active if nav.is_active(id) or nav.is_held_down(id) else None

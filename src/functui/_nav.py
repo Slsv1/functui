@@ -1,11 +1,13 @@
 """Tools to make layouts responsive to keyboard and mouse input"""
+
 from enum import Enum, auto
 from typing import Hashable, Self, Literal, Iterable, Any, NamedTuple, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial, reduce
-from .classes import *
-from .nodes import BORDER_THICK, BorderStyle, debug_overlay, fg, nothing, vbox, offset, vbar, static_box, text, border, bg_char, shrink, nothing, empty
+from ._classes import *
+from ._common import vbox, nothing
+from ._border import vbar
 from time import sleep
 import math
 
@@ -73,18 +75,18 @@ SCROLL_ACTION = [NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, 
 @dataclass
 class NavContainer:
     direction: Direction 
-    children: tuple[NodeId | Self, ...]
+    children: tuple[NodeID | Self, ...]
     remember: bool
-    container_id: NodeId | None
+    container_id: NodeID | None
 
 
-def vnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId|None=None):
+def vnav(*ids: NodeID | NavContainer, remember:bool=False, container_id:NodeID|None=None):
     return NavContainer(Direction.VERTICAL, tuple(ids), remember, container_id)
 
-def hnav(*ids: NodeId | NavContainer, remember:bool=False, container_id:NodeId|None=None):
+def hnav(*ids: NodeID | NavContainer, remember:bool=False, container_id:NodeID|None=None):
     return NavContainer(Direction.HORIZONTAL, tuple(ids), remember, container_id)
 
-def hoverable(node_id: NodeId):
+def hoverable(node_id: NodeID):
     """A wrapper node that marks its child layout as interactive."""
     def _out(child: Layout):
         return Layout(
@@ -96,7 +98,7 @@ def hoverable(node_id: NodeId):
 
 
 def _render_hoverable(
-    node_id: NodeId,
+    node_id: NodeID,
     child: Layout,
     frame: Frame,
     box: Box
@@ -144,7 +146,7 @@ class KeyboardNav:
     _remembered_data: dict[tuple[int, ...], int] = field(default_factory=dict)
 
     class _ActiveData(NamedTuple):
-        id: NodeId
+        id: NodeID
         tree_index: tuple[int, ...]
 
     @staticmethod
@@ -272,29 +274,29 @@ class NavState:
     last_action: NavAction | None = None
 
     result_data: ResultData | None = None
-    _currently_hovered: tuple[NodeId, ...] = ()
+    _currently_hovered: tuple[NodeID, ...] = ()
 
 
     # state keps between updates
 
-    _held_down: tuple[NodeId, ...] = ()
-    _scrolling_data: dict[NodeId, _ScrollingData] = field(default_factory=dict)
-    _split_data: dict[NodeId, int] = field(default_factory=dict)
+    _held_down: tuple[NodeID, ...] = ()
+    _scrolling_data: dict[NodeID, _ScrollingData] = field(default_factory=dict)
+    _split_data: dict[NodeID, int] = field(default_factory=dict)
 
     # keyboard nav data
     
     _keyboard_nav: KeyboardNav = field(default_factory=lambda: KeyboardNav())
 
 
-    def is_active(self, key: NodeId) -> bool:
+    def is_active(self, key: NodeID) -> bool:
         if self._keyboard_nav.active is None:
             return False
         return key == self._keyboard_nav.active.id
 
-    def is_hovered(self, key: NodeId) -> bool:
+    def is_hovered(self, key: NodeID) -> bool:
         return key in self._currently_hovered
 
-    def is_selected(self, key: NodeId) -> bool:
+    def is_selected(self, key: NodeID) -> bool:
         """Whether an interactible was selected by keyboard or mouse.
 
         This condition if often triggered by pressing enter while an
@@ -308,7 +310,7 @@ class NavState:
             (self.is_hovered(key) and self.action == NavAction.SELECT_VIA_MOUSE_END)\
             or (self.is_active(key) and self.action == NavAction.SELECT_VIA_KEYBOARD)
 
-    def is_held_down(self, key: NodeId) -> bool:
+    def is_held_down(self, key: NodeID) -> bool:
         return key in self._held_down
 
     def get_scrolling_difference(self):
@@ -361,11 +363,11 @@ class NavState:
 
     def vscrollable(
         self,
-        container_id: NodeId,
-        children: Sequence[NodeId] = (),
-        scroll_ovveride: Iterable[NodeId] = (),
+        container_id: NodeID,
+        children: Sequence[NodeID] = (),
+        scroll_ovveride: Iterable[NodeID] = (),
         scrolling_speed: int=1,
-        scrollbar_id: NodeId | None = None,
+        scrollbar_id: NodeID | None = None,
     ):
         """Allow vertical scrolling if child does not fit into available space."""
 
@@ -453,11 +455,11 @@ class NavState:
 
     def vsplit(
         self,
-        node_id: NodeId,
+        node_id: NodeID,
         left: Layout,
         right: Layout,
         sep: Layout = vbar,
-        sep_id: NodeId | None = None
+        sep_id: NodeID | None = None
     ):
         sep_id = sep_id if sep_id is not None else (node_id, "separator")
 
@@ -494,8 +496,8 @@ class NavState:
 
     def vscroll_bar(
         self,
-        container_id: NodeId,
-        scrollbar_id: NodeId | None = None,
+        container_id: NodeID,
+        scrollbar_id: NodeID | None = None,
         hide_if_unnecessary: bool = False,
     ):
         scrollbar_id = (container_id, "scrollbar") if scrollbar_id is None else scrollbar_id

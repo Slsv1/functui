@@ -7,7 +7,8 @@ import re
 import math
 
 
-from .classes import *
+from ._classes import StyleRule, MeasureTextFunc, Frame, Layout
+from ._geometry import Box, Rect, Coordinate
 
 
 # This is a mess, but if it works, dont fix it.

@@ -1,8 +1,12 @@
 """Functions to convert layouts to styled strings that can be rendered in a terminal."""
-from .classes import *
-from .xterm import TerminalIO, open_terminal, InputEvent
-from typing import Callable, Iterable, Sequence
+from ._color import Color, Color4, TerminalColor
+from ._classes import StyleAttr, Strip, compose_strips, ComputedStyle, Screen, Layout, Frame, ResultData
+from ._geometry import Rect
+from typing import TYPE_CHECKING, Sequence
 from dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from ._xterm import TerminalIO
 
 
 
@@ -10,7 +14,7 @@ from dataclasses import dataclass
 from functools import cache
 
 @cache
-def _default_color_to_fg_ansi(color: Color):
+def _default_color_to_fg_ansi(color: TerminalColor):
     if isinstance(color, int):
         if color == -1:
             return f"\033[39m"
@@ -18,7 +22,7 @@ def _default_color_to_fg_ansi(color: Color):
     else:
         return f"\033[38;2;{color.r};{color.g};{color.b}m"
 @cache
-def _default_color_to_bg_ansi(color: Color):
+def _default_color_to_bg_ansi(color: TerminalColor):
     if isinstance(color, int):
         if color == -1:
             return f"\033[49m"

@@ -52,7 +52,7 @@ import ctypes
 import shutil
 import os
 
-from .geometry import Rect, Coordinate
+from ._geometry import Rect, Coordinate
 # data from (https://github.com/prompt-toolkit/python-prompt-toolkit/blob/main/src/prompt_toolkit/input/ansi_escape_sequences.py)
 SUQUENCE_TO_KEY: dict[str, str] = {
     # Control keys.
@@ -649,6 +649,13 @@ class TerminalIO(ABC):
                 return event
 
         return self.event_queue.get()
+
+    def write_to_clipboard(self, data: str):
+        import base64
+
+        clipboard_type = "c" # primary
+        base64_data = base64.b64encode(data.encode("utf-8")).decode("utf-8")
+        self.print(f"\x1b]52;{clipboard_type};{base64_data}\a")
 
 
 class TerminalContext(ABC):
