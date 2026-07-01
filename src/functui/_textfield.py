@@ -120,6 +120,21 @@ class TextInput:
                     if res is not None:
                         self.cursor_line, self.cursor_index = res
 
+            case TextAction.DELETE_WORD_BEFORE_CURSOR:
+                self.cursor_index = self.cursor_clamped_index
+                right = curr_line[self.cursor_index:]
+
+                left = curr_line[:self.cursor_index]
+                left = left.rstrip(" ")
+
+                if (split_at := left.rfind(" ")) != -1:
+                    left = left[:split_at+1]
+                    self.lines[self.cursor_line] =  left + right
+                    self.cursor_index = len(left)
+                else:
+                    self.lines[self.cursor_line] = right
+                    self.cursor_index = 0
+
             case TextAction.CURSOR_RIGHT:
                 if self.cursor_index < len(curr_line):
                     self.cursor_index += 1
