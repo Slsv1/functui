@@ -5,6 +5,8 @@ from typing import Hashable, Self, Literal, Iterable, Any, NamedTuple, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from functools import partial, reduce
+
+from ._xterm import InputEvent
 from ._classes import *
 from ._common import vbox, nothing, hoverable
 from ._border import vbar
@@ -54,6 +56,37 @@ type ScrollAction = Literal[NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SC
 SCROLL_ACTION = [NavAction.PAGE_DOWN, NavAction.PAGE_UP, NavAction.SCROLL_DOWN, NavAction.SCROLL_UP]
 
 
+DEFAULT_NAV_BINDINGS = {
+    "h": NavAction.NAV_LEFT,
+    "left": NavAction.NAV_LEFT,
+    "j": NavAction.NAV_DOWN,
+    "down": NavAction.NAV_DOWN,
+    "k": NavAction.NAV_UP,
+    "up": NavAction.NAV_UP,
+    "l": NavAction.NAV_RIGHT,
+    "right": NavAction.NAV_RIGHT,
+
+    "enter": NavAction.SELECT_VIA_KEYBOARD,
+    " ": NavAction.SELECT_VIA_KEYBOARD,
+    "left mouse": NavAction.SELECT_VIA_MOUSE_START,
+    "left mouse released": NavAction.SELECT_VIA_MOUSE_END,
+
+    "page up": NavAction.PAGE_UP,
+    "ctrl+u": NavAction.PAGE_UP,
+    "page down": NavAction.PAGE_DOWN,
+    "ctrl+d": NavAction.PAGE_DOWN,
+
+    "mouse wheel down": NavAction.SCROLL_DOWN,
+    "mouse wheel up": NavAction.SCROLL_UP
+}
+"""A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
+
+def nav_parse_event(bindings: dict[str, NavAction], event: InputEvent | None):
+    return bindings.get(event.key_event, None) # type: ignore
+
+#
+# Keyboard nav
+#
 
 @dataclass
 class NavContainer:
@@ -291,13 +324,15 @@ class NavState:
         return self.mouse_position - self.last_mouse_position
 
 
-    def update(
+    def update[T](
             self,
             res: ResultData | None = None,
-            action: NavAction | None = None,
+            event: T = None,
             nav_tree: NavContainer | None = None,
-            mouse_position: Coordinate | None = Coordinate(-1, -1),
+            mouse_position: Coordinate | None = None,
+            parse_event_func: Callable[[T], NavAction] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
     ):
+        action = parse_event_func(event)
         if nav_tree is not None and action in KEYBOARD_NAV_ACTION:
             self._keyboard_nav.update(nav_tree, action) # type: ignore
         elif action == NavAction.SELECT_VIA_MOUSE_START:
@@ -413,10 +448,12 @@ class NavState:
 
 
             # finalizing
-
             at_y = clamp(at_y, 0, max_at_y)
+
+            # store persistant data to remember at_y and for scrollbar to be able to read it
             self._scrolling_data[container_id] = _ScrollingData(at_y, max_at_y, content_height)
 
+            # hoverable() so that the box data gets rendered
             return vbox([child], -at_y) | hoverable(container_id)
         return _v_scroll
 
@@ -497,34 +534,18 @@ class NavState:
         ) | hoverable(scrollbar_id)
 
 
-DEFAULT_NAV_BINDINGS = {
-    "h": NavAction.NAV_LEFT,
-    "left": NavAction.NAV_LEFT,
-    "j": NavAction.NAV_DOWN,
-    "down": NavAction.NAV_DOWN,
-    "k": NavAction.NAV_UP,
-    "up": NavAction.NAV_UP,
-    "l": NavAction.NAV_RIGHT,
-    "right": NavAction.NAV_RIGHT,
 
-    "enter": NavAction.SELECT_VIA_KEYBOARD,
-    " ": NavAction.SELECT_VIA_KEYBOARD,
-    "left mouse": NavAction.SELECT_VIA_MOUSE_START,
-    "left mouse released": NavAction.SELECT_VIA_MOUSE_END,
-
-    "page up": NavAction.PAGE_UP,
-    "ctrl+u": NavAction.PAGE_UP,
-    "page down": NavAction.PAGE_DOWN,
-    "ctrl+d": NavAction.PAGE_DOWN,
-
-    "mouse wheel down": NavAction.SCROLL_DOWN,
-    "mouse wheel up": NavAction.SCROLL_UP
-}
-"""A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
-
-def parse_key_press(key_press: str):
-    return DEFAULT_NAV_BINDINGS.get(key_press, None)
-
+# maybe giving child unlimited space is not a good idea
+# def _scroll_y(child: Layout, down: int):
+#     def _scroll_y_render(frame: Frame, box: Box):
+#         child_box = Box(box.width, 9999, box.position.down(down))
+#         child.render(frame.shrink_to(box), child_box)
+#
+#     return Layout(
+#         func=_offset,
+#         min_size=child.min_size,
+#         render=partial(_offset_render)
+#     ):
 
 def _vscroll_bar_render(start: float, showing: float, frame: Frame, box: Box):
     start_at_pixel = box.height * start

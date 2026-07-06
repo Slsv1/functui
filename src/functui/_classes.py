@@ -203,7 +203,6 @@ class Frame:
     def expect_box_data(self, node_id: NodeID) -> BoxData:
         return self._boxes_by_id[node_id]
 
-
     def with_style(self, style: ComputedStyle):
         return self.__class__(
             view_box=self.view_box,
@@ -218,6 +217,16 @@ class Frame:
     def shrink_to(self, other_box):
         return Frame(
             view_box=self.view_box.intersect(other_box),
+            screen_rect=self.screen_rect,
+            default_style=self.default_style,
+            measure_text=self.measure_text,
+            _strips=self._strips,
+            _boxes_by_id=self._boxes_by_id,
+            intermediate_data=self.intermediate_data,
+        )
+    def with_view_box(self, other_box):
+        return Frame(
+            view_box=other_box,
             screen_rect=self.screen_rect,
             default_style=self.default_style,
             measure_text=self.measure_text,

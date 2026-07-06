@@ -64,15 +64,8 @@ tasks = [
 
 def update(input: InputEvent, res: ResultData, m: Model):
 
-    if m.current_text_input is not None:
-        if event := create_text_input_event(input.key_event):
-            m.current_text_input = m.current_text_input.update(event)
-    else:
-        action = None
-        if input.key_event in DEFAULT_NAV_BINDINGS:
-            action = DEFAULT_NAV_BINDINGS[input.key_event]
 
-        m.nav = m.nav.update(res, action, m.nav_tree, input.mouse_position_event)
+    m.nav = m.nav.update(res, input, m.nav_tree, input.mouse_position_event)
 
 
     for index, task_id in enumerate(m.tasks_ids):
@@ -91,12 +84,7 @@ def update(input: InputEvent, res: ResultData, m: Model):
             m.tasks[m.selected_task_index] = Task(task.description, True)
 
         if m.nav.is_selected(NodeIds.BUTTON_EDIT):
-            task = m.tasks[m.selected_task_index]
-            if m.current_text_input is None:
-                m.current_text_input = start_text_input(task.description)
-            elif m.current_text_input.submited:
-                m.tasks[m.selected_task_index] = Task(m.current_text_input.value, task.done)
-                m.current_text_input = None
+            pass
 
     if m.nav.is_selected(NodeIds.BUTTON_CREATE):
         m.tasks.append(Task("New Task", False))
@@ -141,12 +129,12 @@ def item(item, m: Model, id, nav: NavState):
 def view(m: Model):
     nav = m.nav
     text_widget = nothing()
-    if m.current_text_input is not None:
-        text_widget = adaptive_text(m.current_text_input.view_as_span())\
-            | bg_fill\
-            | border_with_title(text("Input") | center, border_double)\
-            | padding(2, 2, 2, 2)\
-            | center
+    # if m.current_text_input is not None:
+    #     text_widget = adaptive_text())\
+    #         | bg_fill\
+    #         | border_with_title(text("Input") | center, border_double)\
+    #         | padding(2, 2, 2, 2)\
+    #         | center
 
     return static_box([
         nav.vsplit(

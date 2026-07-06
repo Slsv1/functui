@@ -123,6 +123,19 @@ class Box(NamedTuple):
     height: int
     position: Coordinate = Coordinate(0, 0)
 
+    @property
+    def top(self):
+        return self.position.y
+    @property
+    def bottom(self):
+        return self.position.y + self.height
+    @property
+    def left(self):
+        return self.position.x
+    @property
+    def right(self):
+        return self.position.x + self.width
+
     def resize(
         self,
         top: int = 0,
