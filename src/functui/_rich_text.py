@@ -1,19 +1,19 @@
 from functools import reduce, partial, lru_cache, cache
 from enum import Enum, auto
-from typing import NamedTuple, Iterable, Self, Callable
+from typing import NamedTuple, Iterable, Self, Callable, Generator
 from dataclasses import dataclass
 from itertools import chain
 import re
 import math
 
 
-from ._classes import StyleRule, MeasureTextFunc, Frame, Layout
-from ._geometry import Box, Rect, Coordinate
+from functui._classes import StyleRule, MeasureTextFunc, Frame, Layout, measure_char
+from functui._geometry import Box, Rect, Coordinate
 
 
 # This is a mess, but if it works, dont fix it.
 
-class Justify(Enum):
+class Allignment(Enum):
     """Text Justification.
 
     Attributes:
@@ -24,311 +24,213 @@ class Justify(Enum):
     LEFT = auto()
     CENTER = auto()
     RIGHT = auto()
-
+    # JUSTIFIED = auto()
 
 
 @dataclass(frozen=True)
-class Span:
-    text: tuple[str | Self, ...]
-    rule: StyleRule
+class TokenWrapRules:
+    illigal_start_chars: tuple[str, ...]
+    illigal_end_chars: tuple[str, ...]
+
+@dataclass(frozen=True)
+class TextWrapConfig:
+    soft_hyphen: str = "-"
+    white_space_chars: str = " "
 
 
-class Segment(NamedTuple):
-    text: str
-    rule: StyleRule
-    length: int
+
+type Token = tuple[str, int, bool]
+type TokenGenerator = Generator[tuple[list[str], int, bool]]
+def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> TokenGenerator:
+    """split line by tokens
+    Return value consists of: token data, token width, is token whitespace"""
+
+    if len(line) == 0:
+        yield ([""], 0, True)
+
+    token_is_whitespace = line[0] in white_space_chars
+    token = []
+    token_width = 0
+
+    for char in line:
+        char_width = measure_char(char)
+
+        # next token
+        if token_is_whitespace != (char in white_space_chars):
+            yield (token, token_width, token_is_whitespace)
+            # set new token data
+            token_width = 0
+            token.clear()
+            token_is_whitespace = not token_is_whitespace
+
+        # add char to token
+        token.append(char)
+        token_width += char_width
+
+    if token:
+        yield(token, token_width, token_is_whitespace)
+
+def wrap_tokens(token_gen: TokenGenerator, max_width: int):
+    next_token = next(token_gen)
+
+    while True:
+        token_data, token_width, token_is_whitespace = next_token
+
+        # single token too long for line, then wrap
+        if token_width > max_width: 
+            end, width = _find_fit_str(token_data, max_width)
+
+            token_start = token_data[:end]
+
+            yield (token_start, width, token_is_whitespace)
+
+            token_end = token_data[end:]
+            next_token = (token_end, token_width-width, token_is_whitespace)
+
+        else:
+            yield next_token
+
+            try:
+                next_token = next(token_gen)
+            except StopIteration:
+                return
+
+        
 
 
-@dataclass(frozen=True, eq=True)
-class Group:
-    """Represents a connected span of text, like a word or a space."""
-    segments: tuple[Segment, ...]
-    is_space: bool
-    @property
-    def length(self):
-        return sum(i.length for i in self.segments)
 
-    def extend(self, seg: Segment):
-        return self.__class__((*self.segments, seg), self.is_space)
+def _find_fit_str(text: str | list[str], max_width: int) -> tuple[int, int]:
+    width = 0
 
-    def split(self, max_width: int, measure_text: MeasureTextFunc) -> list[Self]:
-        total_length = 0
-        allowed_segments = []
-        overflowing_segments = list(self.segments)
-        for segment in self.segments:
-            if total_length + segment.length <= max_width:
-                total_length += segment.length
-                allowed_segments.append(segment)
-                del overflowing_segments[0]
-                continue
+    for i, char in enumerate(text):
+        char_width = measure_char(char)
+        if width + char_width > max_width:
+            return i, width
+        width += char_width
+
+    return len(text), width
 
 
-            # handle overflowing segmend
-            del overflowing_segments[0]
-            allowed_letters = []
-            overflowing_letters = list(segment.text)
-            total_letter_length = 0
+# int is start at index
+def wrap_line(
+    content: str,
+    max_width: int,
+    white_space_chars: tuple[str, ...] = (" ",)
+) -> Generator[tuple[int, str, int]]:
 
-            for i, letter in enumerate(segment.text):
-                letter_len = measure_text(letter)
-                if total_length + total_letter_length + letter_len <= max_width:
-                    allowed_letters.append(letter)
-                    del overflowing_letters[0]
-                    total_letter_length += letter_len
-                    continue
-
-            if allowed_letters:
-                allowed_segments.append(
-                    Segment("".join(allowed_letters), segment.rule, total_letter_length)
-                )
-            overflowing_segments.insert(
-                0, 
-                Segment(
-                    "".join(overflowing_letters),
-                    segment.rule,
-                    segment.length - total_letter_length
-                )
-            )
-            break
-
-        if not overflowing_segments:
-            return [self]
-        return [
-            self.__class__(tuple(allowed_segments), self.is_space),
-            self.__class__(tuple(overflowing_segments), self.is_space)
-        ]
-
-
-TextWrapFunc = Callable[[Iterable[Segment], int, MeasureTextFunc], Iterable[Iterable[Segment]]]
-"""takes in a line. If line is too long it will be wrapped. New line characters have no effect on the outcome"""
-
-
-def rich_text(*string: Span | str):
-    """A data node for text that can be styled.
-
-    Args:
-        *string:
-            The text content. Parts of content can be wrapped in a :obj:`span` for styling.
-    """
-    span = Span(string, rule=StyleRule())
-    def min_size(measure_text, available: Rect):
-        groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
-        return Rect(
-            max((sum(group.length for group in line) for line in groups), default=0),
-            len(groups)
-        )
-    return Layout(
-        func=rich_text,
-        min_size=min_size,
-        render=partial(_rich_text_render, span),
-    )
-
-def _rich_text_render(span: Span, frame: Frame, box: Box):
-    if box.width <= 4:
+    if max_width == 0 or len(content) == 0:
+        yield (0, "", 0)
         return
 
-    lines = _span_to_lines(span, frame.measure_text)
+    line_start_at_index = 0
+    next_start_at_index = 0
+    line = []
+    line_width = 0
 
-    for dy, line in enumerate(lines):
+    for token in wrap_tokens(split_by_tokens(content, white_space_chars), max_width):
+        token_data, token_width, token_is_whitespace = token
+
+        next_start_at_index += len(token_data)
+
+        # wrap line
+        if token_width + line_width > max_width:
+            token_str = "".join(line)
+
+            yield (line_start_at_index, token_str, line_width)
+
+            line_start_at_index = next_start_at_index
+            line.clear()
+            line_width = 0
+
+            # discard whitespace tokens
+            if token_is_whitespace:
+                continue
+
+        # add token to line
+        line_width += token_width
+        line.extend(token_data)
+
+
+    if line:
+        yield(line_start_at_index, "".join(line), line_width)
+
+def wrap_str(
+    content: str,
+    max_width: int,
+    white_space_chars: tuple[str, ...] = (" ",)
+) -> Generator[tuple[int, str, int]]:
+    for line in content.splitlines(keepends=True):
+        yield from wrap_line(line, max_width, white_space_chars)
+
+
+
+def _adaptive_text_render(
+    string: str,
+    allignment: Allignment,
+    white_space_chars: tuple[str, ...],
+    frame: Frame,
+    box: Box
+):
+    for dy, (_, line, line_width) in enumerate(wrap_str(string, box.width, white_space_chars)):
         if dy == box.height:
             break
         dx = 0
-        for segment in chain.from_iterable(g.segments for g in line):
-            frame.with_style(frame.default_style.apply_rule(segment.rule)).draw_string_line(
-                segment.text, box.position + Coordinate(dx, dy)
-            )
-            dx += frame.measure_text(segment.text)
 
-def adaptive_text(*string: Span | str, justify=Justify.LEFT, soft_hyphen: str = "-"):
-    """A data node for text that can be wrapped and styled.
+        if allignment == Allignment.RIGHT:
+            dx = box.width - line_width
+        elif allignment == Allignment.CENTER:
+            dx = (box.width - line_width) // 2
 
-    Args:
-        *string:
-            The text content. Parts of content can be wrapped in a :obj:`span` for styling.
-        justify:
-            Text justification.
-        soft_hyphen:
-            Display to signal a word being wrapped between to line.
-    """
-    span = Span(string, rule=StyleRule())
+        frame.draw_string_line(line, box.position + Coordinate(dx, dy))
+
+def adaptive_text(
+        string: str, / , *,
+        allignment=Allignment.LEFT,
+        white_space_chars: tuple[str, ...] = (" ",)
+):
+    """A data node for text that can be wrapped."""
     def min_size(measure_text, available: Rect):
-        groups = tuple(tuple(i) for i in _span_to_lines(span, measure_text))
-        # longest_word = max(i.length for i in chain.from_iterable((l for l in groups)))
-        lines = list(
-            chain.from_iterable(
-                wrap_line_default(line, available.width, measure_text, soft_hyphen) for line in groups
-            )
-        )
-        ret = Rect(
-            max((sum(group.length for group in line) for line in lines), default=0),
+        lines = list(wrap_str(string, available.width))
+
+        return Rect(
+            max((measure_text(line[1]) for line in lines), default=0),
             len(lines)
         )
-        return ret
+
     return Layout(
         func=adaptive_text,
         min_size=min_size,
-        render=partial(_adaptive_text_render, span, justify, soft_hyphen),
+        render=partial(_adaptive_text_render, string, allignment, white_space_chars),
     )
 
 
+if __name__ == '__main__':
+    from functui import open_terminal, Screen, NavState, LOREM, render_fit_terminal, Color4, Allignment
+    from functui.nodes import *
 
-def _adaptive_text_render(span: Span, justify: Justify, soft_hyphen: str, frame: Frame, box: Box):
-    if box.width <= 1:
-        return
+    I_AM_A_CAT = "吾輩は猫である。名前はまだ無い。"
 
-    groups = _span_to_lines(span, frame.measure_text)
-    lines = list(
-        chain.from_iterable(
-            wrap_line_default(line, box.width, frame.measure_text, soft_hyphen) for line in groups
-        )
-    )
-    for dy, line in enumerate(lines):
-        if dy == box.height:
-            break
-        dx = 0
-        if justify == Justify.RIGHT:
-            dx = box.width - sum(i.length for i in line)
-        elif justify == Justify.CENTER:
-            dx = (box.width - sum(i.length for i in line)) // 2
+    with open_terminal() as term:
+        nav = NavState()
+        scr = Screen()
+        while True:
+            layout = nav.vsplit(
+                node_id="split",
+                left=vbox([
+                    text("LEFT") | fg(Color4.BLUE),
+                    adaptive_text(I_AM_A_CAT * 20),
+                    text("RIGHT") | fg(Color4.BLUE),
+                    adaptive_text(LOREM, allignment=Allignment.RIGHT),
+                    text("CENTER") | fg(Color4.BLUE),
+                    adaptive_text(LOREM, allignment=Allignment.CENTER),
+                ]),
+                right=adaptive_text("<-- this can be dragged") | vcenter
+            ) | border
+            result = render_fit_terminal(term, scr, layout)
+            event = term.block_until_input()
 
-        default_style = frame.default_style
-        for segment in chain.from_iterable(g.segments for g in line):
-            frame.default_style = default_style.apply_rule(segment.rule)
-            frame.draw_string_line(
-                segment.text, box.position + Coordinate(dx, dy)
-            )
-            dx += frame.measure_text(segment.text)
+            if event.key_event == "ctrl+c":
+                break
+            nav.update(result, event, mouse_position=event.mouse_position_event)
 
-
-# adaptive_text("hej", span("hej", fg=Color.RED), "hejsan guys\n")
-@cache
-def _split_by_spaces(s: str, rule: StyleRule, measure_text: MeasureTextFunc):
-    r = filter(lambda x: x!='',re.split(r'(\s+)', s))
-    return [Segment(t, rule, measure_text(t)) for t in r]
-
-def _append_segment_to_line(line: list[Group], seg: Segment):
-    if len(line) and (seg.text.isspace() == line[-1].is_space):
-        line[-1] = line[-1].extend(seg)
-        return
-    line.append(Group((seg,), seg.text.isspace()))
-
-def _extend_line_with_segments(line: list[Group], segments: list[Segment]):
-    for s in segments:
-        _append_segment_to_line(line, s)
-
-@cache
-def _span_to_lines(span: Span, measure_text: MeasureTextFunc) -> list[list[Group]]:
-    out_lines = [[]]
-    for t in span.text:
-        if isinstance(t, str):
-            lines = t.splitlines()
-            if len(lines) <= 1:
-                _extend_line_with_segments(
-                    out_lines[-1],
-                    _split_by_spaces(t, span.rule, measure_text)
-                )
-                continue
-            # elif len(lines) == 0:
-            #     return [[]]
-
-            lines_iter = iter(lines)
-            last_elem = next(lines_iter)
-            _extend_line_with_segments(
-                out_lines[-1],
-                _split_by_spaces(last_elem, span.rule, measure_text)
-            )
-            for line in lines_iter:
-                out_lines.append([])
-                _extend_line_with_segments(
-                    out_lines[-1],
-                    _split_by_spaces(line, span.rule, measure_text)
-                )
-            continue
-
-        child_res = _span_to_lines(
-            Span(
-                text=t.text,
-                rule=span.rule | t.rule
-            ),
-            measure_text
-        )
-        child_lines_iter = iter(child_res)
-        first_child_line = next(child_lines_iter)
-        first_child_group = first_child_line[0]
-        _extend_line_with_segments(
-            out_lines[-1],
-            list(first_child_group.segments)
-        )
-        out_lines[-1].extend(first_child_line[1:])
-        for line in child_lines_iter:
-            out_lines.append(line)
-    return out_lines
-
-def span(*text: str | Span, rule: StyleRule):
-    """Style a text segment in an :obj:`adaptive_text` node."""
-    return Span(text, rule)
-
-def _wrap_word(
-    group: Group,
-    out: list[list[Group]],
-    max_width: int,
-    continuation_str_width: int,
-    continuation_str: str,
-    measure_text: MeasureTextFunc
-):
-    prefix, left_over = group.split(max_width - continuation_str_width, measure_text)
-    # if nothing fits
-    if len(prefix.segments) == 0:
-        return # dont even try
-    segments = (*prefix.segments, Segment(
-        continuation_str, 
-        prefix.segments[-1].rule,
-        continuation_str_width
-    ))
-    prefix = Group(segments, False)
-    out[-1].append(prefix)
-    if left_over.length > max_width:
-        out.append([])
-        _wrap_word(
-            left_over,
-            out,
-            max_width,
-            continuation_str_width,
-            continuation_str,
-            measure_text
-        )
-        return
-    out.append([left_over])
-
-
-def wrap_line_default(line: Iterable[Group], max_width: int, measure_text: MeasureTextFunc, continuation_str: str="-") -> list[list[Group]]:
-    continuation_str_width = measure_text(continuation_str)
-    out = [[]]
-    curr_len = 0
-    for group in line:
-        # ignore trailing space
-        if group.is_space and curr_len == 0:
-            continue
-
-        if group.length + curr_len > max_width:
-            if curr_len == 0 and not group.is_space: # if word is longer than line, then split it
-                _wrap_word(
-                    group,
-                    out,
-                    max_width,
-                    continuation_str_width,
-                    continuation_str,
-                    measure_text
-                )
-
-                curr_len = out[-1][-1].length if len(out[-1]) else 0
-                continue
-            # start new line, if it does not start with space
-            out.append([] if group.is_space else [group])
-            curr_len = 0 if group.is_space else group.length
-            continue
-
-        out[-1].append(group)
-        curr_len += group.length
-
-    return out if not out[-1] == [] else out[:-1]
+            

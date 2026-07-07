@@ -9,7 +9,6 @@ from warnings import warn
 from functui._geometry import Coordinate
 from functui._nav import NavState
 from functui._classes import NodeID, StyleAttr, StyleRule, clamp, measure_char, measure_text
-from functui._rich_text import Span, span
 from functui._xterm import InputEvent
 from functui._common import vbox, text, hbox, style, hoverable, empty
 
