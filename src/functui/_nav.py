@@ -277,7 +277,7 @@ class NavState:
     _currently_hovered: tuple[NodeID, ...] = ()
 
 
-    # state keps between updates
+    # state kept between updates
 
     _held_down: tuple[NodeID, ...] = ()
     _scrolling_data: dict[NodeID, _ScrollingData] = field(default_factory=dict)
