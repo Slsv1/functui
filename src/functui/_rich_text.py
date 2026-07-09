@@ -256,7 +256,6 @@ if __name__ == '__main__':
         nav = NavState()
         scr = Screen()
         while True:
-
             layout = nav.vsplit(
                 node_id="split",
                 left=hbox_flex([vbox([
@@ -285,6 +284,6 @@ if __name__ == '__main__':
 
             if event.key_event == "ctrl+c":
                 break
-            nav.update(result, event, mouse_position=event.mouse_position_event)
+            nav.update(result, event)
 
             

@@ -82,7 +82,7 @@ DEFAULT_NAV_BINDINGS = {
 """A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
 
 def nav_parse_event(bindings: dict[str, NavAction], event: InputEvent | None):
-    return bindings.get(event.key_event, None) # type: ignore
+    return bindings.get(event.key_event, None), event.mouse_position_event # type: ignore
 
 #
 # Keyboard nav
@@ -329,10 +329,9 @@ class NavState:
             res: ResultData | None = None,
             event: T = None,
             nav_tree: NavContainer | None = None,
-            mouse_position: Coordinate | None = None,
-            parse_event_func: Callable[[T], NavAction] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
+            parse_event_func: Callable[[T], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
     ):
-        action = parse_event_func(event)
+        action, mouse_position = parse_event_func(event)
         if nav_tree is not None and action in KEYBOARD_NAV_ACTION:
             self._keyboard_nav.update(nav_tree, action) # type: ignore
         elif action == NavAction.SELECT_VIA_MOUSE_START:
