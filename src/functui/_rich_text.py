@@ -28,15 +28,12 @@ class Allignment(Enum):
     JUSTIFIED = auto()
 
 
-@dataclass(frozen=True)
-class TokenWrapRules:
-    illigal_start_chars: tuple[str, ...]
-    illigal_end_chars: tuple[str, ...]
+# TODO: maybe someday
+# @dataclass(frozen=True)
+# class TokenWrapRules:
+#     illigal_start_chars: tuple[str, ...]
+#     illigal_end_chars: tuple[str, ...]
 
-@dataclass(frozen=True)
-class TextWrapConfig:
-    soft_hyphen: str = "-"
-    white_space_chars: str = " "
 
 
 
@@ -44,8 +41,6 @@ type Token = tuple[str, int, int, bool]
 """content, start_at, width, is_space"""
 
 def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> Generator[Token]:
-    """split line by tokens
-    Return value consists of: token data, token width, is token whitespace"""
 
     if len(line) == 0: return
 
@@ -247,7 +242,7 @@ def adaptive_text(
 
 
 if __name__ == '__main__':
-    from functui import open_terminal, Screen, NavState, LOREM, render_fit_terminal, Color4, Allignment
+    from functui import open_terminal, Screen, NavState, LOREM, render_fit_terminal, Color4, Allignment, NavUpdateScrollable
     from functui.nodes import *
 
     I_AM_A_CAT = "吾輩は猫である。名前はまだ無い。" * 20
@@ -281,9 +276,13 @@ if __name__ == '__main__':
 
             result = render_fit_terminal(term, scr, layout)
             event = term.block_until_input()
+            nav_cmds = []
 
             if event.key_event == "ctrl+c":
                 break
-            nav.update(result, event)
+            elif event.key_event == "j" and (scroll_data := nav.try_scrollable_data("hej")):
+                nav_cmds.append(NavUpdateScrollable("hej", scroll_data.at_y + 1))
+            elif event.key_event == "k" and (scroll_data := nav.try_scrollable_data("hej")):
+                nav_cmds.append(NavUpdateScrollable("hej", scroll_data.at_y - 1))
 
-            
+            nav.update(result, event, commands=nav_cmds)

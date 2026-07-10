@@ -139,6 +139,14 @@ def _vsplit_render(
     sep.render(frame.shrink_to(split_box), split_box)
     right.render(frame.shrink_to(right_box), right_box)
 
+class NavUpdateScrollable(NamedTuple):
+    node_id: NodeID
+    new_value: int
+
+class NavUpdateSplit(NamedTuple):
+    node_id: NodeID
+    naw_value: int
+
 
 @dataclass
 class KeyboardNav:
@@ -251,10 +259,10 @@ class KeyboardNav:
             stack[-1] = stack[-1] + (-1 if backwards else 1)
             has_incemented = True
 
-class _ScrollingData(NamedTuple):
-    at_y: int
-    max_at_y: int
-    content_height: int
+class NavScrollableData(NamedTuple):
+    at_y: int = 0
+    max_at_y: int = 1
+    content_height: int = 1
 
     @property
     def visible_height(self):
@@ -280,7 +288,7 @@ class NavState:
     # state kept between updates
 
     _held_down: tuple[NodeID, ...] = ()
-    _scrolling_data: dict[NodeID, _ScrollingData] = field(default_factory=dict)
+    _scrolling_data: dict[NodeID, NavScrollableData] = field(default_factory=dict)
     _split_data: dict[NodeID, int] = field(default_factory=dict)
 
     # keyboard nav data
@@ -320,8 +328,12 @@ class NavState:
             return 1
         return 0
 
+
     def get_mouse_drag_difference(self) -> Coordinate:
         return self.mouse_position - self.last_mouse_position
+
+    def try_scrollable_data(self, node_id: NodeID) -> NavScrollableData | None:
+        return self._scrolling_data.get(node_id, None)
 
 
     def update[T](
@@ -329,8 +341,18 @@ class NavState:
             res: ResultData | None = None,
             event: T = None,
             nav_tree: NavContainer | None = None,
+            /,
             parse_event_func: Callable[[T], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
+            commands: Iterable[NavUpdateScrollable | NavUpdateSplit] = (),
     ):
+
+        for command in commands:
+            if isinstance(command, NavUpdateScrollable):
+                self._scrolling_data[command.node_id] = NavScrollableData(command.new_value)
+            elif isinstance(command, NavUpdateSplit):
+                self._split_data[command.node_id] = command.naw_value
+
+
         action, mouse_position = parse_event_func(event)
         if nav_tree is not None and action in KEYBOARD_NAV_ACTION:
             self._keyboard_nav.update(nav_tree, action) # type: ignore
@@ -378,11 +400,7 @@ class NavState:
             if self.result_data is None or container_id not in self.result_data.box_data:
                 data = self._scrolling_data.get(container_id, None)
                 if data is None:
-                    data = _ScrollingData(
-                        at_y=0,
-                        max_at_y=1,
-                        content_height=1,
-                    ) if data is None else data
+                    data = NavScrollableData() if data is None else data
                     self._scrolling_data[container_id] =  data
 
                 return vbox([child], at_y=-data.at_y) | hoverable(container_id)
@@ -439,7 +457,9 @@ class NavState:
                     at_y += scrolling_difference * scrolling_speed
 
             # change at_y by scrolling a scrollbar
-            elif self.is_held_down(s_id):
+
+            # we need to check for s_id in box_data because is_held_down does not imply the other
+            elif self.is_held_down(s_id) and s_id in self.result_data.box_data:
                 scrollbar_max_height = self.result_data.box_data[s_id].box.height
                 dy_scroll_bar_space = self.get_mouse_drag_difference().y
                 dy = dy_scroll_bar_space * (content_height / scrollbar_max_height)
@@ -450,7 +470,7 @@ class NavState:
             at_y = clamp(at_y, 0, max_at_y)
 
             # store persistant data to remember at_y and for scrollbar to be able to read it
-            self._scrolling_data[container_id] = _ScrollingData(at_y, max_at_y, content_height)
+            self._scrolling_data[container_id] = NavScrollableData(at_y, max_at_y, content_height)
 
             # hoverable() so that the box data gets rendered
             return vbox([child], -at_y) | hoverable(container_id)

@@ -5,7 +5,7 @@ from ._xterm import open_terminal, TerminalIO, TerminalContext, TerminalFeatures
 
 from ._geometry import Box, Coordinate, Rect
 
-from ._nav import NavState, hnav, vnav, DEFAULT_NAV_BINDINGS, NavContainer
+from ._nav import NavState, hnav, vnav, DEFAULT_NAV_BINDINGS, NavContainer, NavUpdateScrollable
 from ._border import BorderStyle, BORDER_DOUBLE, BORDER_REGULAR, BORDER_THICK, BORDER_ROUNDED
 
 from ._classes import StyleRule, StyleAttr, ComputedStyle, NodeID
@@ -40,6 +40,7 @@ __all__ = (
     # nav
     "NavState",
     "NavContainer",
+    "NavUpdateScrollable",
     "vnav",
     "hnav",
     "DEFAULT_NAV_BINDINGS",

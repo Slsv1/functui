@@ -8,9 +8,6 @@ from dataclasses import dataclass
 if TYPE_CHECKING:
     from ._xterm import TerminalIO
 
-
-
-
 from functools import cache
 
 @cache
