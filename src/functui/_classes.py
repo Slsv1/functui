@@ -187,6 +187,7 @@ class Frame:
     measure_text: MeasureTextFunc = field(hash=False, compare=False)
     _boxes_by_id: dict[NodeID, BoxData]
     _strips: list[list[Strip]]
+    _render_later: list[Callable]
     intermediate_data: IntermediateData = field(default_factory=IntermediateData)
 
 
@@ -211,6 +212,7 @@ class Frame:
             measure_text=self.measure_text,
             _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
+            _render_later=self._render_later,
             intermediate_data=self.intermediate_data,
         )
 
@@ -222,6 +224,7 @@ class Frame:
             measure_text=self.measure_text,
             _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
+            _render_later=self._render_later,
             intermediate_data=self.intermediate_data,
         )
     def with_view_box(self, other_box):
@@ -232,6 +235,7 @@ class Frame:
             measure_text=self.measure_text,
             _strips=self._strips,
             _boxes_by_id=self._boxes_by_id,
+            _render_later=self._render_later,
             intermediate_data=self.intermediate_data,
         )
 
@@ -365,6 +369,8 @@ class Frame:
                 wcwidth.wcswidth(string)
             )
         )
+    def render_later(self, child: Layout, frame: Frame, box: Box):
+        self._render_later.append(partial(child.render, frame, box))
 
 
 class MinSize(Protocol):
@@ -508,17 +514,22 @@ class Screen:
         measure_text: MeasureTextFunc = lambda t: wcwidth.wcswidth(t)
     ) -> ResultData:
 
+        render_later = []
+
         frame = Frame(
             screen_rect=self.dimensions,
             view_box=Box(self.dimensions.width, self.dimensions.height),
             default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
             measure_text=measure_text,
             _strips = self.strips,
+            _render_later=render_later,
             _boxes_by_id = {},
         )
         layout.render(
             frame, Box(width=self.dimensions.width, height=self.dimensions.height),
         )
+        for render in render_later:
+            render()
 
         return ResultData(
             dimensions=self.dimensions,

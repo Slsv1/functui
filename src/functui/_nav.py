@@ -344,7 +344,7 @@ class NavState:
             /,
             parse_event_func: Callable[[T], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
             commands: Iterable[NavUpdateScrollable | NavUpdateSplit] = (),
-    ):
+    ) -> Self:
 
         for command in commands:
             if isinstance(command, NavUpdateScrollable):

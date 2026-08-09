@@ -83,7 +83,8 @@ ANSI_RESET_STYLES = "\033[0m"
 #             out.append(pixel.char)
 #         out.append("\n")
 #     return "".join(out[:-1]) # -1 to remove the \n on the end
-def render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
+
+def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
     out = []
 
     curr_attrs = StyleAttr(0)
@@ -140,7 +141,7 @@ def render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
     return "".join(out[:-1]) if out else ""
 
 
-def layout_to_str(layout: Layout, dimensions: Rect) -> str:
+def render_simple(layout: Layout, dimensions: Rect) -> str:
     """Convert a layout to a string with ansi escapecodes that can be displayed in a terminal.
 
     This is a shorthand for ``result_to_str(layout_to_result(...)))``.
@@ -153,7 +154,7 @@ def layout_to_str(layout: Layout, dimensions: Rect) -> str:
     #     for ss in s:
     #         print(ss.content)
     # print("end --------------------")
-    return render_ansi(screen.strips)
+    return _render_ansi(screen.strips)
 
 
 def render_fit_terminal(terminal: TerminalIO, screen: Screen, layout: Layout) -> ResultData:
@@ -164,13 +165,13 @@ def render_fit_terminal(terminal: TerminalIO, screen: Screen, layout: Layout) ->
 
     screen.clear()
     res = screen.overlay_layout(layout)
-    ansi_str = render_ansi(screen.strips)
+    ansi_str = _render_ansi(screen.strips)
     terminal.print("\x1b[H" + ansi_str + "\033[39m\033[49m")
     return res
 
 def render_fit_screen(terminal: TerminalIO, screen: Screen, layout: Layout):
     screen.clear()
     res = screen.overlay_layout(layout)
-    ansi_str = render_ansi(screen.strips)
+    ansi_str = _render_ansi(screen.strips)
     terminal.print("\x1b[H" + ansi_str + "\033[39m\033[49m")
     return res

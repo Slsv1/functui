@@ -3,7 +3,7 @@ from enum import IntFlag, auto
 from typing import NamedTuple, Iterable
 from dataclasses import dataclass
 from functools import partial
-from .classes import StyleRule, Coordinate, Layout, min_size_constant, Rect, Frame, Box
+from ._classes import StyleRule, Coordinate, Layout, min_size_constant, Rect, Frame, Box
 from math import floor
 
 # https://en.wikipedia.org/wiki/Braille_Patterns#Identifying.2C_naming_and_ordering

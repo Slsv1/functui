@@ -1,6 +1,6 @@
 # functui public api
 
-from ._io import render_fit_terminal, render_ansi, render_fit_screen
+from ._io import render_fit_terminal, render_simple, render_fit_screen
 from ._xterm import open_terminal, TerminalIO, TerminalContext, TerminalFeatures, InputEvent
 
 from ._geometry import Box, Coordinate, Rect
@@ -14,7 +14,7 @@ from ._classes import WrapperNode, Layout, Screen, intersperse, ResultData, BoxD
 from ._color import Color, Color4, TerminalColor, ColorTheme, rgb, rgba, hsl, hex
 from ._color import DRACULA_COLOR_THEME
 
-from ._auto_load import VInfinite_Scrollable
+from ._auto_load import VAutoLoad
 
 from ._textfield import TextInput, DEFAULT_TEXT_INPUT_BINDINGS, text_input_parse_event, TextAction, TextActionPaste, TextActionChar
 from ._rich_text import Allignment
@@ -30,7 +30,7 @@ __all__ = (
     'open_terminal',
     'render_fit_terminal',
     'render_fit_screen',
-    'render_ansi',
+    'render_simple',
 
     # geometry
     'Box',
@@ -45,6 +45,9 @@ __all__ = (
     "hnav",
     "DEFAULT_NAV_BINDINGS",
     "NodeID",
+
+    # autoload
+    'VAutoLoad',
 
     # border
     'BorderStyle',

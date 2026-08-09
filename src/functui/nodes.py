@@ -13,7 +13,7 @@ from ._rich_text import adaptive_text
 from ._common import combine, empty, nothing
 
 # manipulations
-from ._common import center, hcenter, vcenter, constrain, hpadding, padding, offset, shrink, vshrink, hshrink
+from ._common import center, hcenter, vcenter, constrain, hpadding, padding, offset, shrink, vshrink, hshrink, floating
 
 # containers
 from ._common import vbox, hbox, static_box
@@ -57,6 +57,8 @@ __all__ = (
     'hshrink',
     'vshrink',
     'constrain',
+
+    'floating',
 
     # styling
     'style',

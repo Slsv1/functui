@@ -630,4 +630,23 @@ def _render_hoverable(
     frame.set_box_data(node_id, view_box=frame.view_box, box=box)
     child.render(frame, box)
 
+def floating(parent: Layout, child: Layout):
+    return Layout(
+        func=floating,
+        min_size=parent.min_size,
+        render=partial(_floating_render, parent, child)
+    )
+
+def _floating_render(parent: Layout, child: Layout, frame: Frame, box: Box):
+
+    child_box = Box.from_rect(frame.screen_rect, Coordinate(0, 0))
+    child_frame = frame.with_view_box(child_box)
+
+    parent.render(frame, box)
+
+    child_box = child_box.resize(
+        top=-(box.position.y+box.height),
+        left=-(box.position.x)
+    )
+    frame.render_later(child, child_frame, child_box)
 
