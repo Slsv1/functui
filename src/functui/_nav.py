@@ -109,15 +109,22 @@ def _vsplit_render(
         right: Layout,
         sep: Layout,
         sep_at: int | None,
+        initial_sep_at: int | None,
         frame: Frame,
         box: Box
 ):
     sep_rect = sep.min_size(frame.measure_text, box.rect)
 
     if sep_at is None:
-        sep_at = box.width//2 - sep_rect.width//2
-    else:
-        sep_at = clamp(sep_at, 0, box.width-sep_rect.width)
+            # if no no previous sep set, then place it in the middle
+        if initial_sep_at is None:
+            sep_at = box.width//2 - sep_rect.width//2
+        elif initial_sep_at > 0:
+            sep_at = initial_sep_at
+        else:
+            sep_at = box.width - initial_sep_at
+
+    sep_at = clamp(sep_at, 0, box.width-sep_rect.width)
 
     left_box = Box(
         sep_at,
@@ -482,7 +489,8 @@ class NavState:
         left: Layout,
         right: Layout,
         sep: Layout = vbar,
-        sep_id: NodeID | None = None
+        sep_id: NodeID | None = None,
+        initial_sep_at: int | None = None,
     ):
         sep_id = sep_id if sep_id is not None else (node_id, "separator")
 
@@ -494,9 +502,15 @@ class NavState:
 
             sep_at = self._split_data.get(node_id, None)
 
-            # if no no previous sep set, then place it in the middle
-            if sep_at == None:
-                sep_at = box.width//2 - sep_box.width//2
+            # technically we do this two times lol
+            if sep_at is None:
+                if initial_sep_at is None:
+                    sep_at = box.width//2 - sep_box.width//2
+                elif initial_sep_at > 0:
+                    sep_at = initial_sep_at
+                else:
+                    sep_at = box.width - initial_sep_at
+
 
             if self.is_held_down(sep_id):
                 sep_at += self.get_mouse_drag_difference().x
@@ -514,6 +528,7 @@ class NavState:
                 right,
                 sep | hoverable(sep_id),
                 sep_at,
+                initial_sep_at,
             )
         ) | hoverable(node_id)
 

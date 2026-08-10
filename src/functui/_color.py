@@ -1,8 +1,13 @@
-from enum import Enum, IntEnum, Flag, auto
+from enum import Enum, IntEnum, Flag, auto, StrEnum
 from typing import NamedTuple, Self
 from dataclasses import dataclass
 from functools import cache
 import colorsys
+
+class BgChars(StrEnum):
+    DIAGONAL_STRIPE_UP = "╱"
+    DIAGONAL_STRIPE_DOWN = "╲"
+
 
 COLOR4_TO_HEX = {
     0   :0x000000,
@@ -526,6 +531,11 @@ class ColorTheme:
     # warning_muted: Color
     # error_muted: Color
     # success_muted: Color
+    def muted(self, color: Color) -> Color:
+        if isinstance(color, int) or isinstance(self.background, int):
+            return color
+
+        return self.background.overlay(color.with_alpha(0.3))
 
     def __init__(
         self,

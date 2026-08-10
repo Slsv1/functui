@@ -49,28 +49,15 @@ functui documentation
    :caption: User Guide
 
    user_guide/introduction
-   user_guide/styling
-   user_guide/interactivity
+   user_guide/io
 
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Reference
-
-   reference/classes
-   reference/nodes
-   reference/flex
-   reference/rich_text
-   reference/nav
-   reference/io
-   reference/tmux
 
 .. toctree::
    :maxdepth: 1
    :caption: Appendix
 
    user_guide/glossary
-   user_guide/keycodes
 
 
 .. toctree::

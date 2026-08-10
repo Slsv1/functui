@@ -640,7 +640,7 @@ class TerminalIO(ABC):
             :func:`TerminalIO.display_result` instead."""
 
 
-    def block_until_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
+    def wait_for_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
         """Wait until user causes an input event and then return it.
         args:
             ignore_excess_mouse:

@@ -1,6 +1,4 @@
-.. _keycode-specification:
-
-String Key Codes Specification
+Key Event Strings
 ==============================
 
 Function io modules convert key input into a string format for convinient use that is often contained within :obj:`functui.classes.InputEvent` objects.

@@ -1,117 +1,39 @@
-I/O Overview
-============
+Keyboard and Mouse
+==================
 
-Functui has multiple modules of doing input and output.
-
-.. seealso::
-    
-   Generally input functions will return an :obj:`~functui.classes.InputEvent`
-   which stores the input in a special string format. That format is specified
-   in :ref:`keycode-specification`.
-
-:obj:`functui.io.raw`
----------------------
-
-Recomended for all interactive applications. (keyboard and mouse).
-Used the :obj:`functui.io.ansi` to render.
-
-Input - ✅
-~~~~~~~~~~
-
-Full mouse and keyboard support.
+On top of creating layouts, functui also can handle terminals to enable getting character input and querreing for terminal size.
 
 
-Output - ✅
-~~~~~~~~~~~
+A simple keyboard input example
 
-Displays the layout with ansi escape codes.
+.. code:: python
 
-.. seealso::
-    :func:`~functui.io.raw.terminal` and :ref:`examples_elm`.
+    from functui import open_terminal
 
-    Also :doc:`interactivity` has a detailed guide on how to use this module.
+    with open_terminal() as term:
+        event = term.wait_for_input()
 
+        # usage: (key events are stored as strings)
 
-----
-
-:obj:`functui.io.ansi`
-----------------------
-
-Recommended if you need functui just for rendering.
-
-Input - ❌
-~~~~~~~~~~
-
-For very simple projects you may use python's build in :func:`input`.
-Otherwise, there is no build in way to get a :obj:`functui.classes.InputEvent` with this io method. 
+        if event.key_event == "ctrl+c":
+            ...
+        elif event.key_event == "[":
+            ...
+        elif event.key_event == "a":
+            ...
+        elif event.key_event == "backspace":
+            ...
 
 
-Output - ✅
-~~~~~~~~~~~
+Notice the ``with`` block, it is needed for the application to take control of the terminal and be able to wait for input. Once the ``with`` block is exited, the terminal is reset to normal.
 
-Renders a layout as a string with ansi escape codes which are supported by virtually all terminals. Then you can simply just use the :func:`print` function to display that string.
+Also on top of just allowing for input :func:`functui.open_terminal` also changes some other terminal configuration, for example switching you to another terminal tab (formally known as the alternate buffer) to avoid ruining your scrollback history. What gets configuraed can be changed by passing a custom :class:`functui.TerminalFeatures` object into :func:`functui.open_terminal`
 
-Quirks
-~~~~~~
+.. warning::
 
-- Output performance is not the best..
+    Due to historical reasons some keyboard inputs you would expect to work do not. Notably, there is no support for ``alt+`` combinations and some ``ctrl+`` compinations do not work (``i`` ``j`` and ``m``). 
 
+Mouse
+-----
 
-.. seealso::
-    :func:`~functui.io.ansi.layout_to_str` and :func:`~functui.io.ansi.result_to_str` for output. And :ref:`example_elm_counter_app` example.
-
-----
-
-
-:obj:`functui.io.curses`
-------------------------
-
-Recommended for legacy interactive applications on unix.
-
-
-Input - ✅
-~~~~~~~~~~
-
-Full mouse and keyboard support.
-
-
-Output - ✅
-~~~~~~~~~~~
-
-Displays the layout in a curses window.
-
-
-Quirks
-~~~~~~
-
-- Does not work on windows.
-- Does not support :ref:`color24` (rgb colors)
-- Only 256 unique foreground and background combinations may be used at a time.
-- :obj:`~functui.classes.StyleAttr.STRIKE_THROUGH` style is not supported
-
-.. seealso::
-    :func:`~functui.io.curses.wrapper`, :func:`~functui.io.curses.get_input_event`, :func:`~functui.io.curses.draw_result` and :ref:`example_curses_elm_template` example.
-
-----
-
-:obj:`functui.io.html`
-----------------------
-
-Input - ❌
-~~~~~~~~~~
-
-No input support.
-
-
-Output - ✅
-~~~~~~~~~~~
-
-Wraps the layout in a ``<pre>`` tag.
-
-
-Quirks
-~~~~~~
-
-- :obj:`~functui.classes.StyleAttr.DIM` is not supported.
-To display functui layouts on the web.
 
