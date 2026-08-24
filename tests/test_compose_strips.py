@@ -1,4 +1,5 @@
-from functui.classes import ComputedStyle, Strip, compose_strips
+from functui import ComputedStyle
+from functui._classes import Strip, compose_strips
 from wcwidth import wcswidth
 
 

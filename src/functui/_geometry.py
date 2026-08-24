@@ -1,12 +1,7 @@
 from typing import NamedTuple, Self
 
 class Coordinate(NamedTuple):
-    """An immutable coordinate in 2d space
-
-    Attributes: 
-        x:
-        y:
-    """
+    """An immutable coordinate in 2d space."""
     x: int
     y: int
     def __add__(self, other):
@@ -23,12 +18,7 @@ class Coordinate(NamedTuple):
         return Coordinate(self.x , self.y - by)
 
 class Rect(NamedTuple):
-    """A simple immutable rectangle defined by width and height.
-
-    Attributes:
-        width:
-        height:
-    """
+    """A simple immutable rectangle defined by width and height."""
 
     width: int
     height: int

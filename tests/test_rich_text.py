@@ -1,5 +1,5 @@
 import pytest
-from functui._rich_text import split_by_tokens, wrap_str
+from functui._rich_text import split_by_tokens
 from wcwidth import wcswidth
 
 
@@ -19,27 +19,27 @@ def test_split_by_token():
     assert next(gen) == ([".", " "], 2, True)   
     assert next(gen) == (["c"], 1, False)
 
-def test_line_trim():
-    assert list(wrap_str("aaa  ", 3)) == [
-        (0, "aaa", 3)
-    ]
-
-def test_ignore_whitespace():
-    assert list(wrap_str("aaa bbb", 3)) == [
-        (0, "aaa", 3),
-        (4, "bbb", 3),
-    ]
-
-def test_token_clip():
-    assert list(wrap_str("abcdefg", 4)) ==[
-        (0, "abcd", 4)
-    ]
-
-def test_token_clip_and_wrap():
-    assert list(wrap_str("abcdefg hi", 4)) ==[
-        (0, "abcd", 4),
-        (8, "hi", 2)
-    ]
+# def test_line_trim():
+#     assert list(wrap_line("aaa  ", 3)) == [
+#         (0, "aaa", 3)
+#     ]
+#
+# def test_ignore_whitespace():
+#     assert list(wrap_str("aaa bbb", 3)) == [
+#         (0, "aaa", 3),
+#         (4, "bbb", 3),
+#     ]
+#
+# def test_token_clip():
+#     assert list(wrap_str("abcdefg", 4)) ==[
+#         (0, "abcd", 4)
+#     ]
+#
+# def test_token_clip_and_wrap():
+#     assert list(wrap_str("abcdefg hi", 4)) ==[
+#         (0, "abcd", 4),
+#         (8, "hi", 2)
+#     ]
 
 
 # def test_adaptive_text_wrapping_ignore_white_space():

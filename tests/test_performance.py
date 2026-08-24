@@ -1,9 +1,7 @@
 import pytest
 from functui.nodes import *
-from functui.classes import *
-from functui.flex import *
-from functui.rich_text import adaptive_text
-from functui.io import render_ansi, layout_to_str
+from functui import *
+from functui._io import _render_ansi
 
 
 def _adaptive_text_item(content: str):
@@ -113,7 +111,7 @@ def test_complex_layout_and_render():
             text("New Task") | center | border,
         ]) | flex,
     ])
-    result = layout_to_str(layout, Rect(100, 30))
+    result = render_simple(layout, 100, 30)
     expected = [
     '┏━━━━━━━━━━━━━━━━━━━━\x1b[1m [Items] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━━━┓┏━━━━━━━━━━━━━━━━━\x1b[1m [Properties] \x1b[0m\x1b[39m\x1b[49m━━━━━━━━━━━━━━━━━┓',
     '┃┌──────────────────────────────────────────────┐┃┃ Lorem ipsum dolor sit amet, consectetur        ┃',
@@ -174,7 +172,7 @@ def test_complex_layout_render_reusue_60_times_linear_increase(screen_size):
         screen.set_dimensions(Rect(screen_size, screen_size))
         screen.clear()
         screen.overlay_layout(layout)
-        foo = render_ansi(screen.strips)
+        foo = _render_ansi(screen._strips)
 
     assert True
     # expected = [

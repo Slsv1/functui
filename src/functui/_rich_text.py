@@ -12,15 +12,19 @@ from functui._classes import StyleRule, MeasureTextFunc, Frame, Layout, even_div
 from functui._geometry import Box, Rect, Coordinate
 
 
-# This is a mess, but if it works, dont fix it.
+# This is a mess, but if it works, dont break it it.
+# Not as much anymore though!
 
 class Allignment(Enum):
     """Text Justification.
+
+    Used by :func:`functui.nodes.adaptive_text`
 
     Attributes:
         LEFT:
         CENTER:
         RIGHT:
+        JUSTIFIED:
     """
     LEFT = auto()
     CENTER = auto()
@@ -98,9 +102,6 @@ def wrap_tokens_if_possible(token_gen: Generator[Token], max_width: int) -> Gene
                 next_token = next(token_gen)
             except StopIteration:
                 return
-
-        
-
 
 
 def _find_fit_str(text: str | list[str], max_width: int) -> tuple[int, int]:
@@ -275,7 +276,7 @@ if __name__ == '__main__':
             ) | border
 
             result = render_fit_terminal(term, scr, layout)
-            event = term.block_until_input()
+            event = term.wait_for_input()
             nav_cmds = []
 
             if event.key_event == "ctrl+c":

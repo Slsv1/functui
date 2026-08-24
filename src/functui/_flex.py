@@ -175,14 +175,13 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
 
     Examples:
         Usage with flex:
-            >>> from functui import Rect, layout_to_str
-            >>> from functui.common import border, text
-            >>> from functui.flex import flex, hbox_flex, flex_custom
+            >>> from functui import render_simple
+            >>> from functui.nodes import *
             >>> layout = hbox_flex([
             ...     text("Flex.") | border | flex,
             ...     text("No flex.") | border,
             ... ]) | border
-            >>> print(layout_to_str(layout, Rect(40, 5)))
+            >>> print(render_simple(layout, 40, 5))
             ┌──────────────────────────────────────┐
             │┌──────────────────────────┐┌────────┐│
             ││Flex.                     ││No flex.││
@@ -195,7 +194,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
             ...     text("grow 2") | border | flex_custom(grow=2),
             ...     text("grow 1") | border | flex, # flex same as flex_custom(1)
             ... ]) | border
-            >>> print(layout_to_str(layout, Rect(40, 5)))
+            >>> print(render_simple(layout, 40, 5))
             ┌──────────────────────────────────────┐
             │┌───────┐┌─────────────────┐┌────────┐│
             ││grow 1 ││grow 2           ││grow 1  ││
@@ -207,7 +206,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
             ...     text("basis and grow") | border | flex_custom(grow=1, basis=True),
             ...     text("grow") | border | flex, # flex is same as flex_custom(grow=1)
             ... ]) | border
-            >>> print(layout_to_str(layout, Rect(40, 5)))
+            >>> print(render_simple(layout, 40, 5))
             ┌──────────────────────────────────────┐
             │┌─────────────────────────┐┌─────────┐│
             ││basis and grow           ││grow     ││

@@ -1,17 +1,16 @@
-from functui.common import *
-from functui.classes import *
-from functui.rich_text import adaptive_text, span
-from functui.io.ansi import result_to_str
+from functui._classes import intersperse
+from functui.nodes import *
+from functui import render_simple, StyleAttr, intersperse, Color4, hsl, StyleRule
 from itertools import batched
 
 def cell_white_text(color8: int):
-    return text(f"{color8: >3}") | padding | bg_fill | bg(color8) | fg(Color4.BRIGHT_WHITE)
+    return text(f"{color8: >3}") | hpadding | bg_fill | bg(color8) | fg(Color4.BRIGHT_WHITE)
 def cell_black_text(color8: int):
-    return text(f"{color8: >3}") | padding | bg_fill | bg(color8) | fg(16)
+    return text(f"{color8: >3}") | hpadding | bg_fill | bg(color8) | fg(16)
 def display_char_style():
     out = []
     for i in StyleAttr:
-        out.append(text(i.name) | push_rule(StyleRule(add_attrs=i))) # type: ignore
+        out.append(text(i.name) | style(StyleRule(add_attrs=i))) # type: ignore
     return hbox(intersperse(out, text(" ")))
 
 
@@ -73,7 +72,7 @@ def display_true_color():
 
 
 def title(c: str):
-    return combine(padding, border_with_title(text(f" {c} ") | center, styled(border_rounded, rule_dim)))
+    return combine(hpadding, border_with_title(text(f" {c} ") | center, styled(border_rounded, StyleRule(add_attrs=StyleAttr.DIM))))
 
 
 layout = vbox([
@@ -85,7 +84,6 @@ layout = vbox([
     ]) | title("Wide chars")
 ]) | shrink
 
-result = layout_to_result(layout, Rect(94, 36))
 
 if __name__ == "__main__":
-    print(result_to_str(result))
+    print(render_simple(layout, 94, 36))

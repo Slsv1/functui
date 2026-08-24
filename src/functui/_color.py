@@ -5,6 +5,12 @@ from functools import cache
 import colorsys
 
 class BgChars(StrEnum):
+    """Pretty background characters
+
+    Attributes:
+        DIAGONAL_STRIPE_DOWN
+        DIAGONAL_STRIPE_UP
+    """
     DIAGONAL_STRIPE_UP = "╱"
     DIAGONAL_STRIPE_DOWN = "╲"
 
@@ -325,14 +331,7 @@ class ColorParseError(Exception): pass
 # Some functuionality of this class has been copied over from the textual project.
 # https://github.com/Textualize/textual/blob/main/src/textual/color.py
 class Color(NamedTuple):
-    """Represent a 24 bit color.
-
-    Attributes:
-        r: Red value, an integer from 0 to 255 inclusive.
-        g: Green value, an integer from 0 to 255 inclusive.
-        b: Blue value, an integer from 0 to 255 inclusive.
-        a: Alpha value, a float from 0 to 1.0 inclusive.
-    """
+    """Represent a 24 bit color."""
     r: int
     g: int
     b: int
@@ -540,6 +539,7 @@ class ColorTheme:
     def __init__(
         self,
         *,
+        name: str,
         red: TerminalColor,
         yellow: TerminalColor,
         orange: TerminalColor,
@@ -573,6 +573,7 @@ class ColorTheme:
 
             return background.overlay(color.with_alpha(0.3))
 
+        self.name = name
         # plain colors
         self.red=red
         self.yellow=yellow
@@ -595,6 +596,7 @@ class ColorTheme:
         # special
         self.primary=primary if primary is not None else blue
         self.secondary=secondary if secondary is not None else cyan
+
         self.accent=accent if accent is not None else purple
         self.warning=warning if warning is not None else orange
         self.error=error if error is not None else yellow
@@ -622,6 +624,8 @@ class ColorTheme:
 
 
 DRACULA_COLOR_THEME = ColorTheme(
+    name="dracula",
+
     cyan=Color.parse("#8be9fd"),
     green=Color.parse("#50fa7b"),
     orange=Color.parse("#ffb86c"),
@@ -630,30 +634,86 @@ DRACULA_COLOR_THEME = ColorTheme(
     red=Color.parse("#ff5555"),
     yellow=Color.parse("#f1fa8c"),
 
-    secondary=Color.parse("#6272a4"),
-
     white=Color.parse("#f8f8f2"),
     black=Color.parse("#282a36"),
 
     surface=Color.parse("#2b2e3b"),
     panel=Color.parse("#44475a"),
+
+    # special
+    secondary=Color.parse("#6272a4"),
+)
+# https://camo.githubusercontent.com/a85947d98d2a157973d69e93627354614bd4ed64f2d9bed16a9828645636bace/687474703a2f2f692e696d6775722e636f6d2f776136363678672e706e67
+GRUVBOX_COLOR_THEME = ColorTheme(
+    name="gruvbox",
+
+    cyan=Color.parse("#8ec07c"),
+    green=Color.parse("#b8bb26"),
+    orange=Color.parse("#fe8019"),
+    purple=Color.parse("#d3869b"),
+    blue=Color.parse("#83a598"),
+    red=Color.parse("#fb4534"),
+    yellow=Color.parse("#fabd2f"),
+
+    white=Color.parse("#ebdbb2"),
+    black=Color.parse("#282828"),
+
+    surface=Color.parse("#3c3836"),
+    panel=Color.parse("#665c54"),
 )
 
-# "gruvbox": Theme(
-#         name="gruvbox",
-#         primary="#85A598",
-#         secondary="#A89A85",
-#         warning="#fe8019",
-#         error="#fb4934",
-#         success="#b8bb26",
-#         accent="#fabd2f",
-#         foreground="#fbf1c7",
-#         background="#282828",
-#         surface="#3c3836",
-#         panel="#504945",
-#         variables={
-#             "block-cursor-foreground": "#fbf1c7",
-#             "input-selection-background": "#689d6a40",
-#             "button-color-foreground": "#282828",
-#         },
-#     ),
+# https://en.wikipedia.org/wiki/Solarized
+SOLARIZED_COLOR_THEME = ColorTheme(
+    name="solarized",
+
+    cyan=Color.parse("#2aa198"),
+    green=Color.parse("#859900"),
+    orange=Color.parse("#cb4b16"),
+    purple=Color.parse("#d33682"),
+    blue=Color.parse("#268bd2"),
+    red=Color.parse("#dc322f"),
+    yellow=Color.parse("#fabd2f"),
+
+
+    white=Color.parse("#fdf6e3"),
+    black=Color.parse("#002b36"),
+
+    surface=Color.parse("#073642"),
+    panel=Color.parse("#174a53 "),
+
+    # special
+    secondary=Color.parse("#6c71c4"),
+    foreground=Color.parse("#839496"),
+)
+
+# https://www.nordtheme.com/
+NORD_COLOR_THEME = ColorTheme(
+    name="nord",
+
+    cyan=Color.parse("#8fbcbb"),
+    green=Color.parse("#a3be8c"),
+    orange=Color.parse("#d08770"),
+    purple=Color.parse("#b48ead"),
+    blue=Color.parse("#88c0d0"),
+    red=Color.parse("#bf616a"),
+    yellow=Color.parse("#ebcb8b"),
+
+
+    white=Color.parse("#d8dee9"),
+    black=Color.parse("#2e3440"),
+
+    surface=Color.parse("#3b4252"),
+    panel=Color.parse("#434c5e"),
+
+    secondary=Color.parse("#81a1c1"),
+
+
+)
+
+
+COLOR_THEMES = {i.name: i for i in (
+    DRACULA_COLOR_THEME,
+    GRUVBOX_COLOR_THEME,
+    SOLARIZED_COLOR_THEME,
+    NORD_COLOR_THEME,
+)}

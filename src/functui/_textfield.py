@@ -57,6 +57,7 @@ DEFAULT_TEXT_INPUT_BINDINGS = MappingProxyType({
 })
 
 def text_input_parse_event(bindings: MappingProxyType[str, TextAction], event: InputEvent):
+    """Default function used by TextInput to parse input events"""
     if event.key_event is None:
         return
     if len(event.key_event)== 1:

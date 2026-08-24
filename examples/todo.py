@@ -65,7 +65,7 @@ tasks = [
 def update(input: InputEvent, res: ResultData, m: Model):
 
 
-    m.nav = m.nav.update(res, input, m.nav_tree, input.mouse_position_event)
+    m.nav.update(res, input, nav_tree=m.nav_tree)
 
 
     for index, task_id in enumerate(m.tasks_ids):
@@ -201,7 +201,7 @@ with open_terminal() as term:
         res = render_fit_terminal(term, screen, view(m))
 
         # wait for input
-        event = term.block_until_input()
+        event = term.wait_for_input()
 
         # update
         if event.key_event == "ctrl+c":

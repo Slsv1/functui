@@ -82,6 +82,7 @@ DEFAULT_NAV_BINDINGS = {
 """A dictinary that maps the string representation of keycodes to a :obj:`NavAction`"""
 
 def nav_parse_event(bindings: dict[str, NavAction], event: InputEvent | None):
+    """Default function NavState uses to parse input events"""
     return bindings.get(event.key_event, None), event.mouse_position_event # type: ignore
 
 #
@@ -347,8 +348,8 @@ class NavState:
             self,
             res: ResultData | None = None,
             event: T = None,
+            *,
             nav_tree: NavContainer | None = None,
-            /,
             parse_event_func: Callable[[T], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
             commands: Iterable[NavUpdateScrollable | NavUpdateSplit] = (),
     ) -> Self:

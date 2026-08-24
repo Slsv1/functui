@@ -1,5 +1,5 @@
-from functui.io import layout_to_str, render_ansi
-from functui.classes import Rect, Screen, Frame, Color4, ComputedStyle, Box, Coordinate
+from functui import Rect, Screen, Frame, Color4, ComputedStyle, Box, Coordinate, render_simple
+from functui._io import _render_ansi
 from functui.nodes import *
 from wcwidth import wcswidth
 
@@ -12,7 +12,8 @@ def _create_ctx(screen: Screen):
             view_box=Box(screen.dimensions.width, screen.dimensions.height),
             default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
             measure_text=measure_text,
-            _strips = screen.strips,
+            _render_later=[],
+            _strips = screen._strips,
             _boxes_by_id = {},
         )
 
@@ -23,7 +24,7 @@ def test_text_draw_cut_off_rigth_1():
     c.view_box = Box(1, 1)
     c.draw_string_line("abc", Coordinate(0, 0))
 
-    assert render_ansi(s.strips) == "a  "
+    assert _render_ansi(s._strips) == "a  "
 
 def test_text_draw_cut_off_right_2():
     s = Screen()
@@ -32,7 +33,7 @@ def test_text_draw_cut_off_right_2():
     c.view_box = Box(2, 1)
     c.draw_string_line("abc", Coordinate(0, 0))
 
-    assert render_ansi(s.strips) == "ab "
+    assert _render_ansi(s._strips) == "ab "
 
 def test_text_draw_cut_off_right_3():
     s = Screen()
@@ -41,7 +42,7 @@ def test_text_draw_cut_off_right_3():
     c.view_box = Box(3, 1)
     c.draw_string_line("abc", Coordinate(0, 0))
 
-    assert render_ansi(s.strips) == "abc"
+    assert _render_ansi(s._strips) == "abc"
 
 
 POSITION = Coordinate(3, 0)
@@ -52,7 +53,7 @@ def test_text_draw_offset_cut_off_rigth_1():
     c.view_box = Box(1, 1, POSITION)
     c.draw_string_line("abc", POSITION)
 
-    assert render_ansi(s.strips) == "   a  "
+    assert _render_ansi(s._strips) == "   a  "
 
 def test_text_draw_offset_cut_off_right_2():
     s = Screen()
@@ -61,7 +62,7 @@ def test_text_draw_offset_cut_off_right_2():
     c.view_box = Box(2, 1, POSITION)
     c.draw_string_line("abc", POSITION)
 
-    assert render_ansi(s.strips) == "   ab "
+    assert _render_ansi(s._strips) == "   ab "
 
 def test_text_draw_offset_cut_off_right_3():
     s = Screen()
@@ -70,4 +71,4 @@ def test_text_draw_offset_cut_off_right_3():
     c.view_box = Box(3, 1, POSITION)
     c.draw_string_line("abc", POSITION)
 
-    assert render_ansi(s.strips) == "   abc"
+    assert _render_ansi(s._strips) == "   abc"

@@ -181,7 +181,7 @@ BORDER_ROUNDED_DASHED = BorderStyle(
     corner_br="╯",
 )
 
-def vbar_custom(char: str = "|"):
+def vbar_custom(char: str = "|") -> Layout:
     """Vertical bar build with a custom character."""
     return Layout(
         func=vbar_custom,
@@ -192,7 +192,7 @@ def vbar_custom(char: str = "|"):
 def _vbar_render(char: str, frame: Frame, box: Box):
     frame.draw_line_v(fill=char, at=box.position, len=box.height)
 
-def hbar_custom(char: str="-"):
+def hbar_custom(char: str="-") -> Layout:
     """Horizonatal bar build with a custom character."""
     return Layout(
         func=hbar_custom,
@@ -203,20 +203,32 @@ def hbar_custom(char: str="-"):
 def _hbar_render(char: str, frame: Frame, box: Box):
     frame.draw_line_h(fill=char, at=box.position, len=box.width)
 
-vbar = vbar_custom(BORDER_REGULAR.line_v)
+vbar: Layout = vbar_custom(BORDER_REGULAR.line_v)
 """Vertical bar."""
+
 vbar_thick = vbar_custom(BORDER_THICK.line_v)
 """A thick vertical bar."""
+
 vbar_double = vbar_custom(BORDER_DOUBLE.line_v)
 """A double vertical bar."""
+
 vbar_ascii = vbar_custom(BORDER_ASCII.line_v)
 """An ascii vertical bar."""
-hbar = hbar_custom(BORDER_REGULAR.line_h)
+
+hbar = Layout(
+    func=hbar_custom,
+    min_size=min_size_constant(Rect(1, 1)),
+    render = partial(_hbar_render, BORDER_REGULAR.line_h)
+
+)
 """Horizontal bar."""
+
 hbar_thick = hbar_custom(BORDER_THICK.line_h)
 """A thick horizontal bar."""
+
 hbar_double = hbar_custom(BORDER_DOUBLE.line_h)
 """A double horizontal bar."""
+
 hbar_ascii = hbar_custom(BORDER_REGULAR.line_h)
 """An ascii horizontal bar."""
 
@@ -232,21 +244,104 @@ def border_custom(style: BorderStyle) -> WrapperNode:
 
 
 border = border_custom(style=BORDER_REGULAR)
-"""Puts a border around a layout."""
+"""Puts a border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border
+    >>> layout = text("border") | border
+    >>> print(render_simple(layout, 32, 3))
+    ┌──────────────────────────────┐
+    │border                        │
+    └──────────────────────────────┘
+"""
 border_rounded = border_custom(style=BORDER_ROUNDED)
-"""Puts a rounded border around a layout."""
+"""Puts a rounded border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_rounded
+    >>> layout = text("border_rounded") | border_rounded
+    >>> print(render_simple(layout, 32, 3))
+    ╭──────────────────────────────╮
+    │border_rounded                │
+    ╰──────────────────────────────╯
+"""
 border_thick = border_custom(style=BORDER_THICK)
-"""Puts a thick border around a layout."""
+"""Puts a thick border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_thick
+    >>> layout = text("border_thick") | border_thick
+    >>> print(render_simple(layout, 32, 3))
+    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    ┃border_thick                  ┃
+    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+"""
 border_double = border_custom(style=BORDER_DOUBLE)
-"""Puts a double border around a layout."""
+"""Puts a double-line border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_double
+    >>> layout = text("border_double") | border_double
+    >>> print(render_simple(layout, 32, 3))
+    ╔══════════════════════════════╗
+    ║border_double                 ║
+    ╚══════════════════════════════╝
+"""
 border_ascii = border_custom(style=BORDER_ASCII)
-"""Puts a border consisting of ascii characters around a layout."""
+"""Puts an ASCII border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_ascii
+    >>> layout = text("border_ascii") | border_ascii
+    >>> print(render_simple(layout, 32, 3))
+    +------------------------------+
+    |border_ascii                  |
+    +------------------------------+
+"""
+
 border_dashed = border_custom(style=BORDER_DASHED)
-"""Puts a dashed border around a layout."""
+"""Puts a dashed border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_dashed
+    >>> layout = text("border_dashed") | border_dashed
+    >>> print(render_simple(layout, 32, 3))
+    ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+    ╎border_dashed                 ╎
+    └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+"""
+
 border_rounded_dashed = border_custom(style=BORDER_ROUNDED_DASHED)
-"""Puts a rounded dashed border around a layout."""
+"""Puts a rounded dashed border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_rounded_dashed
+    >>> layout = text("border_rounded_dashed") | border_rounded_dashed
+    >>> print(render_simple(layout, 32, 3))
+    ╭╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╮
+    ╎border_rounded_dashed         ╎
+    ╰╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╯
+"""
+
 border_thick_dashed = border_custom(style=BORDER_THICK_DASHED)
-"""Puts a rounded dashed border around a layout."""
+"""Puts a thick dashed border around a layout.
+
+Examples:
+    >>> from functui import render_simple
+    >>> from functui.nodes import text, border_thick_dashed
+    >>> layout = text("border_dashed") | border_thick_dashed
+    >>> print(render_simple(layout, 32, 3))
+    ┏╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┓
+    ╏border_dashed                 ╏
+    ┗╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍┛
+"""
 
 def _border_render(style: BorderStyle, child: Layout, frame: Frame, box: Box):
     frame.draw_line_v(fill=style.line_v, at=box.position, len=box.height)

@@ -141,20 +141,21 @@ def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
     return "".join(out[:-1]) if out else ""
 
 
-def render_simple(layout: Layout, dimensions: Rect) -> str:
+def render_simple(layout: Layout, width: int, height: int) -> str:
     """Convert a layout to a string with ansi escapecodes that can be displayed in a terminal.
 
     This is a shorthand for ``result_to_str(layout_to_result(...)))``.
     """
+
     screen = Screen()
-    screen.set_dimensions(dimensions)
+    screen.set_dimensions(Rect(width, height))
     screen.overlay_layout(layout)
     # print("strips: ----------------")
     # for s in screen.strips:
     #     for ss in s:
     #         print(ss.content)
     # print("end --------------------")
-    return _render_ansi(screen.strips)
+    return _render_ansi(screen._strips)
 
 
 def render_fit_terminal(terminal: TerminalIO, screen: Screen, layout: Layout) -> ResultData:
@@ -165,13 +166,13 @@ def render_fit_terminal(terminal: TerminalIO, screen: Screen, layout: Layout) ->
 
     screen.clear()
     res = screen.overlay_layout(layout)
-    ansi_str = _render_ansi(screen.strips)
+    ansi_str = _render_ansi(screen._strips)
     terminal.print("\x1b[H" + ansi_str + "\033[39m\033[49m")
     return res
 
 def render_fit_screen(terminal: TerminalIO, screen: Screen, layout: Layout):
     screen.clear()
     res = screen.overlay_layout(layout)
-    ansi_str = _render_ansi(screen.strips)
+    ansi_str = _render_ansi(screen._strips)
     terminal.print("\x1b[H" + ansi_str + "\033[39m\033[49m")
     return res

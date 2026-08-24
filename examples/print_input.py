@@ -19,9 +19,8 @@ def update(input: InputEvent, res: ResultData, m: Model):
 
     m.nav = m.nav.update(
         res=res,
-        action=action, 
+        event=input, 
         nav_tree=None,
-        mouse_position=input.mouse_position_event
     )
 
     if input.key_event is not None:
@@ -58,7 +57,7 @@ with open_terminal() as term:
         # render
         res = render_fit_terminal(term, screen, view(m))
         # wait for input
-        event = term.block_until_input()
+        event = term.wait_for_input()
 
         # update
         if event.key_event == "ctrl+c":

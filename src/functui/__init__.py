@@ -5,14 +5,14 @@ from ._xterm import open_terminal, TerminalIO, TerminalContext, TerminalFeatures
 
 from ._geometry import Box, Coordinate, Rect
 
-from ._nav import NavState, hnav, vnav, DEFAULT_NAV_BINDINGS, NavContainer, NavUpdateScrollable
+from ._nav import NavState, hnav, vnav, DEFAULT_NAV_BINDINGS, NavContainer, NavUpdateScrollable, nav_parse_event, NavScrollableData, NavAction
 from ._border import BorderStyle, BORDER_DOUBLE, BORDER_REGULAR, BORDER_THICK, BORDER_ROUNDED
 
 from ._classes import StyleRule, StyleAttr, ComputedStyle, NodeID
-from ._classes import WrapperNode, Layout, Screen, intersperse, ResultData, BoxData
+from ._classes import WrapperNode, Layout, Screen, intersperse, ResultData, BoxData, Frame
 
 from ._color import Color, Color4, TerminalColor, ColorTheme, rgb, rgba, hsl, hex, BgChars
-from ._color import DRACULA_COLOR_THEME
+from ._color import COLOR_THEMES, DRACULA_COLOR_THEME, NORD_COLOR_THEME, GRUVBOX_COLOR_THEME, SOLARIZED_COLOR_THEME
 
 from ._auto_load import VAutoLoad
 
@@ -45,7 +45,10 @@ __all__ = (
     "vnav",
     "hnav",
     "DEFAULT_NAV_BINDINGS",
+    'NavAction',
     "NodeID",
+    "NavScrollableData",
+    "nav_parse_event",
 
     # autoload
     'VAutoLoad',
@@ -67,6 +70,7 @@ __all__ = (
     'StyleRule',
     'ComputedStyle',
     'StyleAttr',
+    'Frame',
 
     # color
     'ColorTheme',
@@ -80,6 +84,11 @@ __all__ = (
     'BgChars',
 
     'DRACULA_COLOR_THEME',
+    'NORD_COLOR_THEME',
+    'SOLARIZED_COLOR_THEME',
+    'GRUVBOX_COLOR_THEME',
+
+    'COLOR_THEMES',
 
 
     # util

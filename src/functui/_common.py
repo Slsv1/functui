@@ -19,7 +19,7 @@ def combine(*wrapper_nodes: WrapperNode) -> WrapperNode:
     """Combines multiple wrapper nodes into one.
 
     Examples:
-        >>> from functui.common import *
+        >>> from functui.nodes import *
         >>> border_and_center = combine(border, center)
         >>> text("hi") | border | center == text("hi") | border_and_center
         True
@@ -44,7 +44,7 @@ def empty(node: Layout):
     This wrapper node may be usefull if you are for example making a button which gets a border around it if it is selected.
 
     Examples:
-        >>> from functui.common import *
+        >>> from functui.nodes import *
         >>> selected = True
         >>> layout = text("button") | (border if selected else empty)
     """
@@ -62,10 +62,10 @@ def text(string: str):
         string: A string that may include new line characters.
 
     Examples:
-        >>> from functui import layout_to_str, Rect
-        >>> from functui.common import text
+        >>> from functui import render_simple
+        >>> from functui.nodes import text
         >>> layout = text("foo\\nbar\\nbaz")
-        >>> print(layout_to_str(layout, Rect(3, 3)))
+        >>> print(render_simple(layout, 3, 3))
         foo
         bar
         baz
@@ -183,41 +183,25 @@ def bold(node: Layout):
     return _push_rule(StyleRule(add_attrs=StyleAttr.BOLD), node)
 
 def reverse(node: Layout):
-    """Style all descendants as reverse.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
-    """
+    """Style all descendants as reverse."""
     return _push_rule(StyleRule(add_attrs=StyleAttr.REVERSE), node)
 
 def underline(node: Layout):
     """Style all descendants as underlined.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return _push_rule(StyleRule(add_attrs=StyleAttr.UNDERLINE), node)
 
 def italic(node: Layout):
     """Style all descendants as italic.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return _push_rule(StyleRule(add_attrs=StyleAttr.ITALIC), node)
 
 def strike_through(node: Layout):
     """Style all descendants as strike_through.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return _push_rule(StyleRule(add_attrs=StyleAttr.STRIKE_THROUGH), node)
 def dim(node: Layout):
     """Style all descendants as dim.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return _push_rule(StyleRule(add_attrs=StyleAttr.DIM), node)
 
@@ -225,9 +209,6 @@ def blink(node: Layout):
     """Style all descendants as blink.
 
     Use this sparingly.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return _push_rule(StyleRule(add_attrs=StyleAttr.BLINK), node)
 
@@ -235,18 +216,12 @@ def fg(color: TerminalColor) -> WrapperNode:
     """Style all descendants with specified foreground.
 
     Styling may be ovverriden with another styling node.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return partial(_push_rule, StyleRule(fg=color))
 def bg(color: TerminalColor) -> WrapperNode:
     """Style all descendants with specified background.
 
     Styling may be ovverriden with another styling node.
-
-    See Also:
-        If you want to style only certain wrapper nodes concider using :obj:`styled`
     """
     return partial(_push_rule, StyleRule(bg=color))
 
@@ -304,19 +279,19 @@ def static_box(children: Iterable[Layout]) -> Layout:
             Children will be rendered in order.
             (First child rendered first)
     Examples:
-        >>> from functui import Rect, layout_to_str
-        >>> from functui.common import *
+        >>> from functui import render_simple
+        >>> from functui.nodes import *
         >>> layout = static_box([
         ...     text("first") | border | shrink,
-        ...     text("second") | border | shrink | offset(1, 2)
+        ...     text("second") | border | shrink | padding(1, 2)
         ... ]) | border
-        >>> print(layout_to_str(layout, Rect(10, 8)))
+        >>> print(render_simple(layout, 10, 8))
         ┌────────┐
         │┌─────┐ │
         ││first│ │
-        │└┌──────│
-        │ │second│
-        │ └──────│
+        │└┌─────┐│
+        │ │secon││
+        │ └─────┘│
         │        │
         └────────┘
     """
@@ -342,6 +317,28 @@ def vbox(children: Iterable[Layout], at_y: int=0):
         at_y:
             Y coordinate to start rendering children at.
             Usefull for implementing scrolling.
+    Examples:
+        >>> from functui import render_simple
+        >>> from functui.nodes import vbox, text, border
+        >>> layout = vbox([
+        ...     text("hello") | border,
+        ...     text("hej") | border,
+        ...     text("bonjour") | border,
+        ... ]) | border
+        >>> print(render_simple(layout, 20, 13))
+        ┌──────────────────┐
+        │┌────────────────┐│
+        ││hello           ││
+        │└────────────────┘│
+        │┌────────────────┐│
+        ││hej             ││
+        │└────────────────┘│
+        │┌────────────────┐│
+        ││bonjour         ││
+        │└────────────────┘│
+        │                  │
+        │                  │
+        └──────────────────┘
     """
     return Layout(
         func=vbox,
@@ -393,6 +390,22 @@ def hbox(children: Iterable[Layout], at_x: int=0):
         at_x:
             X coordinate to start rendering children at.
             Usefull for implementing scrolling.
+    Examples:
+        >>> from functui import render_simple
+        >>> from functui.nodes import hbox, text, border
+        >>> layout = hbox([
+        ...     text("hello") | border,
+        ...     text("hej") | border,
+        ...     text("bonjour") | border,
+        ... ]) | border
+        >>> print(render_simple(layout, 30, 7))
+        ┌────────────────────────────┐
+        │┌─────┐┌───┐┌───────┐       │
+        ││hello││hej││bonjour│       │
+        ││     ││   ││       │       │
+        ││     ││   ││       │       │
+        │└─────┘└───┘└───────┘       │
+        └────────────────────────────┘
     """
     children = tuple(children)
     return Layout(
@@ -630,14 +643,18 @@ def _render_hoverable(
     frame.set_box_data(node_id, view_box=frame.view_box, box=box)
     child.render(frame, box)
 
-def floating(parent: Layout, child: Layout):
+class FloatingPosition(Enum):
+    BOTTOM_PREFER_RIGHT = auto()
+    TOP_PREFER_RIGHT = auto()
+
+def floating(parent: Layout, floating_child: Layout, order: tuple[FloatingPosition, ...] = ()):
     return Layout(
         func=floating,
         min_size=parent.min_size,
-        render=partial(_floating_render, parent, child)
+        render=partial(_floating_render, parent, floating_child, order)
     )
 
-def _floating_render(parent: Layout, child: Layout, frame: Frame, box: Box):
+def _floating_render(parent: Layout, floating_child: Layout, order: tuple[FloatingPosition, ...], frame: Frame, box: Box):
 
     child_box = Box.from_rect(frame.screen_rect, Coordinate(0, 0))
     child_frame = frame.with_view_box(child_box)
@@ -648,5 +665,5 @@ def _floating_render(parent: Layout, child: Layout, frame: Frame, box: Box):
         top=-(box.position.y+box.height),
         left=-(box.position.x)
     )
-    frame.render_later(child, child_frame, child_box)
+    frame.render_later(floating_child, child_frame, child_box)
 

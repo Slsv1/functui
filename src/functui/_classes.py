@@ -55,10 +55,10 @@ class StyleAttr(Flag):
         BOLD
         BLINK
         REVERSE
-        ITALIC
+        ITALIC: Sometimes not supported.
         UNDERLINE
-        STRIKE_THROUGH: Is not suported by the curses renderer.
-        DIM: Will be interpreted as thinner font weight by the html renderer.
+        STRIKE_THROUGH: Sometimes not supported.
+        DIM
     """
     BOLD = auto()
     BLINK = auto()
@@ -446,11 +446,12 @@ def min_size_constant(return_value: Rect) -> MinSize:
 
 
 class Layout(NamedTuple):
-    """An immutable layout that can be rendered as a string
+    """An immutable layout that can be rendered as a string.
 
     Attributes:
         func: The function that returned this layout. Used to give this layout a name.
-        min_size: Function that returns
+        min_size: A function that returns the layouts minimum size based on the size that is available
+        render: Render function.
 
     """
     func: Callable
@@ -478,6 +479,13 @@ class WrapperNode(Protocol):
         ...
 
 class ResultData(NamedTuple):
+    """Information and metadata gathers during layout rendering.
+
+    Attributes:
+        dimensions: The screen dimensions the layout was rendered with.
+        box_data:
+            Dimensions and positions of nodes marked with :func:`functui.nodes.hoverable`
+    """
     measure_text: MeasureTextFunc
     dimensions: Rect
     box_data: MappingProxyType[NodeID, BoxData]
@@ -485,8 +493,12 @@ class ResultData(NamedTuple):
 
 @dataclass
 class Screen:
+    """An intermediate buffer to render layouts to.
+
+    Keeps data between render frames for optimisation purposes.
+    Is usefull for overlaying multiple layouts on top of each other."""
     _dimensions: Rect = Rect(-1, -1)
-    strips: list[list[Strip]] = field(default_factory=list)
+    _strips: list[list[Strip]] = field(default_factory=list)
 
     @property
     def dimensions(self):
@@ -494,19 +506,19 @@ class Screen:
 
     def set_dimensions(self, new_dimensions: Rect):
         """Will clear screen if dimensions do not match"""
-        if self.dimensions != new_dimensions or not len(self.strips):
+        if self.dimensions != new_dimensions or not len(self._strips):
             background_strip = Strip(
                 start=0,
                 content=" "*new_dimensions.width,
                 style=ComputedStyle(),
                 length=new_dimensions.width
             )
-            self.strips = [[background_strip] for _ in range(new_dimensions.height)]
+            self._strips = [[background_strip] for _ in range(new_dimensions.height)]
             self._dimensions = new_dimensions
 
     def clear(self):
-        for i, line in enumerate(self.strips):
-            self.strips[i] = line[:1]
+        for i, line in enumerate(self._strips):
+            self._strips[i] = line[:1]
 
     def overlay_layout(
         self,
@@ -521,7 +533,7 @@ class Screen:
             view_box=Box(self.dimensions.width, self.dimensions.height),
             default_style=ComputedStyle(fg=Color4.RESET, bg=Color4.RESET),
             measure_text=measure_text,
-            _strips = self.strips,
+            _strips = self._strips,
             _render_later=render_later,
             _boxes_by_id = {},
         )
