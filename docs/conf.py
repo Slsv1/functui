@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.abspath('..'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'functui'
-copyright = '2026, Slsv15'
-author = 'Slsv15'
+copyright = '2026, Viacheslav Andrushenko'
+author = 'Viacheslav Andrushenko'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
