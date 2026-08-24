@@ -1,120 +1,157 @@
-Nodes List
-==========
-
-List of all nodes included in the library.
-
-Text
-----
-
-.. autosummary::
-   :signatures: none
-
-   functui.common.text
-   functui.rich_text.adaptive_text
-   functui.rich_text.rich_text
-
-
-Containers
-----------
-
-.. autosummary::
-   :signatures: none
-
-   functui.common.vbox
-   functui.common.hbox
-   functui.common.static_box
-   functui.flex.vbox_flex
-   functui.flex.hbox_flex
-   functui.flex.hbox_flex_wrap
-
+Nodes
+=====
 
 Interactive
 -----------
 
-.. autosummary::
-   :signatures: none
+.. autofunction:: functui.nodes.hoverable
+.. autofunction:: functui.nodes.view_text_input
 
-   functui.nav.interaction_area
-   functui.nav.v_scroll
+.. important::
 
-.. seealso::
+    Most interactive nodes are methods of stateful components and are not just pure functions like all of the nodes in this document.
+    Components that provide or are used by interactive nodes:
 
-   :doc:`nav`
+    - :obj:`functui.NavState`
+    - :obj:`functui.TextInput`
 
-Borders and Separators
-----------------------
 
-.. autosummary::
-   :signatures: none
 
-   functui.common.vbar
-   functui.common.vbar_custom
-   functui.common.vbar_double
-   functui.common.vbar_thick
-   functui.common.vbar_ascii
-   functui.common.hbar
-   functui.common.hbar_custom
-   functui.common.hbar_double
-   functui.common.hbar_thick
-   functui.common.hbar_ascii
-   functui.common.border
-   functui.common.border_with_title
-   functui.common.border_rounded
-   functui.common.border_thick
-   functui.common.border_double
-   functui.common.border_ascii
+Utility
+-------
 
-Sizing and Constraints
-----------------------
+.. autofunction:: functui.nodes.combine
+.. autofunction:: functui.nodes.empty
+.. autofunction:: functui.nodes.nothing
 
-.. autosummary::
-   :signatures: none
+Containers
+----------
 
-   functui.common.shrink
-   functui.common.shrink_x
-   functui.common.shrink_y
-   functui.common.center
-   functui.common.center_x
-   functui.common.center_y
-   functui.common.custom_padding
-   functui.common.padding
-   functui.common.clamp_width
-   functui.common.clamp_height
-   functui.common.min_width
-   functui.common.min_height
-   functui.flex.flex
-   functui.flex.flex_custom
+.. autofunction:: functui.nodes.hbox
+.. autofunction:: functui.nodes.vbox
+.. autofunction:: functui.nodes.hbox_flex
+.. autofunction:: functui.nodes.vbox_flex
+.. autofunction:: functui.nodes.vbox_flex_wrap
+.. autofunction:: functui.nodes.static_box
+
+Sizing
+------
+
+.. autofunction:: functui.nodes.center
+.. autofunction:: functui.nodes.hcenter
+.. autofunction:: functui.nodes.vcenter
+.. autofunction:: functui.nodes.padding
+.. autofunction:: functui.nodes.hpadding
+.. autofunction:: functui.nodes.shrink
+.. autofunction:: functui.nodes.hshrink
+.. autofunction:: functui.nodes.vshrink
+.. autofunction:: functui.nodes.constrain
+.. autofunction:: functui.nodes.floating
+
+Borders
+-------
+
+.. autofunction:: functui.nodes.border
+.. autofunction:: functui.nodes.border_rounded
+.. autofunction:: functui.nodes.border_dashed
+.. autofunction:: functui.nodes.border_rounded_dashed
+.. autofunction:: functui.nodes.border_thick
+.. autofunction:: functui.nodes.border_thick_dashed
+.. autofunction:: functui.nodes.border_double
+.. autofunction:: functui.nodes.border_ascii
+.. autofunction:: functui.nodes.border_custom
 
 
 Styling
 -------
 
-.. autosummary::
-   :signatures: none
 
-   functui.common.fg
-   functui.common.bg
-   functui.common.bg_char
-   functui.common.bg_fill
-   functui.common.styled
-   functui.common.bold
-   functui.common.blink
-   functui.common.underline
-   functui.common.strike_through
-   functui.common.reverse
-   functui.common.italic
+.. autofunction:: functui.nodes.style
+.. autofunction:: functui.nodes.styled
+.. autofunction:: functui.nodes.styled_bg
+.. autofunction:: functui.nodes.styled_fg
+.. autofunction:: functui.nodes.bg_char
+.. autofunction:: functui.nodes.bg_fill
 
+Attributes
+~~~~~~~~~~
 
-.. seealso::
+.. code-block:: py
 
-   :doc:`styling`
+    from functui import render_simple, Color4, rgb
+    from functui.nodes import text, border, vbox, fg, bg,\
+        bold, underline, italic, reverse, dim
 
-Utility
+    layout = vbox([
+        # use terminals default theme
+        text("blue foreground") | fg(Color4.BLUE),
+        text("red backround") | bg(Color4.RED),
+
+        # use rgb
+        text("orange backround") | bg(rgb(200, 120, 000)),
+
+        # styles
+        text("bold") | bold,
+        text("italic") | italic,
+        text("underline") | underline,
+        text("reverse") | reverse,
+        text("dim") | dim,
+
+        # multiple
+        text("multiple styles")
+            | bold
+            | underline
+            | fg(rgb(100, 100, 200))
+            | bg(rgb(0, 0, 100))
+    ]) | border
+
+    print(render_simple(layout, 20, 12))
+
+.. raw:: html
+
+    <pre style="font-family:monospace">
+    ┌──────────────────┐
+    │<span style="color:#000080">blue foreground</span>   │
+    │<span style="background-color:#800000">red backround</span>     │
+    │<span style="background-color:#c87800">orange backround</span>  │
+    │<b>bold</b>              │
+    │<i>italic</i>            │
+    │<u>underline</u>         │
+    │reverse           │
+    │dim               │
+    │<b><u><span style="color:#6464c8; background-color:#000064">multiple styles</b></u></span>   │
+    │                  │
+    └──────────────────┘
+    </pre>
+
+.. autofunction:: functui.nodes.fg
+.. autofunction:: functui.nodes.bg
+.. autofunction:: functui.nodes.underline
+.. autofunction:: functui.nodes.italic
+.. autofunction:: functui.nodes.dim
+.. autofunction:: functui.nodes.bold
+.. autofunction:: functui.nodes.blink
+.. autofunction:: functui.nodes.strike_through
+.. autofunction:: functui.nodes.reverse
+
+Content
 -------
 
-.. autosummary::
-   :signatures: none
+.. autofunction:: functui.nodes.text
+.. autofunction:: functui.nodes.adaptive_text
+.. autofunction:: functui.nodes.hguage
 
-   functui.common.combine
-   functui.common.empty
-   functui.common.nothing
+Bars
+----
+
+.. py:data:: functui.nodes.vbar
+.. py:data:: functui.nodes.vbar_thick
+.. py:data:: functui.nodes.vbar_double
+.. py:data:: functui.nodes.vbar_ascii
+.. autofunction:: functui.nodes.vbar_custom
+
+.. py:data:: functui.nodes.hbar
+.. py:data:: functui.nodes.hbar_thick
+.. py:data:: functui.nodes.hbar_double
+.. py:data:: functui.nodes.hbar_ascii
+.. autofunction:: functui.nodes.hbar_custom

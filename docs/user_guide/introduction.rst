@@ -10,11 +10,11 @@ A program rendering a simple layout.
 
 .. testcode::
 
-    from functui import Rect, layout_to_str
-    from functui.common import *  # for border, center, text and bg_char
+    from functui import render_simple
+    from functui.nodes import *  # for border, center, text and bg_char
 
     layout = text("Bonjour") | border | center | bg_char(".")
-    output = layout_to_str(layout, Rect(width=11, height=7))
+    output = render_simple(layout, width=11, height=7)
     print(output)
 
 Expected output:
@@ -30,7 +30,7 @@ Expected output:
     ...........
 
 
-:func:`~functui.common.text` :func:`~functui.common.border` :func:`~functui.common.center` and :func:`~functui.common.bg_char` are Nodes.
+:func:`~functui.nodes.text` :func:`~functui.nodes.border` :func:`~functui.nodes.center` and :func:`~functui.nodes.bg_char` are Nodes.
 Nodes are just python functions.
 Nodes are often called with the pipe `|` syntax. The example layout is identical to the following:
 
@@ -39,7 +39,7 @@ Nodes are often called with the pipe `|` syntax. The example layout is identical
     layout = bg_char(".")(center(border(text("Welcome to the functui introduction"))))
 
 
-:func:`~functui.common.border` and :func:`~functui.common.center` are wrapper nodes. A node returns a :class:`~functui.classes.Layout` which can be expanded on by wrapper nodes. 
+:func:`~functui.nodes.border` and :func:`~functui.nodes.center` are wrapper nodes. A node returns a :class:`~functui.Layout` which can be expanded on by wrapper nodes. 
 In the above example the text node returned a layout that got 'piped' into the border node.
 The border node expanded the layout (by adding a border) and then returned a new layout.
 But wrapper nodes have more functionality apart from adding visuals, they also limit their children's size.
@@ -56,13 +56,13 @@ would be limiting the border and text from taking up all the space.
 
 .. testcode::
 
-    from functui import Rect, layout_to_str
-    from functui.common import *
+    from functui import render_simple
+    from functui.nodes import *
 
     # no center node this time
 
     layout = text("Bonjour") | border | bg_char(".")
-    print(layout_to_str(layout, Rect(11, 7)))
+    print(render_simple(layout, 11, 7))
 
 
 Expected output:
@@ -79,24 +79,21 @@ Expected output:
 
 Rendering
 ---------
-To render a layout you can simply use the :func:`~functui.io.ansi.layout_to_str`
-function with a :class:`~functui.classes.Rect` to specify dimensions.
+To render a layout you can simply use the :func:`~functui.render_simple`
+function with integers parameters specifying width and height of the layout. For real applications it is recomened to use somthing like :func:`~functui.render_fit_terminal` along with a :obj:`~functui.Screen` for performance reasons, but for now it is recomended to just use the ``render_simple()`` function. Different rendering methods will be discussed later.
 
-.. seealso::
-
-    All different output formats can be found in :doc:`io`.
 
 Containers
 ----------
 
 While rendering text with a border is fun, it is not very useful for creating
 layouts unless you have containers than can manage the position and size of
-multiple children. A simple container node is a :func:`~functui.common.vbox`.
+multiple children. A simple container node is a :func:`~functui.nodes.vbox`.
 
 .. testcode::
 
-    from functui import Rect, layout_to_str
-    from functui.common import *
+    from functui import render_simple
+    from functui.nodes import *
 
     layout = vbox([
         text("foo"),
@@ -105,9 +102,11 @@ multiple children. A simple container node is a :func:`~functui.common.vbox`.
         text("buz") | border,
     ]) | border
 
-    print(layout_to_str(layout, Rect(20, 9)))
+    print(render_simple(layout, 20, 9))
+
 
 Expected output:
+
 
 .. testoutput::
 
@@ -123,22 +122,22 @@ Expected output:
 
 A container's children are just regular nodes, meaning that you can put wrapper
 nodes around them (As we did with the border around the 'buz' text node). We
-also used a :obj:`~functui.common.hbar` node to create a horizontal rule.
+also used a :obj:`~functui.nodes.hbar` node to create a horizontal rule.
 
 Continuing on this trend of everything being nodes, containers are nodes
 themselves, meaning that you can nest containers inside each other.
 
 .. testcode::
 
-    from functui import Rect, layout_to_str
-    from functui.common import *
+    from functui import render_simple
+    from functui.nodes import *
 
     layout = vbox([
         text("foo"),
-        hbox([text("bar"), vbar | padding, text("buz")]) | border,
+        hbox([text("bar"), vbar | hpadding, text("buz")]) | border,
     ]) | border
 
-    print(layout_to_str(layout, Rect(20, 9)))
+    print(render_simple(layout, 20, 9))
 
 .. testoutput::
 
@@ -155,8 +154,8 @@ themselves, meaning that you can nest containers inside each other.
 .. tip::
 
     As you may have noticed, the separator between bar, and buz nodes was
-    created manually. To do this automatically use
-    :func:`~functui.classes.intersperse`.
+    created manually which will get tedious with many elements. To do this programmatically use
+    :func:`~functui.intersperse`.
 
 Summary
 -------
@@ -172,10 +171,7 @@ What Now?
 If you want to just experiment and see what kind of layouts this library can
 create, check out the :doc:`nodes`.
 
-If you look to add interactive elements (like keyboard and mouse interactions)
-start with looking at :doc:`interactivity`.
+If you look to add interactive elements (like keyboard and mouse interactions) and read the input, just continue reading the user guide!
 
 And of course don't forget about the examples available on `GitHub
-<https://github.com/Slsv1/functui>`__ in the ``/examples`` folder or :doc:`here
-in the docs <examples>`!
-
+<https://github.com/Slsv1/functui>`__ in the ``/examples`` folder.

@@ -1,8 +1,6 @@
-from functui.flex import flex, flex_custom, vbox_flex, hbox_flex
-from functui.common import _bg_char_render, bg_char, text, border_ascii, shrink
+from functui.nodes import *
+from functui import render_simple
 
-from functui import layout_to_str, Rect
-from functui.rich_text import adaptive_text
 
 def item(s: str):
     return text(s) | border_ascii
@@ -10,7 +8,7 @@ def item(s: str):
 def render_to_fit(layout, result: list[str]) -> list[str]:
     height = len(result)
     width = len(result[0])
-    return layout_to_str(layout, Rect(width, height)).splitlines()
+    return render_simple(layout, width, height).splitlines()
 
 def test_hflex_and_no_flex():
     layout = hbox_flex([
@@ -119,16 +117,16 @@ def test_vflex_no_shrink_to_min_size():
     assert render_to_fit(layout, expected) == expected
 
     expected = [
-        "+------+  ",
-        "|+----+|  ",
-        "||aaa ||  ", # extra space after "aaa" becaue adaptive text insludes
-        "||bbb ||  ", # whitespace when wrapping
-        "|+----+|  ",
-        "|+----+|  ",
-        "||ccc ||  ",
-        "||    ||  ",
-        "|+----+|  ",
-        "+------+  ",
+        "+-----+   ",
+        "|+---+|   ",
+        "||aaa||   ",
+        "||bbb||   ",
+        "|+---+|   ",
+        "|+---+|   ",
+        "||ccc||   ",
+        "||   ||   ",
+        "|+---+|   ",
+        "+-----+   ",
     ]
     assert render_to_fit(layout | shrink, expected) == expected
 

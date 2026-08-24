@@ -1,8 +1,5 @@
-from functui.classes import *
-from functui.common import *
-from functui.flex import hbox_flex, flex
-from functui.nav import ROOT_HORIZONTAL, ROOT_VERTICAL, InteractibleID, NavState, DEFAULT_NAV_BINDINGS, interaction_area
-from functui.io.raw import terminal
+from functui.nodes import *
+from functui import NavState, DEFAULT_NAV_BINDINGS, InputEvent, ResultData, Coordinate, open_terminal, render_fit_terminal, Screen
 
 from dataclasses import dataclass, field
 
@@ -15,16 +12,15 @@ class Model():
     mouse_positions: list[Coordinate] = field(default_factory=list)
 
 
-def update(input: InputEvent, res: Result, m: Model):
+def update(input: InputEvent, res: ResultData, m: Model):
     action = None
     if input.key_event in DEFAULT_NAV_BINDINGS:
         action = DEFAULT_NAV_BINDINGS[input.key_event]
 
     m.nav = m.nav.update(
         res=res,
-        action=action, 
-        nav_tree=[],
-        mouse_position=input.mouse_position_event
+        event=input, 
+        nav_tree=None,
     )
 
     if input.key_event is not None:
@@ -40,14 +36,13 @@ def update(input: InputEvent, res: Result, m: Model):
 def view(m: Model):
     layout = hbox_flex([
         vbox(
-            [text(f"<{i}>") | padding for i in m.keycodes],
-            reverse=True
+            [text(f"<{i}>") | hpadding for i in reversed(m.keycodes)],
         ) | border_with_title(text("[key event]") | center) | flex,
         vbox(
-            [text(f"<{repr(i)}>") | padding for i in m.mouse_positions],
-            reverse=True
+            [text(f"<{repr(i)}>") | hpadding for i in reversed(m.mouse_positions)],
         ) | border_with_title(text("[mouse position event]") | center)| flex,
-    ]) | padding
+    ]) | hpadding
+
     return layout
 
 
@@ -56,14 +51,13 @@ m = Model(
 )
 
 
-with terminal() as term:
+with open_terminal() as term:
+    screen = Screen()
     while True:
         # render
-        res = layout_to_result(view(m), term.get_terminal_size())
-        term.display_result(res)
-
+        res = render_fit_terminal(term, screen, view(m))
         # wait for input
-        event = term.block_until_input()
+        event = term.wait_for_input()
 
         # update
         if event.key_event == "ctrl+c":

@@ -1,15 +1,8 @@
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from typing import Callable, Iterable
-from .classes import *
+from ._classes import *
 
-__all__ = [
-    "flex",
-    "flex_custom",
-    "vbox_flex",
-    "hbox_flex",
-    "hbox_flex_wrap"
-]
 
 @dataclass(frozen=True, eq=True)
 class Flex:
@@ -159,21 +152,17 @@ def vbox_flex(children: Iterable[Flex | Layout]) -> Layout:
     )
 
 
-@lru_cache(LRU_MAX_SIZE)
 def _vbox_flex_render(children: tuple[Flex, ...], frame: Frame, box: Box):
     child_basis = [(i.node.min_size(frame.measure_text, box.rect).height if
             i.basis else 0) for i in children]
     child_heights = _calculate_flex_children_sizes(box.height, children, child_basis)
 
-    res = Result()
     at_y = 0
     for child, child_height in zip(children, child_heights):
         child_box = Box(box.width, child_height, box.position + Coordinate(0, at_y))
         at_y += child_box.height
 
-        res.add_children_after([child.node.render(frame.shrink_to(child_box), child_box)])
-
-    return res
+        child.node.render(frame.shrink_to(child_box), child_box)
 
 
 def hbox_flex(children: Iterable[Flex | Layout], /):
@@ -186,14 +175,13 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
 
     Examples:
         Usage with flex:
-            >>> from functui import Rect, layout_to_str
-            >>> from functui.common import border, text
-            >>> from functui.flex import flex, hbox_flex, flex_custom
+            >>> from functui import render_simple
+            >>> from functui.nodes import *
             >>> layout = hbox_flex([
             ...     text("Flex.") | border | flex,
             ...     text("No flex.") | border,
             ... ]) | border
-            >>> print(layout_to_str(layout, Rect(40, 5)))
+            >>> print(render_simple(layout, 40, 5))
             ┌──────────────────────────────────────┐
             │┌──────────────────────────┐┌────────┐│
             ││Flex.                     ││No flex.││
@@ -206,7 +194,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
             ...     text("grow 2") | border | flex_custom(grow=2),
             ...     text("grow 1") | border | flex, # flex same as flex_custom(1)
             ... ]) | border
-            >>> print(layout_to_str(layout, Rect(40, 5)))
+            >>> print(render_simple(layout, 40, 5))
             ┌──────────────────────────────────────┐
             │┌───────┐┌─────────────────┐┌────────┐│
             ││grow 1 ││grow 2           ││grow 1  ││
@@ -218,7 +206,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
             ...     text("basis and grow") | border | flex_custom(grow=1, basis=True),
             ...     text("grow") | border | flex, # flex is same as flex_custom(grow=1)
             ... ]) | border
-            >>> print(layout_to_str(layout, Rect(40, 5)))
+            >>> print(render_simple(layout, 40, 5))
             ┌──────────────────────────────────────┐
             │┌─────────────────────────┐┌─────────┐│
             ││basis and grow           ││grow     ││
@@ -249,27 +237,25 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
         render=partial(_hbox_flex_render, children)
     )
 
-@lru_cache(LRU_MAX_SIZE)
 def _hbox_flex_render(children: Iterable[Flex], frame: Frame, box: Box):
     child_basis = [(i.node.min_size(frame.measure_text, box.rect).width if
             i.basis else 0) for i in children]
     child_widths = _calculate_flex_children_sizes(box.width, children, child_basis)
 
-    res = Result()
     at_x = 0
     for child, child_width in zip(children, child_widths):
         child_box = Box(child_width, box.height, box.position + Coordinate(at_x, 0))
         at_x += child_box.width
 
-        res.add_children_after([child.node.render(frame.shrink_to(child_box), child_box)])
+        child.node.render(frame.shrink_to(child_box), child_box)
 
-    return res
 
 
 @dataclass
 class _FlexData:
     bounding_rect: Rect
     flex_children: list[Flex]
+
 def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measure_text: MeasureTextFunc):
 
     flex_by_lines = [_FlexData(Rect(0, 0), [])]
@@ -298,7 +284,7 @@ def _split_flex_by_lines_h(available_space: int, children: Iterable[Flex], measu
             current_flex_data.flex_children.append(flex)
     return flex_by_lines
 
-def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
+def hbox_wrap(children: Iterable[Flex | Layout]) -> Layout:
     """A container node that allows children to wrap vertically.
 
     Modeled of the CSS flexbox layout model. If all children can't fit into the
@@ -316,33 +302,26 @@ def hbox_flex_wrap(children: Iterable[Flex | Layout]) -> Layout:
             height=sum(i.bounding_rect.height for i in lines),
         )
     return Layout(
-        func=hbox_flex_wrap,
+        func=hbox_wrap,
         min_size=min_size,
-        render=partial(_hbox_flex_wrap_render, children)
+        render=partial(_hbox_wrap_render, children)
     )
 
 
-@lru_cache(LRU_MAX_SIZE)
-def _hbox_flex_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
+def _hbox_wrap_render(children: Iterable[Flex], frame: Frame, box: Box):
     #
     # split by 'lines'
     #
     children_by_lines = _split_flex_by_lines_h(box.width, children, frame.measure_text)
 
     at_y = 0
-    res = Result()
-    results = []
 
     for data in children_by_lines:
         row_rect = Rect(box.width, data.bounding_rect.height)
         row_box = Box.from_rect(row_rect, box.position + Coordinate(0, at_y))
-        results.append(
-            _hbox_flex_render(
-                tuple(data.flex_children),
-                frame.shrink_to(row_box),
-                row_box
-            )
+        _hbox_flex_render(
+            tuple(data.flex_children),
+            frame.shrink_to(row_box),
+            row_box
         )
         at_y += data.bounding_rect.height
-    res.add_children_after(results)
-    return res
