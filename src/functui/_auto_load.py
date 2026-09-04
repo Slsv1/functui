@@ -51,7 +51,7 @@ class VAutoLoad:
 
     _anchor_at: int = 0
     _anchor_index: int = 0
-    _children_amount: int = 0
+    _children_amount: int = 10
     _visible_children: int = 0
     _last_box_data: BoxData | None = None
 

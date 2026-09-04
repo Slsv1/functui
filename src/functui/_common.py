@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 import re
 import math
 
+from wcwidth import width
+
 from ._classes import *
 
 
@@ -643,27 +645,92 @@ def _render_hoverable(
     frame.set_box_data(node_id, view_box=frame.view_box, box=box)
     child.render(frame, box)
 
-class FloatingPosition(Enum):
-    BOTTOM_PREFER_RIGHT = auto()
-    TOP_PREFER_RIGHT = auto()
 
-def floating(parent: Layout, floating_child: Layout, order: tuple[FloatingPosition, ...] = ()):
+class FloatingPosition(Enum):
+    BOTTOM = auto()
+    TOP = auto()
+    # LEFT = auto()
+    # RIGHT = auto()
+
+
+class FloatingAnchor(Enum):
+    BEGINING = auto()
+    CENTER = auto()
+    END = auto()
+
+
+def floating(
+        parent: Layout,
+        floating_child: Layout, 
+        order: tuple[FloatingPosition, ...] = (FloatingPosition.BOTTOM, FloatingPosition.TOP,),
+        alignment: FloatingAnchor = FloatingAnchor.BEGINING
+):
     return Layout(
         func=floating,
         min_size=parent.min_size,
-        render=partial(_floating_render, parent, floating_child, order)
+        render=partial(_floating_render, parent, floating_child, order, alignment)
     )
 
-def _floating_render(parent: Layout, floating_child: Layout, order: tuple[FloatingPosition, ...], frame: Frame, box: Box):
+def _floating_render(
+        parent: Layout,
+        floating_child: Layout, order: tuple[FloatingPosition, ...], alignment: FloatingAnchor, frame: Frame, box: Box):
 
-    child_box = Box.from_rect(frame.screen_rect, Coordinate(0, 0))
-    child_frame = frame.with_view_box(child_box)
+    screen_box = Box.from_rect(frame.screen_rect, Coordinate(0, 0))
+    # integer is for overshoot
+    child_box_options: list[tuple[int, Box]] = []
 
+    test_size = floating_child.min_size(frame.measure_text, screen_box.rect)
+    test_box = Box.from_rect(test_size, Coordinate(0,0))
+
+    final_child_box = None
+    for position in order:
+        match position:
+            case FloatingPosition.BOTTOM:
+                available_height = (screen_box.height - box.position.y - box.height)
+                overshoot = test_size.height - available_height
+                possible_child_box = test_box.move_down(box.position.y+box.height)
+
+                if overshoot > 0:
+                    child_box_options.append((overshoot, possible_child_box))
+                else:
+                    final_child_box = possible_child_box
+                    break
+
+            case FloatingPosition.TOP:
+                available_height = (box.position.y)
+                overshoot = test_size.height - available_height
+                possible_child_box = test_box.move_down(box.position.y-test_box.height)
+
+                if overshoot > 0:
+                    child_box_options.append((overshoot, possible_child_box))
+                else:
+                    final_child_box = Box(width=test_size.width, height=test_size.height, position=Coordinate(0, box.position.y-test_size.height))
+                    break
+            case _:
+                raise
+
+
+    if final_child_box is None:
+        # sort by overshoot, get the box with the smallest
+        child_box_options.sort(key=lambda x: x[0])
+        final_child_box = child_box_options[0][1]
+
+    available_width = screen_box.width - final_child_box.width
+    available_width = clamp(available_width, 0, 9999)
+    match alignment:
+        case FloatingAnchor.BEGINING:
+            move_right = clamp(available_width, 0, box.position.x)
+            final_child_box = final_child_box.move_right(move_right)
+        case FloatingAnchor.END:
+            move_right = clamp(box.right - final_child_box.width, 0, 9999)
+            final_child_box = final_child_box.move_right(move_right)
+        case FloatingAnchor.CENTER:
+            parent_box_center = box.width // 2 + box.position.x
+            child_box_center = final_child_box.width // 2 # no need to do + position since we know child box is at x=0
+            move_right = clamp(parent_box_center - child_box_center, 0, available_width) 
+            final_child_box = final_child_box.move_right(move_right)
+
+
+    child_frame = frame.with_view_box(screen_box.intersect(final_child_box))
+    frame.render_later(floating_child, child_frame, final_child_box)
     parent.render(frame, box)
-
-    child_box = child_box.resize(
-        top=-(box.position.y+box.height),
-        left=-(box.position.x)
-    )
-    frame.render_later(floating_child, child_frame, child_box)
-

@@ -8,9 +8,9 @@ class Coordinate(NamedTuple):
         return Coordinate(self.x + other.x, self.y + other.y)
     def __sub__(self, other):
         return Coordinate(self.x - other.x, self.y - other.y)
-    def left(self, by: int):
-        return Coordinate(self.x + by, self.y)
     def right(self, by: int):
+        return Coordinate(self.x + by, self.y)
+    def left(self, by: int):
         return Coordinate(self.x - by, self.y)
     def down(self, by: int):
         return Coordinate(self.x , self.y + by)
@@ -22,6 +22,7 @@ class Rect(NamedTuple):
 
     width: int
     height: int
+
 
     def resize(self, width: int = 0, height: int = 0) -> Self:
         """Returns a new Rect resized by expanding or shrinking.
@@ -112,6 +113,15 @@ class Box(NamedTuple):
     width: int
     height: int
     position: Coordinate = Coordinate(0, 0)
+
+    def move_right(self, by: int):
+        return Box(self.width, self.height, Coordinate(self.position.x + by, self.position.y))
+    def move_left(self, by: int):
+        return Box(self.width, self.height, Coordinate(self.position.x - by, self.position.y))
+    def move_down(self, by: int):
+        return Box(self.width, self.height, Coordinate(self.position.x , self.position.y + by))
+    def move_up(self, by: int):
+        return Box(self.width, self.height, Coordinate(self.position.x , self.position.y - by))
 
     @property
     def top(self):
