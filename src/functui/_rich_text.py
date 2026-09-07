@@ -8,7 +8,7 @@ import re
 import math
 
 
-from functui._classes import StyleRule, MeasureTextFunc, Frame, Layout, even_divide, measure_char
+from functui._classes import StyleRule, MeasureTextFunc, Frame, Layout, even_divide, measure_char, find_largest_substring
 from functui._geometry import Box, Rect, Coordinate
 
 
@@ -45,6 +45,14 @@ type Token = tuple[str, int, int, bool]
 """content, start_at, width, is_space"""
 
 def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> Generator[Token]:
+    """Crate a generator that splits a string without newline chars into tokens.
+
+    A token might be a word or a space.
+
+    Args:
+        line: A string without new line characters.
+        white_space_chars: What characters should count as white space.
+    """
 
     if len(line) == 0: return
 
@@ -74,6 +82,7 @@ def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> Generator[
         yield("".join(token), token_start_at, token_width, token_is_whitespace)
 
 def wrap_tokens_if_possible(token_gen: Generator[Token], max_width: int) -> Generator[Token]:
+    """If any token's width exceeds the max width, then split that token."""
     # TODO TODO TODO: this is hacky
     if max_width <= 1:
         yield from token_gen
@@ -86,7 +95,7 @@ def wrap_tokens_if_possible(token_gen: Generator[Token], max_width: int) -> Gene
 
         # single token too long for line, then wrap
         if token_width > max_width: 
-            end, width = _find_fit_str(token_data, max_width)
+            end, width = find_largest_substring(token_data, max_width)
 
             token_start = token_data[:end]
 
@@ -104,16 +113,6 @@ def wrap_tokens_if_possible(token_gen: Generator[Token], max_width: int) -> Gene
                 return
 
 
-def _find_fit_str(text: str | list[str], max_width: int) -> tuple[int, int]:
-    width = 0
-
-    for i, char in enumerate(text):
-        char_width = measure_char(char)
-        if width + char_width > max_width:
-            return i, width
-        width += char_width
-
-    return len(text), width
 
 
 # int is start at index
@@ -122,7 +121,13 @@ def wrap_line_keep_space(
     max_width: int,
     white_space_chars: tuple[str, ...] = (" ",),
 ) -> Generator[tuple[Token, ...]]:
-    if max_width == 0 or len(content) == 0: return
+    """Wrap a line that does not contain new line characters and keep ends."""
+    if max_width == 0: return
+
+    # when line that contains a "\n\n" is split, we need to keep the '' between the new line chars
+    if len(content) == 0:
+        yield (('', 0, 0, True),)
+        return
     line = []
     line_width = 0
     for token in wrap_tokens_if_possible(split_by_tokens(content, white_space_chars), max_width):
@@ -143,7 +148,14 @@ def wrap_line_trim_ends(
     max_width: int,
     white_space_chars: tuple[str, ...] = (" ",),
 ) -> Generator[tuple[Token, ...]]:
-    if max_width == 0 or len(content) == 0: return
+    """Wrap a line that does not contain new line characters and trim ends."""
+    if max_width == 0: return
+
+    # when line that contains a "\n\n" is split, we need to keep the '' between the new line chars
+    if len(content) == 0:
+        yield (('', 0, 0, True),)
+        return
+
     line = []
     line_width = 0
     for token in wrap_tokens_if_possible(split_by_tokens(content, white_space_chars), max_width):
@@ -189,10 +201,10 @@ def _adaptive_text_render(
     box: Box
 ):
     wrap_line = wrap_line_trim_ends if trim_ends else wrap_line_keep_space
+    dy = 0
     for line_i, line in enumerate(lines):
         for wrapped_line_i, wrapped_line in enumerate(wrap_line(line, box.width, white_space_chars)):
             line_width = token_sum(wrapped_line)
-            dy = line_i + wrapped_line_i
 
             if dy == box.height:
                 break
@@ -213,6 +225,8 @@ def _adaptive_text_render(
 
             dx = 0
             frame.draw_string_line(merge_tokens(wrapped_line), box.position + Coordinate(dx, dy))
+            dy += 1
+
 
 def adaptive_text(
         string: str, / , *,

@@ -399,6 +399,7 @@ class NavState:
         scroll_ovveride: Iterable[NodeID] = (),
         scrolling_speed: int=1,
         scrollbar_id: NodeID | None = None,
+        starting_at_y: int = 0,
     ):
         """Allow vertical scrolling if child does not fit into available space."""
 
@@ -408,10 +409,10 @@ class NavState:
             if self.result_data is None or container_id not in self.result_data.box_data:
                 data = self._scrolling_data.get(container_id, None)
                 if data is None:
-                    data = NavScrollableData() if data is None else data
+                    data = NavScrollableData(at_y=starting_at_y) if data is None else data
                     self._scrolling_data[container_id] =  data
 
-                return vbox([child], at_y=-data.at_y) | hoverable(container_id)
+                return vbox([child], at_y=-starting_at_y) | hoverable(container_id)
 
             data = self._scrolling_data[container_id] # here we can assume that container_id is in data thanks to to previous if check
             at_y = data.at_y
