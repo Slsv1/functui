@@ -216,6 +216,7 @@ def hbox_flex(children: Iterable[Flex | Layout], /):
     """
     children = tuple(child if isinstance(child, Flex) else flex_custom(0, False, True)(child) for child in children)
 
+    @cache
     def _min_size(measure_text: MeasureTextFunc, from_size: Rect):
         child_basis = [(i.node.min_size(measure_text, from_size).width if
                 i.basis else 0) for i in children]

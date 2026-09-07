@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import Callable, Hashable, Self, Iterable, Any, Protocol, Sequence, TypeAlias, NamedTuple
 from enum import Enum, Flag, auto, IntEnum
 from abc import ABC, abstractmethod
-from functools import cached_property, partial, cache
+from functools import cached_property, lru_cache, partial, cache
 from ._geometry import Box, Rect, Coordinate
 from ._color import Color, Color4, TerminalColor, HEX_TO_XTERM256_DEFINED_COLORS
 import wcwidth
@@ -40,6 +40,18 @@ def measure_char(chr: str, /):
     return wcwidth.wcwidth(chr)
 def measure_text(txt: str, /):
     return wcwidth.wcswidth(txt)
+
+@lru_cache(maxsize=2048)
+def find_largest_substring(text: str | list[str], max_width: int) -> tuple[int, int]:
+    width = 0
+
+    for i, char in enumerate(text):
+        char_width = measure_char(char)
+        if width + char_width > max_width:
+            return i, width
+        width += char_width
+
+    return len(text), width
 
 #
 # General Data Structures
@@ -600,6 +612,7 @@ class Screen:
 # | start at 1
 # |
 # start at 0
+
 
 
 def compose_strips(strips: Sequence[Strip]):

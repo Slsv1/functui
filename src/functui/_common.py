@@ -86,6 +86,10 @@ def text(string: str):
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     frame.shrink_to_mutate(box)
     for y, line in enumerate(text):
+        if frame.measure_text(line) > box.width:
+            length, width = find_largest_substring(line, box.width)
+            substring = line[:length]
+            line = "".join((substring[:-1], "…"))
         frame.draw_string_line(line, box.position + Coordinate(0, y))
 
 
@@ -681,6 +685,11 @@ def _floating_render(
 
     test_size = floating_child.min_size(frame.measure_text, screen_box.rect)
     test_box = Box.from_rect(test_size, Coordinate(0,0))
+
+    # for example, if child is nothing() then just skip all calculations
+    if test_size == Rect(0, 0):
+        parent.render(frame, box)
+        return
 
     final_child_box = None
     for position in order:
