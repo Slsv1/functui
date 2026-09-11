@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "functui"
-version = "0.0.11"
+version = "0.0.12"
 readme = "README.md"
 dependencies = [
   "wcwidth",
@@ -40,6 +40,7 @@ dev = [
 	"pytest-codspeed",
 	"build",
 	"twine",
+	"nox",
 ]
 doc = [
 	"sphinx",
@@ -62,3 +63,9 @@ doc = [
 #
 # [project.entry-points."spam.magical"]
 # tomatoes = "spam:main_tomatoes"
+
+[tool.hatch.envs.hatch-test]
+default-args = ["tests"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.14", "3.13", "3.12"]

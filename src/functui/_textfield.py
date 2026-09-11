@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from functools import partial
 import itertools
-from typing import Callable, Generator, Iterable, NamedTuple, Self
+from typing import Callable, Iterable, Iterator, NamedTuple, Self
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from warnings import warn
@@ -220,7 +220,7 @@ class TextInput:
     def cursor_visual_offset(self):
         return self._get_cursor_visual_position()
 
-    def view_lines(self) -> Generator[tuple[tuple[TextInputStyle, str], ...]]:
+    def view_lines(self) -> Iterator[tuple[tuple[TextInputStyle, str], ...]]:
         x, y = self.cursor_visual_offset
 
         for dy, content in enumerate(self.lines):

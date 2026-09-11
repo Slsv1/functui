@@ -48,9 +48,9 @@ from dataclasses import dataclass
 from queue import SimpleQueue, Empty
 import threading
 import sys
-import ctypes
 import shutil
 import os
+import ctypes
 
 from ._geometry import Rect, Coordinate
 # data from (https://github.com/prompt-toolkit/python-prompt-toolkit/blob/main/src/prompt_toolkit/input/ansi_escape_sequences.py)
@@ -709,7 +709,8 @@ class WindowsTerminalContext(TerminalContext):
     @classmethod
     def _set_console_mode(cls, console: TextIO, mode: int) -> bool:
         import msvcrt
-        kernel32 = ctypes.windll.kernel32
+
+        kernel32 = ctypes.windll.kernel32 # type: ignore (complains on linux)
         filehandle = msvcrt.get_osfhandle(console.fileno())  # type: ignore
         success = kernel32.SetConsoleMode(filehandle, mode) # type: ignore
         return success
@@ -717,8 +718,8 @@ class WindowsTerminalContext(TerminalContext):
     @classmethod
     def _get_console_mode(cls, console: TextIO) -> int:
         import msvcrt
-        kernel32 = ctypes.windll.kernel32
-        filehandle = msvcrt.get_osfhandle(console.fileno())
+        kernel32 = ctypes.windll.kernel32 # type: ignore (complains on linux)
+        filehandle = msvcrt.get_osfhandle(console.fileno()) # type: ignore (complains on linux)
         mode = ctypes.c_uint()
         kernel32.GetConsoleMode(filehandle, ctypes.byref(mode))
         return mode.value
@@ -810,6 +811,6 @@ def open_terminal(features: TerminalFeatures = APPLICATION_MODE_FEATURES) -> Ter
     stdin = sys.__stdin__
     stdout = sys.__stdout__
     if IS_WINDOWS:
-        return WindowsTerminalContext(features,stdin, stdout)
+        return WindowsTerminalContext(features,stdin, stdout) # type: ignore
     else:
-        return UnixTerminalContext(features,stdin, stdout)
+        return UnixTerminalContext(features,stdin, stdout) # type: ignore

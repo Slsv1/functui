@@ -148,6 +148,101 @@ class MeasureTextFunc(Protocol):
     def __call__(self, string: str, /) -> int:
         ...
 
+class MinSize(Protocol):
+    """A function that returns a :obj:`Layout`'s minimum size.
+
+    Args:
+        measure_text (MeasureTextFunc):
+        rect (Rect):
+            Available space for the layout. 
+            Useful for implementing text wrapping, where the layouts height depends on available width.
+    Returns:
+        Rect: A Layout's minium size.
+    """
+    def __call__(self, measure_text: MeasureTextFunc, rect: Rect, /) -> Rect:
+        ...
+
+
+
+# minsize util functions
+def _get_widths_and_heights(children_sizes: Iterable[MinSize], measure_text: MeasureTextFunc, from_size: Rect):
+    widths = []
+    heights = []
+    for min_size in children_sizes:
+        result = min_size(measure_text, from_size)
+        widths.append(result.width)
+        heights.append(result.height)
+    return (widths, heights)
+
+def min_size_expand(
+    child_size: MinSize,
+    width_change: int,
+    height_change: int
+) -> MinSize:
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
+        return child_size(measure_text, from_size.resize(-width_change, -height_change)).resize(width_change, height_change)
+    return out
+
+def min_size_vertical(
+    children_sizes: list[MinSize],
+) -> MinSize:
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
+        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
+        return Rect(
+            max(widths),
+            sum(heights),
+        ) if children_sizes else Rect(0, 0)
+    return out
+
+def min_size_horizontal(
+    children_sizes: list[MinSize],
+) -> MinSize:
+    def out(measure_text: MeasureTextFunc, from_size: Rect):
+        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
+        return Rect(
+            sum(widths),
+            max(heights),
+        ) if children_sizes else Rect(0, 0)
+    return out
+
+def min_size_union(
+    children_sizes: list[MinSize],
+) -> MinSize:
+    def _min_size_union(measure_text: MeasureTextFunc, from_size: Rect):
+        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
+        return Rect(
+            max(widths),
+            max(heights),
+        ) if children_sizes else Rect(0, 0)
+    return _min_size_union
+
+def min_size_constant(return_value: Rect) -> MinSize:
+    return lambda measure_text, available: return_value
+
+
+class Layout(NamedTuple):
+    """An immutable layout that can be rendered as a string.
+
+    Attributes:
+        func: The function that returned this layout. Used to give this layout a name.
+        min_size: A function that returns the layouts minimum size based on the size that is available
+        render: Render function.
+
+    """
+    func: Callable
+    min_size: MinSize
+    render: partial
+
+    def __or__(self, other):
+        return other(self)
+    def __hash__(self) -> int:
+        # print("hej", self.func.__module__)
+        h = hash((self.func, *self.render.args))
+        # print(h)
+        return h
+    def __eq__(self, value: object, /) -> bool:
+        return hash(self) == hash(value)
+
 @dataclass(frozen=True)
 class Strip:
     start: int
@@ -381,104 +476,10 @@ class Frame:
                 wcwidth.wcswidth(string)
             )
         )
-    def render_later(self, child: Layout, frame: Frame, box: Box):
+    def render_later(self, child: Layout, frame: Self, box: Box):
         self._render_later.append(partial(child.render, frame, box))
 
 
-class MinSize(Protocol):
-    """A function that returns a :obj:`Layout`'s minimum size.
-
-    Args:
-        measure_text (MeasureTextFunc):
-        rect (Rect):
-            Available space for the layout. 
-            Useful for implementing text wrapping, where the layouts height depends on available width.
-    Returns:
-        Rect: A Layout's minium size.
-    """
-    def __call__(self, measure_text: MeasureTextFunc, rect: Rect, /) -> Rect:
-        ...
-
-
-
-# minsize util functions
-def _get_widths_and_heights(children_sizes: Iterable[MinSize], measure_text: MeasureTextFunc, from_size: Rect):
-    widths = []
-    heights = []
-    for min_size in children_sizes:
-        result = min_size(measure_text, from_size)
-        widths.append(result.width)
-        heights.append(result.height)
-    return (widths, heights)
-
-def min_size_expand(
-    child_size: MinSize,
-    width_change: int,
-    height_change: int
-) -> MinSize:
-    def out(measure_text: MeasureTextFunc, from_size: Rect):
-        return child_size(measure_text, from_size.resize(-width_change, -height_change)).resize(width_change, height_change)
-    return out
-
-def min_size_vertical(
-    children_sizes: list[MinSize],
-) -> MinSize:
-    def out(measure_text: MeasureTextFunc, from_size: Rect):
-        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
-        return Rect(
-            max(widths),
-            sum(heights),
-        ) if children_sizes else Rect(0, 0)
-    return out
-
-def min_size_horizontal(
-    children_sizes: list[MinSize],
-) -> MinSize:
-    def out(measure_text: MeasureTextFunc, from_size: Rect):
-        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
-        return Rect(
-            sum(widths),
-            max(heights),
-        ) if children_sizes else Rect(0, 0)
-    return out
-
-def min_size_union(
-    children_sizes: list[MinSize],
-) -> MinSize:
-    def _min_size_union(measure_text: MeasureTextFunc, from_size: Rect):
-        widths, heights = _get_widths_and_heights(children_sizes, measure_text, from_size)
-        return Rect(
-            max(widths),
-            max(heights),
-        ) if children_sizes else Rect(0, 0)
-    return _min_size_union
-
-def min_size_constant(return_value: Rect) -> MinSize:
-    return lambda measure_text, available: return_value
-
-
-class Layout(NamedTuple):
-    """An immutable layout that can be rendered as a string.
-
-    Attributes:
-        func: The function that returned this layout. Used to give this layout a name.
-        min_size: A function that returns the layouts minimum size based on the size that is available
-        render: Render function.
-
-    """
-    func: Callable
-    min_size: MinSize
-    render: partial
-
-    def __or__(self, other):
-        return other(self)
-    def __hash__(self) -> int:
-        # print("hej", self.func.__module__)
-        h = hash((self.func, *self.render.args))
-        # print(h)
-        return h
-    def __eq__(self, value: object, /) -> bool:
-        return hash(self) == hash(value)
 
 class WrapperNode(Protocol):
     """A function that creates a layout based on a child layout.

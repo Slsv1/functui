@@ -149,7 +149,7 @@ if __name__ == "__main__":
             ) | border
             res = functui.render_fit_screen(term, screen, layout)
 
-            event = term.block_until_input()
+            event = term.wait_for_input()
 
             if event.key_event == "ctrl+c":
                 break

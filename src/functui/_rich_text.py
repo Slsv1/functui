@@ -1,7 +1,7 @@
 from functools import reduce, partial, lru_cache, cache
 from enum import Enum, auto
 import itertools
-from typing import NamedTuple, Iterable, Self, Callable, Generator, Sequence
+from typing import NamedTuple, Iterable, Self, Callable, Iterator, Sequence
 from dataclasses import dataclass
 from itertools import chain
 import re
@@ -44,7 +44,7 @@ class Allignment(Enum):
 type Token = tuple[str, int, int, bool]
 """content, start_at, width, is_space"""
 
-def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> Generator[Token]:
+def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> Iterator[Token]:
     """Crate a generator that splits a string without newline chars into tokens.
 
     A token might be a word or a space.
@@ -81,7 +81,7 @@ def split_by_tokens(line: str, white_space_chars: tuple[str, ...]) -> Generator[
     if token:
         yield("".join(token), token_start_at, token_width, token_is_whitespace)
 
-def wrap_tokens_if_possible(token_gen: Generator[Token], max_width: int) -> Generator[Token]:
+def wrap_tokens_if_possible(token_gen: Iterator[Token], max_width: int) -> Iterator[Token]:
     """If any token's width exceeds the max width, then split that token."""
     # TODO TODO TODO: this is hacky
     if max_width <= 1:
@@ -120,7 +120,7 @@ def wrap_line_keep_space(
     content: str,
     max_width: int,
     white_space_chars: tuple[str, ...] = (" ",),
-) -> Generator[tuple[Token, ...]]:
+) -> Iterator[tuple[Token, ...]]:
     """Wrap a line that does not contain new line characters and keep ends."""
     if max_width == 0: return
 
@@ -147,7 +147,7 @@ def wrap_line_trim_ends(
     content: str,
     max_width: int,
     white_space_chars: tuple[str, ...] = (" ",),
-) -> Generator[tuple[Token, ...]]:
+) -> Iterator[tuple[Token, ...]]:
     """Wrap a line that does not contain new line characters and trim ends."""
     if max_width == 0: return
 
@@ -183,7 +183,7 @@ def token_sum(line: Iterable[Token]):
 def merge_tokens(line: Iterable[Token]):
     return "".join(i[0] for i in line)
 
-def justify_tokens(line: Sequence[Token], to_fill: int) -> Generator[Token]:
+def justify_tokens(line: Sequence[Token], to_fill: int) -> Iterator[Token]:
     rations = even_divide(to_fill, len(line) - 1)
 
     for i, token in enumerate(line[:-1]):

@@ -6,7 +6,7 @@ from ._border import vbar, vbar_ascii, vbar_custom, vbar_double, vbar_thick
 from ._border import border, border_ascii, border_custom, border_dashed, border_double, border_rounded, border_rounded_dashed, border_thick, border_thick_dashed, border_with_title
 
 # content
-from ._common import text, hguage
+from ._common import text, hguage, raw_text
 from ._rich_text import adaptive_text
 
 # util
@@ -83,6 +83,7 @@ __all__ = (
     # content
     'hguage',
     'text',
+    'raw_text',
     'adaptive_text',
 
     # bars

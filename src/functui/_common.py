@@ -83,6 +83,7 @@ def text(string: str):
         render = partial(_text_render, split_string)
     )
 
+
 def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
     frame.shrink_to_mutate(box)
     for y, line in enumerate(text):
@@ -93,6 +94,21 @@ def _text_render(text: tuple[str, ...], frame: Frame, box: Box):
         frame.draw_string_line(line, box.position + Coordinate(0, y))
 
 
+def raw_text(string: str):
+    split_string = tuple(string.split('\n'))
+    return Layout(
+        func=text,
+        min_size = lambda measure_text, _: Rect(
+            width=max([measure_text(i) for i in split_string]),
+            height=len(split_string)
+        ),
+        render = partial(_raw_text_render, split_string)
+    )
+
+def _raw_text_render(text: tuple[str, ...], frame: Frame, box: Box):
+    frame.shrink_to_mutate(box)
+    for y, line in enumerate(text):
+        frame.draw_string_line(line, box.position + Coordinate(0, y))
 
 #
 # Border Elements
@@ -288,8 +304,8 @@ def static_box(children: Iterable[Layout]) -> Layout:
         >>> from functui import render_simple
         >>> from functui.nodes import *
         >>> layout = static_box([
-        ...     text("first") | border | shrink,
-        ...     text("second") | border | shrink | padding(1, 2)
+        ...     raw_text("first") | border | shrink,
+        ...     raw_text("second") | border | shrink | padding(1, 2)
         ... ]) | border
         >>> print(render_simple(layout, 10, 8))
         ┌────────┐

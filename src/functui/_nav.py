@@ -347,10 +347,10 @@ class NavState:
     def update[T](
             self,
             res: ResultData | None = None,
-            event: T = None,
+            event: T | None = None,
             *,
             nav_tree: NavContainer | None = None,
-            parse_event_func: Callable[[T], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
+            parse_event_func: Callable[[T | None], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
             commands: Iterable[NavUpdateScrollable | NavUpdateSplit] = (),
     ) -> Self:
 

@@ -3,7 +3,7 @@ from functui import render_simple
 
 
 def item(s: str):
-    return text(s) | border_ascii
+    return raw_text(s) | border_ascii
 
 def render_to_fit(layout, result: list[str]) -> list[str]:
     height = len(result)
@@ -81,8 +81,8 @@ def test_vflex_grow_uniform_without_basis():
 def test_hflex_shrink_with_basis():
     flex_config = flex_custom(grow=0, shrink=True, basis=True)
     layout = hbox_flex([
-        text("======aaaaaaa") | flex_config,
-        text("bbbbbb") | flex_config,
+        raw_text("======aaaaaaa") | flex_config,
+        raw_text("bbbbbb") | flex_config,
     ]) | border_ascii
     expected = [
         "+---------+",
