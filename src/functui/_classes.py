@@ -361,9 +361,10 @@ class Frame:
         box: Box,
     ):
         box = box.intersect(self.view_box)
+        content = fill*box.width
         for y in range(box.position.y, box.position.y + box.height):
             self._strips[y].append(
-                Strip(box.position.x, fill*box.width, self.default_style, box.width)
+                Strip(box.position.x, content, self.default_style, box.width)
             )
 
     def draw_line_h(
@@ -635,6 +636,8 @@ def compose_strips(strips: Sequence[Strip]):
 
     strip = strips[strip_index]
     while True:
+
+        # SPECIAL CASE: if we are at the strip that has the latest .start
         if curr_start_index == len(strip_index_sorted_by_start) - 1:
             next_strip = None
         else:
@@ -647,15 +650,31 @@ def compose_strips(strips: Sequence[Strip]):
             curr_start_index += 1
             maybe_strip_index = strip_index_sorted_by_start[curr_start_index]
 
+            #   at_visual
+            #       |
+            #       |
+            #  CURR_STRIP
+            #       NEXT_STRIP
             if maybe_strip_index < strip_index:
                 continue # if next strip is at a lower depth then don't switch yet
 
+            #   at_visual
+            #       |
+            #       |
+            #       NEXT_STRIP
+            #  CURR_STRIP
             strip_index = maybe_strip_index
             strip = strips[strip_index]
 
             continue
 
         # if current is too little (outside of strip range)
+
+        #       at_visual
+        #           |
+        #           |
+        # CURR_STRIP
+        #PREVOIOUS_STRIP
         if not (strip.start <= at_visual < (strip.start + strip.length)):
 
             # go back one in depth

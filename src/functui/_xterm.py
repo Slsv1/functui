@@ -495,6 +495,11 @@ class InputEvent(NamedTuple):
     mouse_position_event: Coordinate | None = None
     """New mouse position.
     Is set to None if mouse position was not changed."""
+    bunched_key_events: tuple[str, ...] = ()
+    """Bunched key events that happened it the same time.
+
+    Most commonly bunched key events happen when pasting.
+    Another use case where bunched key events may arise if configure is if a frame is taking a long time to render, and multiple key events happened during that time."""
     @property
     def is_bracketed_paste(self):
         if self.key_event is None: return
@@ -640,7 +645,7 @@ class TerminalIO(ABC):
             :func:`TerminalIO.display_result` instead."""
 
 
-    def wait_for_input(self, ignore_excess_mouse: bool = True) -> InputEvent:
+    def wait_for_input(self, ignore_excess_mouse: bool = True, allow_bunched_events_for: tuple[str,...] = ("mouse wheel up", "mouse wheel down")) -> InputEvent:
         """Wait until user causes an input event and then return it.
         args:
             ignore_excess_mouse:

@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import NamedTuple, Self
 
 class Coordinate(NamedTuple):
@@ -213,6 +214,7 @@ class Box(NamedTuple):
         return (self.position.x <= other.position.x + other.width and self.position.x + self.width >= other.position.x)\
             and (self.position.y <= other.position.y + other.height and self.position.y + self.height >= other.position.y)
 
+    @lru_cache(2048)
     def intersect(self, other: Self) -> Self:
         """Returns the intersection region between this box and another.
 

@@ -97,14 +97,14 @@ def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
     for line in strips:
         for (pixel_style, pixel_char) in compose_strips(line):
             pixel_attrs = pixel_style.attrs
-            
+
             # 1. Handle Style Changes
             if curr_attrs != pixel_attrs:
                 attr_changes = curr_attrs ^ pixel_attrs
                 new_attrs = attr_changes & pixel_attrs
                 removed_style = bool(attr_changes & curr_attrs)
                 curr_attrs = pixel_attrs
-                
+
                 if removed_style:
                     out.append(ANSI_RESET_STYLES)
                     out.append(_style_to_ansi(pixel_attrs))
@@ -115,18 +115,19 @@ def _render_ansi(strips: Sequence[Sequence[Strip]]) -> str:
 
             # 2. Handle Foreground Color Changes
             p_fg = pixel_style.fg
-            if curr_fg != p_fg and p_fg is not None:
+            if curr_fg != p_fg:
                 curr_fg = p_fg
                 out.append(_default_color_to_fg_ansi(curr_fg))
 
             # 3. Handle Background Color Changes
             p_bg = pixel_style.bg
-            if curr_bg != p_bg and p_bg is not None:
+            if curr_bg != p_bg:
                 curr_bg = p_bg
                 out.append(_default_color_to_bg_ansi(curr_bg))
 
             # 4. Append the character
             out.append(pixel_char)
+
         # reset style at the end of each row
         if curr_attrs != StyleAttr(0) or curr_fg != Color4.RESET or curr_bg != Color4.RESET:
             curr_attrs = StyleAttr(0)

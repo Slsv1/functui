@@ -519,6 +519,7 @@ def bg_char(char: str) -> WrapperNode:
         )
 
     return _bg_char
+
 def _bg_char_render(char: str, child: Layout, frame: Frame, box: Box):
     frame.draw_box(char, box)
     child.render(frame, box)

@@ -120,7 +120,7 @@ def _vsplit_render(
             # if no no previous sep set, then place it in the middle
         if initial_sep_at is None:
             sep_at = box.width//2 - sep_rect.width//2
-        elif initial_sep_at > 0:
+        elif initial_sep_at >= 0:
             sep_at = initial_sep_at
         else:
             sep_at = box.width - initial_sep_at
