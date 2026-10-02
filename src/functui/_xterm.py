@@ -45,7 +45,7 @@ from enum import Enum, auto
 from typing import TextIO, NamedTuple, Iterable
 from dataclasses import dataclass
 
-from queue import SimpleQueue, Empty
+from queue import Queue, SimpleQueue, Empty
 import threading
 import sys
 import shutil
@@ -495,11 +495,8 @@ class InputEvent(NamedTuple):
     mouse_position_event: Coordinate | None = None
     """New mouse position.
     Is set to None if mouse position was not changed."""
-    bunched_key_events: tuple[str, ...] = ()
-    """Bunched key events that happened it the same time.
+    repeats: int = 1
 
-    Most commonly bunched key events happen when pasting.
-    Another use case where bunched key events may arise if configure is if a frame is taking a long time to render, and multiple key events happened during that time."""
     @property
     def is_bracketed_paste(self):
         if self.key_event is None: return
@@ -617,6 +614,42 @@ def set_xterm_features(stdout: TextIO, features: TerminalFeatures):
 
     stdout.flush()
 
+class PeekableQueue[T]:
+    def __init__(self) -> None:
+        self._queue = SimpleQueue[T]()
+        self._peeked_item: None | T = None
+
+    def get(self) -> T:
+        if self._peeked_item is not None:
+            ret, self._peeked_item = self._peeked_item, None
+            return ret
+
+        return self._queue.get()
+
+    def get_nowait(self) -> T:
+        if self._peeked_item is not None:
+            ret, self._peeked_item = self._peeked_item, None
+            return ret
+
+        return self._queue.get_nowait()
+
+    def try_peek(self) -> T | None:
+        if self._peeked_item is not None:
+            return self._peeked_item
+
+        try:
+            item =  self._queue.get_nowait()
+        except Empty:
+            return None
+
+        self._peeked_item = item
+        return self._peeked_item
+
+    def put(self, item: T):
+        self._queue.put(item)
+
+    def qsize(self):
+        return self._queue.qsize()
 
 class TerminalIO(ABC):
     """Terminal input output object that has both windows and unix implemintions.
@@ -626,7 +659,7 @@ class TerminalIO(ABC):
     """
     def __init__(
         self,
-        event_queue: SimpleQueue[InputEvent],
+        event_queue: PeekableQueue[InputEvent],
         stdout: TextIO,
     ) -> None:
         self.event_queue = event_queue
@@ -653,13 +686,28 @@ class TerminalIO(ABC):
                 emmited for every cell a mouse moves over. In this case,
                 skip over mouse events that we don't have the time to render."""
 
-        # if rendering is taking time and we cant handle every event
-        while self.event_queue.qsize() > 1 and ignore_excess_mouse:
-            event = self.event_queue.get()
-            if event.key_event is not None:
-                return event
+        event = self.event_queue.get()
 
-        return self.event_queue.get()
+        if event.key_event in allow_bunched_events_for:
+            curr_key_event = event.key_event
+            repeats = 1
+
+            while (next_item := self.event_queue.try_peek()) is not None:
+                if next_item.key_event != curr_key_event:
+                    break
+
+                repeats += 1
+                self.event_queue.get()
+            return InputEvent(key_event=event.key_event, repeats=repeats)
+
+
+        if ignore_excess_mouse and event.key_event is None:
+            while self.event_queue.qsize() >= 1 and ignore_excess_mouse:
+                event = self.event_queue.get()
+                if event.key_event is not None:
+                    return event
+
+        return event
 
     def write_to_clipboard(self, data: str):
         import base64
@@ -686,7 +734,7 @@ class TerminalContext(ABC):
     def __exit__(self, value, exception, traceback):
         ...
 
-def _create_reader_thread(stdin: TextIO, queue: SimpleQueue[InputEvent]):
+def _create_reader_thread(stdin: TextIO, queue: PeekableQueue[InputEvent]):
     def _reader_thread():
         byte_parser = ByteParser()
         raw_parser = RawInputParser()
@@ -698,7 +746,7 @@ def _create_reader_thread(stdin: TextIO, queue: SimpleQueue[InputEvent]):
                     queue.put(event)
     return threading.Thread(target=_reader_thread, daemon=True)
 
-def _get_all_queue_items[T](queue: SimpleQueue[T]) -> list[T]:
+def _get_all_queue_items[T](queue: PeekableQueue[T]) -> list[T]:
     out = []
     try:
         item = queue.get_nowait()
@@ -750,7 +798,7 @@ class WindowsTerminalContext(TerminalContext):
         self._set_console_mode(self.stdout, old_console_mode_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
         # end
 
-        event_queue: SimpleQueue[InputEvent] = SimpleQueue()
+        event_queue: PeekableQueue[InputEvent] = PeekableQueue()
         self.reader_thread = _create_reader_thread(self.stdin, event_queue)
         self.reader_thread.start()
 
@@ -785,7 +833,7 @@ class UnixTerminalContext(TerminalContext):
         self.old_attrs = termios.tcgetattr(self.fd)
         tty.setraw(self.fd)
         # end
-        event_queue: SimpleQueue[InputEvent] = SimpleQueue()
+        event_queue: PeekableQueue[InputEvent] = PeekableQueue()
         self.reader_thread = _create_reader_thread(self.stdin, event_queue)
         self.reader_thread.start()
         set_xterm_features(self.stdout, self.features)

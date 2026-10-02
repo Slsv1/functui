@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Model():
     nav: NavState
-    keycodes: list[str] = field(default_factory=list)
+    keycodes: list[InputEvent] = field(default_factory=list)
     mouse_positions: list[Coordinate] = field(default_factory=list)
 
 
@@ -24,7 +24,7 @@ def update(input: InputEvent, res: ResultData, m: Model):
     )
 
     if input.key_event is not None:
-        m.keycodes.append(input.key_event)
+        m.keycodes.append(input)
     if input.mouse_position_event is not None:
         m.mouse_positions.append(input.mouse_position_event)
 
@@ -36,7 +36,7 @@ def update(input: InputEvent, res: ResultData, m: Model):
 def view(m: Model):
     layout = hbox_flex([
         vbox(
-            [text(f"<{i}>") | hpadding for i in reversed(m.keycodes)],
+            [text(f"<{i.key_event}>{" repeats: " + str(i.repeats) if i.repeats != 1 else ""}") | hpadding for i in reversed(m.keycodes)],
         ) | border_with_title(text("[key event]") | center) | flex,
         vbox(
             [text(f"<{repr(i)}>") | hpadding for i in reversed(m.mouse_positions)],

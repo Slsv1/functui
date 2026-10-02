@@ -1,6 +1,7 @@
 """Tools to make layouts responsive to keyboard and mouse input"""
 
 from enum import Enum, auto
+from itertools import repeat
 from typing import Hashable, Self, Literal, Iterable, Any, NamedTuple, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -83,7 +84,15 @@ DEFAULT_NAV_BINDINGS = {
 
 def nav_parse_event(bindings: dict[str, NavAction], event: InputEvent | None):
     """Default function NavState uses to parse input events"""
-    return bindings.get(event.key_event, None), event.mouse_position_event # type: ignore
+    if event is None:
+        return (None, None)
+
+    action = bindings.get(event.key_event, None) # type: ignore
+
+    if action is None:
+        return None, event.mouse_position_event
+    
+    return (action, event.repeats), event.mouse_position_event # type: ignore
 
 #
 # Keyboard nav
@@ -331,9 +340,9 @@ class NavState:
 
     def get_scrolling_difference(self):
         if self.action == NavAction.SCROLL_UP:
-            return -1
+            return -1 * self.action_repeats
         if self.action == NavAction.SCROLL_DOWN:
-            return 1
+            return 1 * self.action_repeats
         return 0
 
 
@@ -350,7 +359,7 @@ class NavState:
             event: T | None = None,
             *,
             nav_tree: NavContainer | None = None,
-            parse_event_func: Callable[[T | None], tuple[NavAction | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
+            parse_event_func: Callable[[T | None], tuple[tuple[NavAction, int] | None, Coordinate | None]] = partial(nav_parse_event, DEFAULT_NAV_BINDINGS),
             commands: Iterable[NavUpdateScrollable | NavUpdateSplit] = (),
     ) -> Self:
 
@@ -361,7 +370,13 @@ class NavState:
                 self._split_data[command.node_id] = command.naw_value
 
 
-        action, mouse_position = parse_event_func(event)
+        action_and_repeats, mouse_position = parse_event_func(event)
+        if action_and_repeats is None:
+            action = None
+            action_repeats = 1
+        else:
+            action, action_repeats = action_and_repeats
+
         if nav_tree is not None and action in KEYBOARD_NAV_ACTION:
             self._keyboard_nav.update(nav_tree, action) # type: ignore
         elif action == NavAction.SELECT_VIA_MOUSE_START:
@@ -385,6 +400,7 @@ class NavState:
             self._held_down = tuple()
 
         self.action = action
+        self.action_repeats = action_repeats
         self.last_mouse_position = self.mouse_position
         self.mouse_position = mouse_position if mouse_position is not None else self.mouse_position
         self.result_data = res
